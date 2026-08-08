@@ -97,13 +97,19 @@ button{font-family:inherit;}
 .hero p{color:var(--text-muted);font-size:15px;line-height:1.6;max-width:480px;margin:0 auto 26px;}
 .hero-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
 
-/* ===== SEASON HERO (video) ===== */
-.season-hero{position:relative;width:100vw;margin-left:calc(50% - 50vw);min-height:56svh;overflow:hidden;background:#000;display:flex;align-items:flex-end;isolation:isolate;}
-.season-hero-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2;filter:saturate(0) contrast(1.1) brightness(.75);}
-.season-hero-overlay{position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgb(0 0 0 / 30%) 0%,rgb(0 0 0 / 55%) 55%,rgb(0 0 0 / 96%) 100%),linear-gradient(90deg,rgb(0 0 0 / 55%),transparent 60%);}
-.season-hero-content{position:relative;padding:50px 28px 40px;width:min(100%,1180px);margin:0 auto;}
-.season-hero-title{font-size:clamp(32px,7vw,58px);font-weight:800;color:var(--gold);margin:10px 0 10px;letter-spacing:-.02em;}
-.season-hero-sub{color:var(--text-muted);font-size:14px;max-width:460px;line-height:1.6;margin-bottom:22px;}
+/* ===== SEASON HERO (looping video) =====
+   Same .hero box, but the static background image is replaced by <video>.
+   The poster is hero.jpg, so if the video never loads (blocked autoplay,
+   slow link, codec) this degrades to exactly the old hero. */
+.hero-video{background-image:none;background-color:#000;}
+.hero-media{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-3;filter:saturate(.55) contrast(1.06) brightness(.62);}
+.hero-scrim{position:absolute;inset:0;z-index:-2;background:
+  linear-gradient(180deg,rgb(0 0 0 / 42%) 0%,rgb(0 0 0 / 58%) 55%,rgb(0 0 0 / 94%) 100%),
+  radial-gradient(circle at 50% 45%,transparent 20%,rgb(0 0 0 / 45%) 100%);}
+/* Readability over moving footage — the copy needs more weight than it does
+   over a still. */
+.hero-video .hero-inner{text-shadow:0 2px 18px rgb(0 0 0 / 85%);}
+@media (prefers-reduced-motion:reduce){.hero-media{display:none;}}
 
 /* ===== TIER TRACK ===== */
 .tier-track{display:flex;gap:14px;overflow-x:auto;padding:6px 2px 14px;scroll-snap-type:x proximity;}
@@ -162,6 +168,16 @@ button{font-family:inherit;}
 .feature-card::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 30% 20%, rgb(212 175 55 / 16%), transparent 60%),var(--bg-3);}
 .feature-card::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgb(0 0 0 / 10%) 0%,rgb(0 0 0 / 40%) 45%,rgb(0 0 0 / 94%) 100%);}
 .feature-card:hover{border-color:var(--gold);transform:translateY(-3px);box-shadow:var(--shadow);}
+/* `.art` swaps the flat gradient panel for the card's own artwork, passed in
+   as --art on the element. Desaturated so four different paintings still read
+   as one gold-on-black set; the ::after scrim keeps the label legible. */
+.feature-card.art::before{background-image:var(--art);background-size:cover;background-position:center;filter:saturate(.35) contrast(1.08) brightness(.62);transition:var(--transition);}
+.feature-card.art::after{background:linear-gradient(180deg,rgb(0 0 0 / 25%) 0%,rgb(0 0 0 / 55%) 45%,rgb(0 0 0 / 95%) 100%);}
+.feature-card.art:hover::before{filter:saturate(.5) contrast(1.1) brightness(.75);transform:scale(1.04);}
+/* The Characters card is a plain div now that the page is gone — it shouldn't
+   pretend to be clickable. */
+.feature-card:not(a){cursor:default;}
+.feature-card:not(a):hover{border-color:var(--border);transform:none;box-shadow:none;}
 .feature-content{position:relative;z-index:1;padding:18px;}
 .feature-content h3{font-size:16px;font-weight:800;margin-bottom:5px;color:var(--text);}
 .feature-content p{font-size:12.5px;color:rgb(245 243 238 / 72%);line-height:1.4;max-width:200px;}

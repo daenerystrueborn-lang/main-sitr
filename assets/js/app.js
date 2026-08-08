@@ -45,7 +45,6 @@ const isSignedIn = () => !!state.me
 const routes = {
   home: { view: 'view-home', title: 'Astral — WhatsApp RPG', load: loadHome },
   leaderboard: { view: 'view-leaderboard', title: 'Leaderboard — Astral', load: loadLeaderboard },
-  characters: { view: 'view-characters', title: 'Characters — Astral', load: loadCharacters },
   season: { view: 'view-season', title: 'Season — Astral', load: loadSeason },
   premium: { view: 'view-premium', title: 'Premium — Astral', load: loadPremium },
   profile: { view: 'view-profile', title: 'Profile — Astral', load: loadProfile, auth: true },
@@ -314,7 +313,7 @@ async function afterSignIn(player, { needsRegistration = false } = {}) {
   }
 
   paintAvatar()
-  invalidate('profile', 'leaderboard', 'season', 'premium', 'characters', 'settings')
+  invalidate('profile', 'leaderboard', 'season', 'premium', 'settings')
   loadNotifications()
 
   const next = pendingRoute ?? 'profile'
@@ -552,7 +551,7 @@ async function submitRegistration(btn) {
     state.needsRegistration = false
     state.me = out.player ?? await api.me().then(r => r.player).catch(() => null)
     paintAvatar()
-    invalidate('profile', 'leaderboard', 'characters', 'season', 'premium', 'settings')
+    invalidate('profile', 'leaderboard', 'season', 'premium', 'settings')
     loadNotifications()
     goTo('profile')
     toast(`Welcome to Astral, ${state.me?.name ?? name}`, 'ok')
@@ -870,30 +869,13 @@ function playerDetailHtml({ player: p, rankings, isSelf }) {
     </div>`
 }
 
-/* ───────────────────────────── page: characters ───────────────────────── */
+/* ───────────────────────── character detail modal ─────────────────────── */
 
-async function loadCharacters() {
-  const grid = $('#charGrid')
-  if (!grid) return
-  grid.innerHTML = skeletonCards(6)
-
-  const out = await api.characters()
-  const list = out.characters ?? []
-  grid.innerHTML = list.length ? list.map(c => `
-    <button class="perk-card reveal" data-char="${attr(c.id)}" style="text-align:left;width:100%">
-      ${c.image
-        ? `<img src="${attr(c.image)}" alt="" loading="lazy" style="width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:var(--r);margin-bottom:13px">`
-        : perkIcon(esc(c.emoji ?? '✨'))}
-      <h4>${esc(c.name)}
-        ${c.equipped ? '<span class="badge badge-gold">Equipped</span>'
-          : c.owned ? '<span class="badge badge-lvl">Owned</span>' : ''}</h4>
-      <p>${esc(c.description ?? c.ability ?? '')}</p>
-      <p class="subtext" style="margin-top:9px">
-        ${esc(c.rarity ? titleCase(c.rarity) : '')}${c.gemPrice ? ` · ${num(c.gemPrice)} 💎` : ''}
-      </p>
-    </button>`).join('') : emptyState('✨', 'No characters loaded')
-}
-
+/**
+ * The Characters *page* is gone, but this modal isn't page-bound — it's opened
+ * from any [data-char] element, which today means the equipped-character card
+ * on the profile. /api/characters/:id still backs it.
+ */
 async function openCharacter(id) {
   openModal(`<div style="padding:6px">${skeletonRows(3)}</div>`)
   try {
@@ -939,6 +921,13 @@ let seasonTimer = null
 async function loadSeason() {
   const tiersHost = $('#seasonTiers')
   if (tiersHost) tiersHost.innerHTML = skeletonRows(6)
+
+  // preload="none" means the video has no source loaded until we ask for it,
+  // so the 2.5MB only goes over the wire for people who open this route.
+  // .play() can reject (autoplay policy, reduced-motion, save-data) — the
+  // poster is the fallback, so a rejection is fine and deliberately ignored.
+  const vid = $('#seasonHeroVideo')
+  if (vid) { try { vid.play()?.catch(() => {}) } catch {} }
 
   const out = await api.season()
 
@@ -1012,7 +1001,10 @@ async function loadSeason() {
     shop.innerHTML = out.shop.map(e => `
       <div class="perk-card reveal">
         ${e.image
-          ? `<img src="${attr(e.image)}" alt="" loading="lazy" style="width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:var(--r);margin-bottom:11px">`
+          ? `<img src="${attr(e.image)}" alt="" loading="lazy"
+                  onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'perk-icon',textContent:this.dataset.fallback,style:'background:rgb(212 175 55 / 12%);color:var(--gold)'}))"
+                  data-fallback="${attr(e.emoji ?? '🎁')}"
+                  style="width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:var(--r);margin-bottom:11px">`
           : perkIcon(esc(e.emoji ?? '🎁'))}
         <h4>${esc(e.name)}</h4>
         <p>${num(e.price)} ${esc(out.currency === 'seasonPoints' ? 'pts' : out.currency)}${
@@ -1085,8 +1077,9 @@ async function loadPremium() {
       </div>`).join('')
   }
 
-  // Bank details come from the API at runtime — deliberately never baked into
-  // this static bundle.
+  // Bank details are deliberately NOT shown here. The account number only ever
+  // goes out over the bot's DM reply, so a scraped copy of this static site is
+  // never a payment instruction someone can act on.
   const pay = $('#payCard')
   if (pay) {
     pay.innerHTML = `
@@ -1096,14 +1089,9 @@ async function loadPremium() {
           <p>Run the command in WhatsApp — the bot replies with the payment details and confirms once an admin approves it.</p>
         </div>
       </div>
-      <div class="pd-stats" style="margin-top:15px">
-        <div class="pd-stat"><div class="pd-stat-k">Bank</div><div class="pd-stat-v" style="font-size:15px">${esc(out.payment?.bankName ?? '—')}</div></div>
-        <div class="pd-stat"><div class="pd-stat-k">Account</div><div class="pd-stat-v" style="font-size:15px">${esc(out.payment?.accountNumber ?? '—')}</div></div>
-        <div class="pd-stat"><div class="pd-stat-k">Name</div><div class="pd-stat-v" style="font-size:15px">${esc(out.payment?.accountName ?? '—')}</div></div>
-      </div>
       ${out.botNumber ? `<p class="subtext" style="margin-top:14px">Send proof of payment to the bot on
         +${esc(String(out.botNumber).replace(/\D/g, ''))}.</p>` : ''}
-      <p class="subtext">Never send money to anyone else claiming to be staff.</p>`
+      <p class="subtext">The bot is the only place the account details come from. Never send money to anyone else claiming to be staff.</p>`
   }
 }
 
@@ -1220,7 +1208,6 @@ async function loadProfile() {
       <section class="section">
         <div class="section-head">
           <div><h2>Equipped character</h2><p>Its bonuses ride along on every run</p></div>
-          <a class="btn btn-ghost btn-sm" href="#/characters" data-route="characters">All characters →</a>
         </div>
         <button class="card reveal" data-char="${attr(p.equippedCharacter.id)}" style="text-align:left;width:100%;display:flex;gap:14px;align-items:center;cursor:pointer">
           ${p.equippedCharacter.image
@@ -1520,6 +1507,11 @@ async function boot() {
 
   window.addEventListener('hashchange', () => {
     clearInterval(seasonTimer)
+    // Stop the season hero video when you leave the route — an offscreen
+    // <video> keeps decoding frames and eats battery on mobile. loadSeason()
+    // starts it again on the way back in.
+    const vid = $('#seasonHeroVideo')
+    if (vid) { try { vid.pause() } catch {} }
     render()
   })
 

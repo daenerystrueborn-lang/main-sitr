@@ -30,7 +30,6 @@
     <nav class="nav-bar" aria-label="Primary">
       <a class="nav-slot" href="#/" data-route="home">Home</a>
       <a class="nav-slot" href="#/leaderboard" data-route="leaderboard">Leaderboard</a>
-      <a class="nav-slot" href="#/characters" data-route="characters">Characters</a>
       <a class="nav-slot" href="#/season" data-route="season">Season</a>
       <a class="nav-slot" href="#/premium" data-route="premium">Premium</a>
     </nav>
@@ -55,7 +54,6 @@
 <div class="drawer" id="drawer">
   <a class="drawer-link" href="#/" data-route="home">Home</a>
   <a class="drawer-link" href="#/leaderboard" data-route="leaderboard">Leaderboard</a>
-  <a class="drawer-link" href="#/characters" data-route="characters">Characters</a>
   <a class="drawer-link" href="#/season" data-route="season">Season</a>
   <a class="drawer-link" href="#/premium" data-route="premium">Premium</a>
   <a class="drawer-link" href="#/profile" data-route="profile">Profile</a>
@@ -105,22 +103,22 @@
           <h2>Game modes</h2>
           <p>Everything currently live in the bot</p>
         </div>
-        <a class="btn btn-ghost btn-sm" href="#/characters" data-route="characters">Browse characters →</a>
+        <a class="btn btn-ghost btn-sm" href="#/season" data-route="season">See the season →</a>
       </div>
       <div class="grid-4">
-        <a class="feature-card reveal" href="#/season" data-route="season">
+        <a class="feature-card art reveal" href="#/season" data-route="season" style="--art:url('assets/img/modes/dungeon.jpg')">
           <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M14.5 3.5l6 6-8 8-6-6 8-8z"/><path d="M3 21l4-1 8.5-8.5"/></svg></div>
           <div class="feature-content"><h3>Dungeon</h3><p>Solo or party raids with loot, bosses and deeper floors.</p></div>
         </a>
-        <a class="feature-card reveal" href="#/characters" data-route="characters">
+        <div class="feature-card art reveal" style="--art:url('assets/img/modes/characters.jpg')">
           <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></div>
           <div class="feature-content"><h3>Characters</h3><p>Collect and equip companions that buff your stats.</p></div>
-        </a>
-        <a class="feature-card reveal" href="#/leaderboard" data-route="leaderboard">
+        </div>
+        <a class="feature-card art reveal" href="#/leaderboard" data-route="leaderboard" style="--art:url('assets/img/modes/arena.jpg')">
           <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/><circle cx="12" cy="12" r="9"/></svg></div>
           <div class="feature-content"><h3>PvP Arena</h3><p>Challenge other players and climb the ranked ladder.</p></div>
         </a>
-        <a class="feature-card reveal" href="#/season" data-route="season">
+        <a class="feature-card art reveal" href="#/season" data-route="season" style="--art:url('assets/img/modes/battlepass.jpg')">
           <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M12 2l2.4 6.9L21 9l-5 4.6L17.4 21 12 17.3 6.6 21 8 13.6 3 9l6.6-.1L12 2z"/></svg></div>
           <div class="feature-content"><h3>Battle Pass</h3><p>Seasonal tiers of gold, gear and exclusive rewards.</p></div>
         </a>
@@ -197,27 +195,19 @@
 </main>
 
 <!-- ===================================================== -->
-<!-- CHARACTERS -->
-<!-- ===================================================== -->
-<main class="view" id="view-characters">
-  <div class="page" style="padding-top:100px;">
-    <section class="section" style="padding-top:0;">
-      <div class="section-head">
-        <div>
-          <h2>Characters</h2>
-          <p>Every companion in the game — equip one to carry its bonuses into a run</p>
-        </div>
-      </div>
-      <div class="grid-4" id="charGrid"></div>
-    </section>
-  </div>
-</main>
-
-<!-- ===================================================== -->
 <!-- SEASON -->
 <!-- ===================================================== -->
 <main class="view" id="view-season">
-  <section class="hero">
+  <section class="hero hero-video">
+    <!-- Mei's final form on loop behind the season header. Muted + playsinline
+         is what lets mobile browsers autoplay it at all; preload="none" keeps
+         the 2.5MB off the wire until this route is actually opened, and the
+         poster covers the gap. app.js pauses it when you navigate away. -->
+    <video id="seasonHeroVideo" class="hero-media" autoplay muted loop playsinline
+           preload="none" poster="assets/img/hero.jpg" aria-hidden="true" tabindex="-1">
+      <source src="assets/video/mei-finalform.mp4" type="video/mp4">
+    </video>
+    <div class="hero-scrim"></div>
     <div class="hero-inner">
       <div class="hero-badge">
         <svg class="icon" viewBox="0 0 24 24"><path d="M12 2l2.4 6.9L21 9l-5 4.6L17.4 21 12 17.3 6.6 21 8 13.6 3 9l6.6-.1L12 2z"/></svg>
@@ -461,8 +451,8 @@
         <div class="site-footer-heading">Game</div>
         <a href="#/" data-route="home">Home</a>
         <a href="#/leaderboard" data-route="leaderboard">Leaderboard</a>
-        <a href="#/characters" data-route="characters">Characters</a>
         <a href="#/season" data-route="season">Season</a>
+        <a href="#/premium" data-route="premium">Premium</a>
       </div>
 
       <div class="site-footer-col">
