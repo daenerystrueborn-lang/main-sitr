@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Astral — WhatsApp RPG</title>
+<meta name="description" content="Dungeons, cards, and companions — built for WhatsApp. Climb the floors, top the boards, forge a legend.">
+<meta name="theme-color" content="#000000">
+<meta property="og:title" content="Astral — WhatsApp RPG">
+<meta property="og:description" content="Dungeons, cards, and companions — built for WhatsApp.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<div class="offline" id="offline" role="status" aria-live="polite">
+  Can't reach the server — showing what we last loaded.
+</div>
+
+<!-- ===== NAV ===== -->
+<header class="nav-shell">
+  <div class="nav-inner">
+    <a class="brand" href="#/" aria-label="Astral home">
+      <div class="brand-mark"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></div>
+    </a>
+
+    <nav class="nav-bar" aria-label="Primary">
+      <a class="nav-slot" href="#/" data-route="home">Home</a>
+      <a class="nav-slot" href="#/leaderboard" data-route="leaderboard">Leaderboard</a>
+      <a class="nav-slot" href="#/characters" data-route="characters">Characters</a>
+      <a class="nav-slot" href="#/season" data-route="season">Season</a>
+      <a class="nav-slot" href="#/premium" data-route="premium">Premium</a>
+    </nav>
+
+    <div class="nav-right">
+      <button class="icon-btn bell-wrap" id="bellBtn" title="Notifications" aria-label="Notifications" aria-expanded="false">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="bell-dot" id="bellDot"></span>
+      </button>
+      <button class="avatar-btn" id="avatarBtn" title="Sign in" aria-label="Sign in"><span id="avatarInner">↪</span></button>
+      <a class="icon-btn" href="#/settings" data-route="settings" title="Settings" aria-label="Settings">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.11.35.32.66.6.9.28.24.5.46.6.7"/></svg>
+      </a>
+      <button class="icon-btn menu-toggle" id="menuToggle" title="Menu" aria-label="Menu" aria-expanded="false">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="drawer-backdrop" id="scrim"></div>
+<div class="drawer" id="drawer">
+  <a class="drawer-link" href="#/" data-route="home">Home</a>
+  <a class="drawer-link" href="#/leaderboard" data-route="leaderboard">Leaderboard</a>
+  <a class="drawer-link" href="#/characters" data-route="characters">Characters</a>
+  <a class="drawer-link" href="#/season" data-route="season">Season</a>
+  <a class="drawer-link" href="#/premium" data-route="premium">Premium</a>
+  <a class="drawer-link" href="#/profile" data-route="profile">Profile</a>
+  <a class="drawer-link" href="#/settings" data-route="settings">Settings</a>
+  <a class="drawer-link" id="drawerAuth" href="#/login" data-route="login">Sign in</a>
+</div>
+
+<!-- ===== NOTIFICATION BOX ===== -->
+<div class="panel" id="panel" role="dialog" aria-label="Notifications">
+  <div class="panel-head">
+    <strong>Notifications</strong>
+    <button class="btn btn-ghost btn-sm" id="readAllBtn">Mark read</button>
+    <button class="btn btn-ghost btn-sm" id="clearNotesBtn">Clear</button>
+  </div>
+  <div class="panel-body" id="panelBody"></div>
+</div>
+
+<!-- ===================================================== -->
+<!-- HOME -->
+<!-- ===================================================== -->
+<main class="view active" id="view-home">
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-badge">✨ Season is live</div>
+      <h1>Level up on <span class="grad">WhatsApp</span> with Astral</h1>
+      <p id="heroSub">No install, no launcher. Message the bot on WhatsApp, make a character, and start clearing floors.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" id="heroPlay" href="#/signup">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1.1-5.3A8.5 8.5 0 1 1 21 11.5z"/></svg> Start playing
+        </a>
+        <a class="btn btn-secondary" href="#/leaderboard" data-route="leaderboard">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M4 20h16M7 20v-7M12 20V6M17 20v-11"/></svg> See the boards
+        </a>
+      </div>
+      <div class="chip-row" id="heroChips" style="justify-content:center;margin-top:22px;"></div>
+    </div>
+  </section>
+
+  <div class="page">
+    <section class="section">
+      <div class="stat-row" id="homeStats"></div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>Game modes</h2>
+          <p>Everything currently live in the bot</p>
+        </div>
+        <a class="btn btn-ghost btn-sm" href="#/characters" data-route="characters">Browse characters →</a>
+      </div>
+      <div class="grid-4">
+        <a class="feature-card reveal" href="#/season" data-route="season">
+          <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M14.5 3.5l6 6-8 8-6-6 8-8z"/><path d="M3 21l4-1 8.5-8.5"/></svg></div>
+          <div class="feature-content"><h3>Dungeon</h3><p>Solo or party raids with loot, bosses and deeper floors.</p></div>
+        </a>
+        <a class="feature-card reveal" href="#/characters" data-route="characters">
+          <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></div>
+          <div class="feature-content"><h3>Characters</h3><p>Collect and equip companions that buff your stats.</p></div>
+        </a>
+        <a class="feature-card reveal" href="#/leaderboard" data-route="leaderboard">
+          <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/><circle cx="12" cy="12" r="9"/></svg></div>
+          <div class="feature-content"><h3>PvP Arena</h3><p>Challenge other players and climb the ranked ladder.</p></div>
+        </a>
+        <a class="feature-card reveal" href="#/season" data-route="season">
+          <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M12 2l2.4 6.9L21 9l-5 4.6L17.4 21 12 17.3 6.6 21 8 13.6 3 9l6.6-.1L12 2z"/></svg></div>
+          <div class="feature-content"><h3>Battle Pass</h3><p>Seasonal tiers of gold, gear and exclusive rewards.</p></div>
+        </a>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>How it works</h2>
+          <p>Three messages and you're playing</p>
+        </div>
+      </div>
+      <div class="grid-3" id="homeSteps"></div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>Top of the board</h2>
+          <p>The five highest levels this season</p>
+        </div>
+        <a class="btn btn-ghost btn-sm" href="#/leaderboard" data-route="leaderboard">Full leaderboard →</a>
+      </div>
+      <div class="lb-list" id="homeBoard"></div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>Questions</h2>
+          <p>The things everyone asks first</p>
+        </div>
+      </div>
+      <div class="card" id="homeFaq"></div>
+    </section>
+
+    <section class="section">
+      <div class="card card-glow" style="background:linear-gradient(135deg,rgb(212 175 55 / 10%),rgb(212 175 55 / 3%));border-color:var(--gold);padding:32px;text-align:center;">
+        <h2 style="font-size:24px;margin-bottom:8px;">Ready to go further?</h2>
+        <p class="muted" style="max-width:420px;margin:0 auto 20px;">Premium unlocks boosted rewards, exclusive commands and a badge on every board.</p>
+        <a class="btn btn-gold" href="#/premium" data-route="premium">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M3 8l4 3 5-7 5 7 4-3-2 11H5L3 8z"/></svg> See Premium plans
+        </a>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- ===================================================== -->
+<!-- LEADERBOARD -->
+<!-- ===================================================== -->
+<main class="view" id="view-leaderboard">
+  <div class="page" style="padding-top:100px;">
+    <section class="section" style="padding-top:0;">
+      <div class="section-head">
+        <div>
+          <h2>Leaderboard</h2>
+          <p id="lbTotal">Loading the standings…</p>
+        </div>
+      </div>
+
+      <div class="card" id="lbYou" style="display:none;margin-bottom:16px;"></div>
+
+      <div class="lb-toolbar">
+        <div class="tab-row" id="lbTabs" role="tablist"></div>
+        <input class="lb-search" id="lbSearch" type="search" placeholder="Search a player…" aria-label="Search the board">
+      </div>
+
+      <div class="lb-list" id="lbList"></div>
+      <p class="subtext" style="margin-top:14px;">Tap any row to see that player's stats and public alerts.</p>
+    </section>
+  </div>
+</main>
+
+<!-- ===================================================== -->
+<!-- CHARACTERS -->
+<!-- ===================================================== -->
+<main class="view" id="view-characters">
+  <div class="page" style="padding-top:100px;">
+    <section class="section" style="padding-top:0;">
+      <div class="section-head">
+        <div>
+          <h2>Characters</h2>
+          <p>Every companion in the game — equip one to carry its bonuses into a run</p>
+        </div>
+      </div>
+      <div class="grid-4" id="charGrid"></div>
+    </section>
+  </div>
+</main>
+
+<!-- ===================================================== -->
+<!-- SEASON -->
+<!-- ===================================================== -->
+<main class="view" id="view-season">
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-badge">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M12 2l2.4 6.9L21 9l-5 4.6L17.4 21 12 17.3 6.6 21 8 13.6 3 9l6.6-.1L12 2z"/></svg>
+        <span id="seasonClock">Live now</span>
+      </div>
+      <h1 id="seasonName">Season</h1>
+      <p id="seasonDesc">A new battle pass, new rewards, and tiers of gear to climb through.</p>
+    </div>
+  </section>
+
+  <div class="page">
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>Battle pass progress</h2>
+          <p>Free and premium tracks, side by side</p>
+        </div>
+      </div>
+      <div class="card" id="seasonMine"></div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>Tier rewards</h2>
+          <p>Everything the pass hands out this season</p>
+        </div>
+      </div>
+      <div class="lb-list" id="seasonTiers"></div>
+    </section>
+
+    <section class="section">
+      <div class="section-head" id="seasonShopHead" style="display:none;">
+        <div>
+          <h2>Season shop</h2>
+          <p>Spend season points before the season closes</p>
+        </div>
+      </div>
+      <div class="grid-4" id="seasonShop"></div>
+    </section>
+  </div>
+</main>
+
+<!-- ===================================================== -->
+<!-- PREMIUM -->
+<!-- ===================================================== -->
+<main class="view" id="view-premium">
+  <div class="page" style="padding-top:100px;">
+    <section class="section" style="padding-top:0;">
+      <div class="section-head">
+        <div>
+          <h2>Premium</h2>
+          <p>Optional. The whole game is playable without it.</p>
+        </div>
+      </div>
+      <div class="card" id="premiumMine" style="display:none;margin-bottom:20px;"></div>
+      <div class="pricing-grid" id="planGrid"></div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>Gem packages</h2>
+          <p>Gems buy characters, season passes and shop items</p>
+        </div>
+      </div>
+      <div class="grid-4" id="gemGrid"></div>
+    </section>
+
+    <section class="section">
+      <div class="card" id="payCard"></div>
+    </section>
+  </div>
+</main>
+
+<!-- ===================================================== -->
+<!-- PROFILE -->
+<!-- ===================================================== -->
+<main class="view" id="view-profile">
+  <div class="page" style="padding-top:100px;" id="profileWrap"></div>
+</main>
+
+<!-- ===================================================== -->
+<!-- SETTINGS -->
+<!-- ===================================================== -->
+<main class="view" id="view-settings">
+  <div class="auth-wrap">
+    <div class="auth-card" id="settingsCard"></div>
+  </div>
+</main>
+
+<!-- ===================================================== -->
+<!-- SIGN IN -->
+<!-- ===================================================== -->
+<main class="view" id="view-login">
+  <div class="auth-wrap">
+    <div class="auth-card">
+
+      <div class="auth-step active" id="loginStep1">
+        <h2>Sign in</h2>
+        <p class="subtext" style="margin-bottom:22px;">We'll DM a 6-digit code to your WhatsApp from the bot's own number.</p>
+        <form id="loginPhoneForm" novalidate>
+          <div class="field" id="loginPhoneField">
+            <label for="loginPhone">WhatsApp number</label>
+            <input id="loginPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="e.g. 2348012345678">
+            <p class="field-hint">Include your country code. This is the number you play on.</p>
+            <p class="field-err" id="loginPhoneErr"></p>
+          </div>
+          <button class="btn btn-primary btn-block" id="loginSendBtn" type="submit">Send me a code</button>
+        </form>
+        <div class="auth-alt">
+          <span>New here?</span><a href="#/signup" data-route="signup">Create a character</a>
+        </div>
+      </div>
+
+      <div class="auth-step" id="loginStep2">
+        <h2>Enter the code</h2>
+        <p class="subtext" id="loginSentTo" style="margin-bottom:22px;">Check your WhatsApp for the code.</p>
+        <div class="otp-row" id="otpRow">
+          <input type="text" inputmode="numeric" maxlength="1" aria-label="Digit 1" autocomplete="one-time-code">
+          <input type="text" inputmode="numeric" maxlength="1" aria-label="Digit 2">
+          <input type="text" inputmode="numeric" maxlength="1" aria-label="Digit 3">
+          <input type="text" inputmode="numeric" maxlength="1" aria-label="Digit 4">
+          <input type="text" inputmode="numeric" maxlength="1" aria-label="Digit 5">
+          <input type="text" inputmode="numeric" maxlength="1" aria-label="Digit 6">
+        </div>
+        <p class="field-err" id="otpErr"></p>
+        <button class="btn btn-primary btn-block" id="otpVerifyBtn" type="button" style="margin-top:18px;">Verify and sign in</button>
+        <div class="auth-alt">
+          <a id="otpResendBtn">Resend code</a>
+          <span>·</span>
+          <a id="otpBackBtn">Use another number</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<!-- ===================================================== -->
+<!-- SIGN UP -->
+<!-- ===================================================== -->
+<main class="view" id="view-signup">
+  <div class="auth-wrap">
+    <div class="auth-card">
+
+      <div class="auth-step active" id="signupStep1">
+        <h2>Join Astral</h2>
+        <p class="subtext" style="margin-bottom:22px;">Two steps: verify your WhatsApp number, then build your character.</p>
+        <div class="card" id="signupBotCard" style="margin-bottom:18px;"></div>
+        <form id="signupPhoneForm" novalidate>
+          <div class="field" id="signupPhoneField">
+            <label for="signupPhone">WhatsApp number</label>
+            <input id="signupPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="e.g. 2348012345678">
+            <p class="field-hint">Include your country code.</p>
+            <p class="field-err" id="signupPhoneErr"></p>
+          </div>
+          <button class="btn btn-primary btn-block" id="signupSendBtn" type="submit">Send me a code</button>
+        </form>
+        <div class="auth-alt">
+          <span>Already playing?</span><a href="#/login" data-route="login">Sign in</a>
+        </div>
+      </div>
+
+      <div class="auth-step" id="signupStep2">
+        <h2>Enter the code</h2>
+        <p class="subtext" id="signupSentTo" style="margin-bottom:22px;">Check your WhatsApp for the code.</p>
+        <div class="otp-row" id="signupOtpRow">
+          <input type="text" inputmode="numeric" maxlength="1" aria-label="Digit 1" autocomplete="one-time-code">
+          <input type="text" inputmode="numeric" maxlength="1" aria-label="Digit 2">
+          <input type="text" inputmode="numeric" maxlength="1" aria-label="Digit 3">
+          <input type="text" inputmode="numeric" maxlength="1" aria-label="Digit 4">
+          <input type="text" inputmode="numeric" maxlength="1" aria-label="Digit 5">
+          <input type="text" inputmode="numeric" maxlength="1" aria-label="Digit 6">
+        </div>
+        <p class="field-err" id="signupOtpErr"></p>
+        <button class="btn btn-primary btn-block" id="signupVerifyBtn" type="button" style="margin-top:18px;">Verify number</button>
+        <div class="auth-alt">
+          <a id="signupResendBtn">Resend code</a>
+          <span>·</span>
+          <a id="signupBackBtn">Use another number</a>
+        </div>
+      </div>
+
+      <div class="auth-step" id="signupStep3">
+        <h2>Build your character</h2>
+        <p class="subtext" style="margin-bottom:22px;">You can change everything else later in chat with <code id="regCmd">.register</code>.</p>
+        <form id="signupForm" novalidate>
+          <div class="field" id="regNameField">
+            <label for="regName">Character name</label>
+            <input id="regName" type="text" maxlength="20" placeholder="What should the board call you?">
+            <p class="field-err" id="regNameErr"></p>
+          </div>
+          <div class="field">
+            <label for="regClass">Class</label>
+            <select id="regClass"></select>
+            <p class="field-hint" id="regClassHint"></p>
+          </div>
+          <div class="field">
+            <label for="regRace">Race</label>
+            <select id="regRace"></select>
+            <p class="field-hint" id="regRaceHint"></p>
+          </div>
+          <button class="btn btn-primary btn-block" id="regSubmitBtn" type="submit">Create my character</button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<!-- ===================================================== -->
+<!-- 404 -->
+<!-- ===================================================== -->
+<main class="view" id="view-404">
+  <div class="auth-wrap">
+    <div class="empty">
+      <div class="empty-i">🧭</div>
+      <h3>That page doesn't exist</h3>
+      <p>The link may be old, or the page moved. Everything else is still where you left it.</p>
+      <a class="btn btn-primary btn-sm" href="#/" data-route="home" style="margin-top:16px;">Back home</a>
+    </div>
+  </div>
+</main>
+
+<!-- ===================================================== -->
+<!-- FOOTER -->
+<!-- ===================================================== -->
+<footer class="site-footer">
+  <div class="site-footer-inner">
+    <div class="site-footer-top">
+      <div class="site-footer-brand">
+        <div class="brand" style="cursor:default;">
+          <div class="brand-mark"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></div>
+        </div>
+        <p class="site-footer-tag" id="footerNote">Play it on WhatsApp.</p>
+        <a class="btn btn-gold btn-sm" href="#/signup" data-route="signup">Start playing</a>
+      </div>
+
+      <div class="site-footer-col">
+        <div class="site-footer-heading">Game</div>
+        <a href="#/" data-route="home">Home</a>
+        <a href="#/leaderboard" data-route="leaderboard">Leaderboard</a>
+        <a href="#/characters" data-route="characters">Characters</a>
+        <a href="#/season" data-route="season">Season</a>
+      </div>
+
+      <div class="site-footer-col">
+        <div class="site-footer-heading">Account</div>
+        <a href="#/profile" data-route="profile">Profile</a>
+        <a href="#/premium" data-route="premium">Premium</a>
+        <a href="#/settings" data-route="settings">Settings</a>
+        <a href="#/login" data-route="login">Sign in</a>
+      </div>
+
+      <div class="site-footer-col">
+        <div class="site-footer-heading">Support</div>
+        <a id="footerSupport" hidden>Support group</a>
+        <a href="#/">Command list</a>
+      </div>
+    </div>
+
+    <div class="site-footer-bottom">
+      <span class="subtext">Astral · Not affiliated with WhatsApp Inc.</span>
+      <div class="site-footer-social">
+        <span class="subtext">Everything real happens in chat.</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- ===== PLAYER / CHARACTER DETAIL ===== -->
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-label="Details">
+  <div class="modal-scrim" id="modalScrim"></div>
+  <div class="modal-card">
+    <button class="modal-x" id="modalX" aria-label="Close">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
+
+<script type="module" src="assets/js/app.js"></script>
+</body>
+</html>
