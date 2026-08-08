@@ -10,7 +10,7 @@ import { api, ApiError, onConnectionChange, onAuthLost, hasSession } from './api
 import {
   $, $$, esc, attr, num, compact, naira, relTime, duration, titleCase,
   toast, busy, skeletonRows, skeletonCards,
-  emptyState, openModal, closeModal, initials, bar, copyText,
+  emptyState, openModal, closeModal, initials, bar, copyText, initMotion,
 } from './ui.js'
 
 /** astral's checkmark, used in every `.plan-features` list. */
@@ -43,7 +43,10 @@ const isSignedIn = () => !!state.me
 /* ──────────────────────────────── router ──────────────────────────────── */
 
 const routes = {
-  home: { view: 'view-home', title: 'Astral — WhatsApp RPG', load: loadHome },
+  // `title` overwrites <title> on every navigation, so the home entry has to
+  // match the static <title> in index.html — otherwise the tab reads "Astral"
+  // for one frame and then flips to whatever is written here.
+  home: { view: 'view-home', title: 'Astral', load: loadHome },
   leaderboard: { view: 'view-leaderboard', title: 'Leaderboard — Astral', load: loadLeaderboard },
   season: { view: 'view-season', title: 'Season — Astral', load: loadSeason },
   premium: { view: 'view-premium', title: 'Premium — Astral', load: loadPremium },
@@ -997,11 +1000,20 @@ async function loadSeason() {
   const shop = $('#seasonShop')
   const shopHead = $('#seasonShopHead')
   if (shop) {
-    // The API only ships entries whose artwork host is actually up, so an empty
-    // shop is a normal state rather than an error — hide the heading along with
-    // the grid instead of leaving "Season shop" floating over nothing.
-    if (shopHead) shopHead.style.display = out.shop?.length ? '' : 'none'
-    shop.innerHTML = (out.shop ?? []).map(e => `
+    // This section is the "Characters" showcase, not the full season shop —
+    // only the four listed below are ever displayed, whatever else the API
+    // ships. Matching is on the name so a re-priced or re-imaged entry keeps
+    // working; ids change between seasons, names don't.
+    const SHOWN_CHARACTERS = ['mei', 'urahah', 'willow', 'wither']
+    const entries = (out.shop ?? []).filter(e =>
+      SHOWN_CHARACTERS.includes(String(e.name ?? '').trim().toLowerCase()))
+
+    // The API only ships entries whose artwork host is actually up, and the
+    // filter above can empty the list on its own, so an empty section is a
+    // normal state rather than an error — hide the heading along with the
+    // grid instead of leaving "Characters" floating over nothing.
+    if (shopHead) shopHead.style.display = entries.length ? '' : 'none'
+    shop.innerHTML = entries.map(e => `
       <div class="perk-card reveal">
         ${e.image
           ? `<img src="${attr(e.image)}" alt="" loading="lazy"
@@ -1015,7 +1027,6 @@ async function loadSeason() {
         ${e.purchaseLimit ? `<p class="subtext" style="margin-top:6px">Limit ${num(e.purchaseLimit)}</p>` : ''}
       </div>`).join('')
   }
-}
 }
 
 /* ────────────────────────────── page: premium ─────────────────────────── */
@@ -1503,6 +1514,7 @@ function wireConnection() {
 }
 
 async function boot() {
+  initMotion()
   wireShell()
   wireGlobalClicks()
   wireAuthForms()

@@ -122,12 +122,124 @@ export function busy(btn) {
 /* ───────────────────────────── reveal on scroll ────────────────────────── */
 
 /*
- * There's deliberately no JS here. `.reveal` is a pure-CSS staggered fade-up
- * (see `@keyframes revealIn` and the `.reveal:nth-child(n)` delays), so
- * markup injected by a page controller animates the moment it lands in the
- * DOM. An IntersectionObserver would only duplicate that — and would leave
- * content invisible if it ever failed to fire.
+ * `.reveal` elements start hidden and animate in when they scroll into view.
+ *
+ * This used to be a pure-CSS animation with no JS at all, which meant every
+ * .reveal on the page played its entrance during the first 600ms after load —
+ * including the ones eight screens down. By the time you scrolled to them
+ * they had long since finished, so the effect only ever existed for whatever
+ * happened to be above the fold. Hence the observer.
+ *
+ * Page controllers render their markup with innerHTML long after boot, so
+ * rather than making all ~15 render sites remember to re-arm, a
+ * MutationObserver picks up new .reveal nodes as they land in the DOM.
  */
+
+const REDUCED = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
+/** Marks an element revealed, and cleans up the compositor hint afterwards. */
+function show(el) {
+  el.classList.add('is-in')
+  setTimeout(() => el.classList.add('is-done'), 900)
+}
+
+let revealObserver = null
+
+/**
+ * Stagger index: position among the .reveal elements sharing a parent. Set as
+ * --rv, which the stylesheet turns into a transition-delay. Grouping by parent
+ * (rather than a global counter) is what keeps a four-card grid staggering
+ * 0/1/2/3 instead of continuing from whatever number the previous section
+ * ended on.
+ */
+function stagger(el) {
+  const siblings = el.parentElement
+    ? [...el.parentElement.children].filter(n => n.classList?.contains('reveal'))
+    : []
+  const i = siblings.indexOf(el)
+  el.style.setProperty('--rv', String(Math.max(0, Math.min(i, 8))))
+}
+
+/** Arms every .reveal inside `root` that isn't already being watched. */
+export function observeReveals(root = document) {
+  const nodes = root.querySelectorAll?.('.reveal:not(.is-in)') ?? []
+  for (const el of nodes) {
+    if (el.dataset.rvArmed) continue
+    el.dataset.rvArmed = '1'
+    stagger(el)
+    // No observer (unsupported, or reduced motion) → show it immediately.
+    // A missing entrance animation is fine; invisible content is not.
+    if (!revealObserver) { show(el); continue }
+    revealObserver.observe(el)
+  }
+}
+
+/**
+ * Boots the motion layer: reveal observer, nav scroll state, and the
+ * MutationObserver that keeps both working for dynamically rendered markup.
+ * Safe to call once, from boot().
+ */
+export function initMotion() {
+  const root = document.documentElement
+
+  // `.js-motion` is the signal the inline <head> watchdog waits for. Setting
+  // it first means the watchdog stands down even if something below throws.
+  root.classList.add('js-motion')
+
+  // If the watchdog already gave up and stripped `.js`, every .reveal is on
+  // screen and the user is reading it. Re-adding `.js` here would yank it all
+  // back to opacity 0, so don't — run the observers anyway (harmless: `is-in`
+  // just has nothing to undo) and leave the page as the user found it.
+  if (root.dataset.motionFailed !== '1') root.classList.add('js')
+
+  if ('IntersectionObserver' in window && !REDUCED()) {
+    revealObserver = new IntersectionObserver((entries, obs) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue
+        show(entry.target)
+        obs.unobserve(entry.target)   // one-shot: no re-hiding on scroll back up
+      }
+    }, {
+      // Starts the entrance slightly before the element's top edge arrives, so
+      // it's finishing as it settles into view rather than beginning there.
+      rootMargin: '0px 0px -8% 0px',
+      threshold: 0.05,
+    })
+  }
+
+  observeReveals(document)
+
+  // Nav goes from transparent-over-hero to a solid blurred bar once you've
+  // left the top. rAF-throttled: scroll fires far faster than paint.
+  const nav = $('.nav-shell')
+  if (nav) {
+    let ticking = false
+    const sync = () => {
+      nav.classList.toggle('is-stuck', window.scrollY > 30)
+      ticking = false
+    }
+    addEventListener('scroll', () => {
+      if (ticking) return
+      ticking = true
+      requestAnimationFrame(sync)
+    }, { passive: true })
+    sync()
+  }
+
+  // Page controllers replace whole subtrees with innerHTML; catch the new
+  // .reveal nodes without every call site having to opt in.
+  if ('MutationObserver' in window) {
+    new MutationObserver(records => {
+      for (const rec of records) {
+        for (const node of rec.addedNodes) {
+          if (node.nodeType !== 1) continue
+          if (node.classList?.contains('reveal')) observeReveals(node.parentElement ?? document)
+          else observeReveals(node)
+        }
+      }
+    }).observe(document.body, { childList: true, subtree: true })
+  }
+}
 
 /* ──────────────────────────────── skeletons ────────────────────────────── */
 

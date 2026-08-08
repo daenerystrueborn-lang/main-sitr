@@ -25,16 +25,34 @@
   --shadow: 0 10px 30px rgb(0 0 0 / 60%);
   --transition: .18s cubic-bezier(.4,0,.2,1);
 }
-.reveal{opacity:0;transform:translateY(14px);animation:revealIn .6s cubic-bezier(.2,.7,.2,1) forwards;}
-.reveal:nth-child(1){animation-delay:.02s;}
-.reveal:nth-child(2){animation-delay:.09s;}
-.reveal:nth-child(3){animation-delay:.16s;}
-.reveal:nth-child(4){animation-delay:.23s;}
-.reveal:nth-child(5){animation-delay:.30s;}
-.reveal:nth-child(6){animation-delay:.37s;}
-.reveal:nth-child(7){animation-delay:.44s;}
-.reveal:nth-child(8){animation-delay:.51s;}
-@keyframes revealIn{to{opacity:1;transform:translateY(0);}}
+/* ===== REVEAL ON SCROLL =====
+   Elements start hidden and animate in when they actually enter the viewport
+   (ui.js's observeReveals wires the IntersectionObserver and sets --rv to the
+   element's index within its group, which drives the stagger).
+
+   The `html.js` guard is load-bearing: the hidden state only applies once JS
+   has confirmed it's running. Scripting off → `.js` never gets set and every
+   .reveal stays fully visible.
+
+   Scripting on but broken is the case that actually bit us — the inline
+   <head> script sets `.js` before it knows whether app.js will survive, and
+   app.js once shipped with an unbalanced brace, which left the whole page at
+   opacity 0. That inline script now also runs a 3s watchdog that strips `.js`
+   again unless initMotion() has set `.js-motion`. So the guarantee holds in
+   both directions: a module that never runs cannot leave the page blank. */
+.reveal{opacity:1;transform:none;}
+html.js .reveal{
+  opacity:0;
+  transform:translateY(18px);
+  transition:opacity .62s cubic-bezier(.2,.7,.2,1),transform .62s cubic-bezier(.2,.7,.2,1);
+  transition-delay:calc(var(--rv,0) * 70ms);
+  will-change:opacity,transform;
+}
+html.js .reveal.is-in{opacity:1;transform:none;}
+/* Once it has played, drop the compositor hint — keeping will-change on every
+   revealed node permanently is what makes long pages start to feel heavy. */
+html.js .reveal.is-done{will-change:auto;transition-delay:0ms;}
+
 .icon{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;display:inline-block;vertical-align:-2px;}
 .check-icon{width:14px;height:14px;flex-shrink:0;margin-top:2px;}
 *{box-sizing:border-box;}
@@ -482,7 +500,197 @@ section.hero.season-hero::before{content:none;}
 .copy-box span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;}
 .section-head .badge{flex-shrink:0;}
 code{font-family:monospace;font-size:.92em;color:var(--gold);}
+
+/* =======================================================================
+   MOTION
+   =======================================================================
+   One shared vocabulary so the whole site moves the same way:
+
+     • gold sweeps across a surface on hover (buttons, cards, art)
+     • surfaces lift toward the viewer, they never scale up in place
+     • entrances rise 12–18px, never slide sideways or bounce
+
+   Everything here animates only `transform`, `opacity` and `filter` — the
+   three the compositor can handle without relayout — so it stays smooth on
+   the mid-range Android most players are on. Anything that would animate
+   width/height/box-shadow directly is done with a pseudo-element instead.
+
+   The whole section is disabled wholesale by the prefers-reduced-motion
+   block at the very bottom of this file. Add new motion above that block,
+   and add its off-switch to it. */
+
+:root{
+  --ease-out: cubic-bezier(.2,.7,.2,1);
+  --dur-fast: .22s;
+  --dur: .42s;
+  --dur-slow: .7s;
+}
+
+/* ── entrance: hero ────────────────────────────────────────────────────
+   The hero is the one thing above the fold on first paint, so it animates
+   on load rather than on scroll. Children rise in sequence; the heading
+   gets a touch longer to land so it reads as the anchor of the group. */
+.hero-inner > *{animation:riseIn .8s var(--ease-out) both;}
+.hero-inner > .hero-badge{animation-delay:.05s;}
+.hero-inner > h1{animation-delay:.13s;animation-duration:.9s;}
+.hero-inner > p{animation-delay:.22s;}
+.hero-inner > .hero-actions{animation-delay:.3s;}
+.hero-inner > .chip-row{animation-delay:.38s;}
+@keyframes riseIn{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:none;}}
+
+/* A slow gold bloom behind the hero copy. 22s and opacity-only, so it reads
+   as the page breathing rather than as an animation playing. Scoped away
+   from .season-hero, which has video behind it already. */
+.hero:not(.season-hero)::after{
+  content:"";position:absolute;z-index:-1;
+  left:50%;top:42%;width:min(680px,110%);aspect-ratio:1;
+  transform:translate(-50%,-50%);
+  background:radial-gradient(circle,rgb(212 175 55 / 15%) 0%,transparent 62%);
+  animation:bloom 22s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes bloom{
+  0%,100%{opacity:.5;transform:translate(-50%,-50%) scale(.92);}
+  50%    {opacity:1; transform:translate(-50%,-50%) scale(1.08);}
+}
+
+/* The gradient word in the hero heading gets a slow shine travelling
+   through it — the one piece of pure decoration on the page. */
+.hero h1 .grad{
+  background:linear-gradient(100deg,#a97e1f 0%,#e8c86a 42%,#fff3cf 50%,#e8c86a 58%,#a97e1f 100%);
+  background-size:220% 100%;
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:shine 7s ease-in-out infinite;
+}
+@keyframes shine{0%,100%{background-position:120% 0;}50%{background-position:-20% 0;}}
+
+/* ── nav: condense on scroll ───────────────────────────────────────────
+   ui.js toggles .is-stuck past ~30px. The bar starts invisible over the
+   hero and materialises into a solid surface as you leave it, instead of
+   sitting there as a permanent box. */
+.nav-shell{transition:padding var(--dur) var(--ease-out);}
+.nav-shell::before{
+  content:"";position:absolute;inset:0;z-index:-1;
+  background:rgb(7 7 10 / 72%);
+  backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border-soft);
+  opacity:0;transition:opacity var(--dur) var(--ease-out);
+}
+.nav-shell.is-stuck{padding-top:10px;}
+.nav-shell.is-stuck::before{opacity:1;}
+
+/* ── buttons ───────────────────────────────────────────────────────────
+   A single sheen sweep on hover. ::before, not ::after — .btn.is-busy
+   already owns ::after for its spinner. */
+.btn{position:relative;overflow:hidden;transition:transform var(--dur-fast) var(--ease-out),filter var(--dur-fast) var(--ease-out),background var(--dur-fast) var(--ease-out),border-color var(--dur-fast) var(--ease-out),color var(--dur-fast) var(--ease-out);}
+.btn::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(100deg,transparent 20%,rgb(255 255 255 / 28%) 50%,transparent 80%);
+  transform:translateX(-110%);
+  transition:transform .6s var(--ease-out);
+}
+.btn:hover::before{transform:translateX(110%);}
+.btn-secondary::before,.btn-ghost::before,.btn-danger::before{
+  background:linear-gradient(100deg,transparent 20%,rgb(212 175 55 / 20%) 50%,transparent 80%);
+}
+.btn:hover{transform:translateY(-1px);}
+/* Press feedback. :active must win over :hover, so it comes after. */
+.btn:active{transform:translateY(0) scale(.978);transition-duration:.08s;}
+.btn.is-busy::before{display:none;}
+
+/* ── cards ─────────────────────────────────────────────────────────────
+   .card-glow's gradient wash was declared with opacity:0 and a transition
+   but nothing ever raised it, so the rule never did anything. Wired to
+   hover here. */
+.card{transition:transform var(--dur) var(--ease-out),border-color var(--dur) var(--ease-out),box-shadow var(--dur) var(--ease-out);}
+.card-glow::before{opacity:0;transition:opacity var(--dur) var(--ease-out);}
+.card-glow:hover::before{opacity:.09;}
+
+/* perk-card had no hover state at all — it's a grid tile like the others,
+   so it should answer the cursor like the others. */
+.perk-card{transition:transform var(--dur) var(--ease-out),border-color var(--dur) var(--ease-out),box-shadow var(--dur) var(--ease-out);}
+.perk-card:hover{transform:translateY(-3px);border-color:rgb(212 175 55 / 45%);box-shadow:var(--shadow);}
+.perk-card img{transition:transform var(--dur-slow) var(--ease-out);}
+.perk-card:hover img{transform:scale(1.05);}
+
+/* ── feature cards (the game-mode art) ────────────────────────────────
+   The art zoom was on --transition (.18s), which is button-speed and made
+   a full-card image jolt. A photograph wants to drift. */
+.feature-card{transition:transform var(--dur) var(--ease-out),border-color var(--dur) var(--ease-out),box-shadow var(--dur) var(--ease-out);}
+.feature-card.art::before{transition:transform var(--dur-slow) var(--ease-out),filter var(--dur-slow) var(--ease-out);}
+.feature-card.art:hover::before{transform:scale(1.07);}
+.feature-content{transition:transform var(--dur) var(--ease-out);}
+.feature-card:hover .feature-content{transform:translateY(-3px);}
+.feature-icon{transition:transform var(--dur) var(--ease-out),color var(--dur) var(--ease-out),border-color var(--dur) var(--ease-out);}
+.feature-card:hover .feature-icon{transform:scale(1.1) rotate(-6deg);border-color:var(--gold);}
+
+/* ── list rows / tiers ─────────────────────────────────────────────────
+   Rows nudge toward the reader on hover — enough to show the row is live
+   without shifting the column's rhythm. */
+.lb-row{transition:transform var(--dur-fast) var(--ease-out),background var(--dur-fast) var(--ease-out);}
+.lb-row:hover{transform:translateX(4px);background:rgb(212 175 55 / 6%);}
+.tier-node{transition:transform var(--dur) var(--ease-out),border-color var(--dur) var(--ease-out);}
+.tier-node:hover{transform:translateY(-4px);}
+
+/* ── progress bars ─────────────────────────────────────────────────────
+   Width is set inline by the renderer, so transitioning width here means
+   every bar grows into place on first paint for free. */
+.xp-fill{transition:width 1.1s var(--ease-out);position:relative;overflow:hidden;}
+.xp-fill::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgb(255 255 255 / 45%),transparent);
+  transform:translateX(-100%);
+  animation:xpSheen 2.6s ease-in-out infinite;
+}
+@keyframes xpSheen{0%{transform:translateX(-100%);}55%,100%{transform:translateX(100%);}}
+
+/* ── modal / drawer ───────────────────────────────────────────────────*/
+.modal-scrim{opacity:0;transition:opacity var(--dur) var(--ease-out);}
+.modal.open .modal-scrim{opacity:1;}
+.modal-card{transition:transform .34s var(--ease-out),opacity .34s var(--ease-out);opacity:0;}
+.modal.open .modal-card{opacity:1;}
+
+/* ── route transitions ────────────────────────────────────────────────
+   Replaces the old 6px fadeIn with something that matches the reveal
+   easing, so arriving on a page and scrolling it feel like one system. */
+.view{animation:viewIn .42s var(--ease-out);}
+@keyframes viewIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+
+/* ── focus ────────────────────────────────────────────────────────────
+   Keyboard users get a real gold ring. :focus-visible only, so clicking a
+   button doesn't leave a ring behind. */
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,
+textarea:focus-visible,[tabindex]:focus-visible{
+  outline:2px solid var(--gold);
+  outline-offset:2px;
+  border-radius:var(--r);
+}
+
+/* ── toasts ───────────────────────────────────────────────────────────*/
+.toast{animation:slideIn .3s var(--ease-out);}
+
 @media (prefers-reduced-motion:reduce){
   .skel{animation:none;}
-  .reveal{opacity:1;transform:none;animation:none;}
+  .reveal,html.js .reveal{opacity:1;transform:none;animation:none;transition:none;}
+  /* Kill every looping/decorative animation added in the MOTION section.
+     Hover feedback stays — it's a response to the user's own input, not
+     unrequested motion — but it stops moving things around. */
+  .hero-inner > *,
+  .hero:not(.season-hero)::after,
+  .hero h1 .grad,
+  .xp-fill::after,
+  .view,
+  .toast{animation:none;}
+  .hero h1 .grad{background:var(--grad-1);-webkit-background-clip:text;background-clip:text;}
+  .btn::before{display:none;}
+  .btn:hover,.btn:active,
+  .card:hover,.perk-card:hover,.feature-card:hover,
+  .lb-row:hover,.tier-node:hover,
+  .feature-card:hover .feature-content,
+  .feature-card:hover .feature-icon,
+  .feature-card.art:hover::before,
+  .perk-card:hover img{transform:none;}
+  .xp-fill{transition:none;}
+  .modal-card,.modal-scrim{transition:opacity .01s;}
 }
+

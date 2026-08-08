@@ -3,10 +3,35 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Astral — WhatsApp RPG</title>
+<!-- Sets html.js before the stylesheet is applied, so scroll-reveal elements
+     start hidden on the very first paint instead of flashing in and then
+     being hidden once the module boots. If scripting is off this never runs
+     and every .reveal simply stays visible — see the .reveal rules.
+
+     The timer is the fail-safe for the other way this can break. `.js` is
+     what hides every .reveal until it scrolls in, and ONLY initMotion()
+     (assets/js/ui.js, called from boot()) ever un-hides them. If that module
+     doesn't run — syntax error, blocked script, dead network, an exception
+     earlier in boot() — nothing would ever remove the hidden state and the
+     entire page would sit at opacity 0. app.js shipped with an unbalanced
+     brace once already, so this is not hypothetical. If nothing has claimed
+     the motion layer a few seconds in, fall back to the scripting-off
+     styling, where .reveal is plainly visible. -->
+<script>
+  (function () {
+    var d = document.documentElement
+    d.classList.add('js')
+    setTimeout(function () {
+      if (d.classList.contains('js-motion')) return   // initMotion() ran; all good
+      d.classList.remove('js')
+      d.dataset.motionFailed = '1'                    // stops a very late boot re-hiding everything
+    }, 3000)
+  })()
+</script>
+<title>Astral</title>
 <meta name="description" content="Dungeons, cards, and companions — built for WhatsApp. Climb the floors, top the boards, forge a legend.">
 <meta name="theme-color" content="#000000">
-<meta property="og:title" content="Astral — WhatsApp RPG">
+<meta property="og:title" content="Astral">
 <meta property="og:description" content="Dungeons, cards, and companions — built for WhatsApp.">
 <meta property="og:type" content="website">
 <!-- Sun favicon, inlined as SVG so there's no extra request and it stays crisp
@@ -110,19 +135,24 @@
         <a class="btn btn-ghost btn-sm" href="#/season" data-route="season">See the season →</a>
       </div>
       <div class="grid-4">
-        <a class="feature-card art reveal" href="#/season" data-route="season" style="--art:url('assets/img/modes/dungeon.jpg')">
+        <!-- The --art paths are ROOT-ABSOLUTE on purpose. A relative url() inside
+             a custom property is resolved against the stylesheet that consumes
+             it (assets/css/style.css), not this document — so 'assets/img/...'
+             here silently became '/assets/css/assets/img/...' and 404'd. Leading
+             slash removes the base entirely. Don't "tidy" these back to relative. -->
+        <a class="feature-card art reveal" href="#/season" data-route="season" style="--art:url('/assets/img/modes/dungeon.jpg')">
           <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M14.5 3.5l6 6-8 8-6-6 8-8z"/><path d="M3 21l4-1 8.5-8.5"/></svg></div>
           <div class="feature-content"><h3>Dungeon</h3><p>Solo or party raids with loot, bosses and deeper floors.</p></div>
         </a>
-        <div class="feature-card art reveal" style="--art:url('assets/img/modes/characters.jpg')">
+        <div class="feature-card art reveal" style="--art:url('/assets/img/modes/characters.jpg')">
           <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></div>
           <div class="feature-content"><h3>Characters</h3><p>Collect and equip companions that buff your stats.</p></div>
         </div>
-        <a class="feature-card art reveal" href="#/leaderboard" data-route="leaderboard" style="--art:url('assets/img/modes/arena.jpg')">
+        <a class="feature-card art reveal" href="#/leaderboard" data-route="leaderboard" style="--art:url('/assets/img/modes/arena.jpg')">
           <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/><circle cx="12" cy="12" r="9"/></svg></div>
           <div class="feature-content"><h3>PvP Arena</h3><p>Challenge other players and climb the ranked ladder.</p></div>
         </a>
-        <a class="feature-card art reveal" href="#/season" data-route="season" style="--art:url('assets/img/modes/battlepass.jpg')">
+        <a class="feature-card art reveal" href="#/season" data-route="season" style="--art:url('/assets/img/modes/battlepass.jpg')">
           <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M12 2l2.4 6.9L21 9l-5 4.6L17.4 21 12 17.3 6.6 21 8 13.6 3 9l6.6-.1L12 2z"/></svg></div>
           <div class="feature-content"><h3>Battle Pass</h3><p>Seasonal tiers of gold, gear and exclusive rewards.</p></div>
         </a>
@@ -245,7 +275,7 @@
     <section class="section">
       <div class="section-head" id="seasonShopHead" style="display:none;">
         <div>
-          <h2>Season shop</h2>
+          <h2>Characters</h2>
           <p>Spend season points before the season closes</p>
         </div>
       </div>
