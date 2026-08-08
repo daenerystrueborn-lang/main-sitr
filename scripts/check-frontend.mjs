@@ -168,5 +168,31 @@ for (const a of assets) {
 if (missingAssets.length) fail(`referenced files not on disk: ${missingAssets.join(', ')}`)
 else ok(`all ${assets.size} local assets exist`)
 
+/* ── 7. vercel.json uses only properties the deploy schema accepts ───────
+   Vercel validates this file BEFORE building and hard-fails the deploy on an
+   unknown key — including a `comment` key, since JSON has no comment syntax.
+   Catching it here turns a failed production deploy into a local error. */
+
+const VERCEL_TOP = new Set(['$schema', 'cleanUrls', 'trailingSlash', 'rewrites', 'headers',
+  'redirects', 'routes', 'buildCommand', 'outputDirectory', 'framework', 'installCommand',
+  'devCommand', 'regions', 'public', 'github', 'functions', 'crons', 'images', 'ignoreCommand'])
+const VERCEL_HEADER = new Set(['source', 'headers', 'has', 'missing'])
+const VERCEL_REWRITE = new Set(['source', 'destination', 'has', 'missing'])
+
+const badKeys = []
+try {
+  const vercel = JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8'))
+  for (const k of Object.keys(vercel)) if (!VERCEL_TOP.has(k)) badKeys.push(`top-level "${k}"`)
+  for (const [i, h] of (vercel.headers ?? []).entries())
+    for (const k of Object.keys(h)) if (!VERCEL_HEADER.has(k)) badKeys.push(`headers[${i}] "${k}"`)
+  for (const [i, r] of (vercel.rewrites ?? []).entries())
+    for (const k of Object.keys(r)) if (!VERCEL_REWRITE.has(k)) badKeys.push(`rewrites[${i}] "${k}"`)
+
+  if (badKeys.length) fail(`vercel.json has properties the schema rejects: ${badKeys.join(', ')}`)
+  else ok('vercel.json uses only schema-valid properties')
+} catch (err) {
+  fail(`vercel.json could not be parsed: ${err.message}`)
+}
+
 console.log(problems ? `\n${problems} problem(s)` : '\nFrontend wiring is consistent.')
 process.exit(problems ? 1 : 0)

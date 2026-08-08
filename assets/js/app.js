@@ -996,9 +996,12 @@ async function loadSeason() {
 
   const shop = $('#seasonShop')
   const shopHead = $('#seasonShopHead')
-  if (shop && out.shop?.length) {
-    if (shopHead) shopHead.style.display = ''
-    shop.innerHTML = out.shop.map(e => `
+  if (shop) {
+    // The API only ships entries whose artwork host is actually up, so an empty
+    // shop is a normal state rather than an error — hide the heading along with
+    // the grid instead of leaving "Season shop" floating over nothing.
+    if (shopHead) shopHead.style.display = out.shop?.length ? '' : 'none'
+    shop.innerHTML = (out.shop ?? []).map(e => `
       <div class="perk-card reveal">
         ${e.image
           ? `<img src="${attr(e.image)}" alt="" loading="lazy"
@@ -1012,6 +1015,7 @@ async function loadSeason() {
         ${e.purchaseLimit ? `<p class="subtext" style="margin-top:6px">Limit ${num(e.purchaseLimit)}</p>` : ''}
       </div>`).join('')
   }
+}
 }
 
 /* ────────────────────────────── page: premium ─────────────────────────── */
