@@ -1376,10 +1376,10 @@ function wireGlobalClicks() {
     const faqQ = t.closest('.faq-q')
     if (faqQ) {
       e.preventDefault()
-      const faq = faqQ.closest('.faq')
-      const wasOpen = faq.classList.contains('is-open')
-      for (const f of $$('.faq')) f.classList.remove('is-open')
-      faq.classList.toggle('is-open', !wasOpen)
+      const faq = faqQ.closest('.faq-item')
+      const wasOpen = faq.classList.contains('open')
+      for (const f of $$('.faq-item')) f.classList.remove('open')
+      faq.classList.toggle('open', !wasOpen)
       return
     }
 
@@ -1402,7 +1402,6 @@ function wireGlobalClicks() {
 function wireShell() {
   $('#bellBtn')?.addEventListener('click', (e) => { e.stopPropagation(); togglePanel() })
   $('#menuToggle')?.addEventListener('click', toggleDrawer)
-  $('#drawerClose')?.addEventListener('click', closeDrawer)
   $('#scrim')?.addEventListener('click', closeDrawer)
   $('#readAllBtn')?.addEventListener('click', markAllRead)
   $('#clearNotesBtn')?.addEventListener('click', clearNotes)
@@ -1416,7 +1415,7 @@ function wireShell() {
   // Click-away closes the notification panel, but a click inside it must not.
   document.addEventListener('click', (e) => {
     const panel = $('#panel')
-    if (!panel?.classList.contains('is-open')) return
+    if (!panel?.classList.contains('open')) return
     if (panel.contains(e.target) || $('#bellBtn')?.contains(e.target)) return
     closePanel()
   })
@@ -1427,12 +1426,6 @@ function wireShell() {
     closePanel()
     closeDrawer()
   })
-
-  // Nav gets a border once you've scrolled off the hero.
-  const nav = $('#nav')
-  const onScroll = () => nav?.classList.toggle('is-scrolled', window.scrollY > 12)
-  window.addEventListener('scroll', onScroll, { passive: true })
-  onScroll()
 
   // Settings and bio live inside re-rendered markup, so delegate.
   document.addEventListener('submit', (e) => {
@@ -1538,7 +1531,6 @@ async function boot() {
   await render()
 
   if (isSignedIn()) loadNotifications()
-  observeReveals()
 }
 
 boot()
