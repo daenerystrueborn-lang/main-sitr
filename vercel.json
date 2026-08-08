@@ -7,9 +7,17 @@
   ],
   "headers": [
     {
-      "source": "/assets/(.*)",
+      "comment": "Images and video never change content under a given filename, so they can cache hard.",
+      "source": "/assets/(img|video)/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "comment": "style.css and app.js keep the SAME filename across every deploy — no content hash. Marking them immutable meant a returning visitor kept running last week's CSS/JS forever and never saw a deploy. must-revalidate lets the browser reuse them only after asking whether they changed.",
+      "source": "/assets/(css|js)/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
       ]
     },
     {

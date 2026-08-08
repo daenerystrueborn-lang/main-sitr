@@ -98,18 +98,29 @@ button{font-family:inherit;}
 .hero-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
 
 /* ===== SEASON HERO (looping video) =====
-   Same .hero box, but the static background image is replaced by <video>.
-   The poster is hero.jpg, so if the video never loads (blocked autoplay,
-   slow link, codec) this degrades to exactly the old hero. */
-.hero-video{background-image:none;background-color:#000;}
-.hero-media{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-3;filter:saturate(.55) contrast(1.06) brightness(.62);}
-.hero-scrim{position:absolute;inset:0;z-index:-2;background:
-  linear-gradient(180deg,rgb(0 0 0 / 42%) 0%,rgb(0 0 0 / 58%) 55%,rgb(0 0 0 / 94%) 100%),
-  radial-gradient(circle at 50% 45%,transparent 20%,rgb(0 0 0 / 45%) 100%);}
-/* Readability over moving footage — the copy needs more weight than it does
-   over a still. */
-.hero-video .hero-inner{text-shadow:0 2px 18px rgb(0 0 0 / 85%);}
-@media (prefers-reduced-motion:reduce){.hero-media{display:none;}}
+   The video IS the background — no still image behind it, nothing letterboxed
+   in a frame, just footage bleeding edge to edge with a dark veil over it so
+   the heading stays readable.
+
+   Two things this has to beat, both of which broke it before:
+   - `section.hero.season-hero` (0,2,1) outranks `.hero` (0,1,0), so the
+     hero.jpg background-image is actually cleared instead of showing through.
+   - POSITIVE z-index on the video, not negative. `.hero` sets isolation:isolate,
+     and a negative-z child inside that stacking context paints in a way that
+     let the video end up laid out as a flex item beside the copy. Explicit
+     0 / 1 / 2 layering removes the ambiguity. */
+section.hero.season-hero{background-image:none;background-color:#000;padding:124px 20px 40px;}
+section.hero.season-hero::before{content:none;}
+.season-hero>.season-hero-video{position:absolute;top:0;left:0;width:100%;height:100%;
+  object-fit:cover;object-position:center 28%;z-index:0;pointer-events:none;border:0;}
+.season-hero>.season-hero-veil{position:absolute;inset:0;z-index:1;pointer-events:none;background:
+  linear-gradient(180deg,rgb(0 0 0 / 55%) 0%,rgb(0 0 0 / 45%) 40%,rgb(0 0 0 / 92%) 100%),
+  radial-gradient(circle at 50% 42%,transparent 12%,rgb(0 0 0 / 62%) 100%);}
+.season-hero>.hero-inner{position:relative;z-index:2;}
+/* Moving footage needs more separation behind the copy than a still does. */
+.season-hero .hero-inner h1,.season-hero .hero-inner p{text-shadow:0 2px 22px rgb(0 0 0 / 92%);}
+/* No autoplaying motion for anyone who asked the OS not to show it. */
+@media (prefers-reduced-motion:reduce){.season-hero>.season-hero-video{display:none;}}
 
 /* ===== TIER TRACK ===== */
 .tier-track{display:flex;gap:14px;overflow-x:auto;padding:6px 2px 14px;scroll-snap-type:x proximity;}

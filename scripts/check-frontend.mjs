@@ -156,7 +156,8 @@ else ok(`all ${navTargets.size} data-route links resolve to a route`)
 /* ── 6. every asset the markup references is on disk ───────────────────── */
 
 const assets = new Set([
-  ...[...html.matchAll(/(?:src|href)="((?!https?:|#|mailto:)[^"]+)"/g)].map(m => m[1]),
+  // data: URIs are inlined content, not files — the SVG favicon is one.
+  ...[...html.matchAll(/(?:src|href)="((?!https?:|data:|#|mailto:)[^"]+)"/g)].map(m => m[1]),
   ...[...css.matchAll(/url\(['"]?((?!data:|https?:)[^'")]+)['"]?\)/g)].map(m => m[1]),
 ])
 const missingAssets = []

@@ -9,6 +9,10 @@
 <meta property="og:title" content="Astral — WhatsApp RPG">
 <meta property="og:description" content="Dungeons, cards, and companions — built for WhatsApp.">
 <meta property="og:type" content="website">
+<!-- Sun favicon, inlined as SVG so there's no extra request and it stays crisp
+     at every size. Same glyph as the .brand-mark in the header. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d4af37' stroke-width='2' stroke-linecap='round'%3E%3Crect width='24' height='24' fill='%2307070a'/%3E%3Ccircle cx='12' cy='12' r='4.6' fill='%23d4af37' stroke='none'/%3E%3Cpath d='M12 1.6v2.6M12 19.8v2.6M4.2 4.2l1.9 1.9M17.9 17.9l1.9 1.9M1.6 12h2.6M19.8 12h2.6M4.2 19.8l1.9-1.9M17.9 6.1l1.9-1.9'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d4af37' stroke-width='2' stroke-linecap='round'%3E%3Crect width='24' height='24' fill='%2307070a'/%3E%3Ccircle cx='12' cy='12' r='4.6' fill='%23d4af37' stroke='none'/%3E%3Cpath d='M12 1.6v2.6M12 19.8v2.6M4.2 4.2l1.9 1.9M17.9 17.9l1.9 1.9M1.6 12h2.6M19.8 12h2.6M4.2 19.8l1.9-1.9M17.9 6.1l1.9-1.9'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
@@ -198,16 +202,15 @@
 <!-- SEASON -->
 <!-- ===================================================== -->
 <main class="view" id="view-season">
-  <section class="hero hero-video">
-    <!-- Mei's final form on loop behind the season header. Muted + playsinline
-         is what lets mobile browsers autoplay it at all; preload="none" keeps
-         the 2.5MB off the wire until this route is actually opened, and the
-         poster covers the gap. app.js pauses it when you navigate away. -->
-    <video id="seasonHeroVideo" class="hero-media" autoplay muted loop playsinline
-           preload="none" poster="assets/img/hero.jpg" aria-hidden="true" tabindex="-1">
+  <section class="hero season-hero">
+    <!-- Mei's final form IS the background — no still image, no poster, nothing
+         framed. muted + playsinline is what lets mobile autoplay it at all.
+         aria-hidden because it carries no information; the heading does. -->
+    <video id="seasonHeroVideo" class="season-hero-video" autoplay muted loop playsinline
+           preload="auto" aria-hidden="true" tabindex="-1">
       <source src="assets/video/mei-finalform.mp4" type="video/mp4">
     </video>
-    <div class="hero-scrim"></div>
+    <div class="season-hero-veil"></div>
     <div class="hero-inner">
       <div class="hero-badge">
         <svg class="icon" viewBox="0 0 24 24"><path d="M12 2l2.4 6.9L21 9l-5 4.6L17.4 21 12 17.3 6.6 21 8 13.6 3 9l6.6-.1L12 2z"/></svg>

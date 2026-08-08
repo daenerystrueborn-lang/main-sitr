@@ -922,10 +922,10 @@ async function loadSeason() {
   const tiersHost = $('#seasonTiers')
   if (tiersHost) tiersHost.innerHTML = skeletonRows(6)
 
-  // preload="none" means the video has no source loaded until we ask for it,
-  // so the 2.5MB only goes over the wire for people who open this route.
-  // .play() can reject (autoplay policy, reduced-motion, save-data) — the
-  // poster is the fallback, so a rejection is fine and deliberately ignored.
+  // The hero video autoplays on its own; this only restarts it after a
+  // navigate-away paused it. .play() can reject (autoplay policy, save-data,
+  // reduced-motion) — the black hero background is the fallback, so a rejection
+  // is deliberately ignored.
   const vid = $('#seasonHeroVideo')
   if (vid) { try { vid.play()?.catch(() => {}) } catch {} }
 
