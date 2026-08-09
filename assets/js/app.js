@@ -10,7 +10,7 @@ import { api, ApiError, onConnectionChange, onAuthLost, hasSession, fileToDataUr
 import {
   $, $$, esc, attr, num, compact, naira, relTime, duration, titleCase,
   toast, busy, skeletonRows, skeletonCards,
-  emptyState, openModal, closeModal, initials, bar, copyText, initMotion,
+  emptyState, openModal, closeModal, initials, bar, copyText, initMotion, iconSvg,
 } from './ui.js'
 
 /** astral's checkmark, used in every `.plan-features` list. */
@@ -20,8 +20,12 @@ const CHECK = '<span class="check"><svg class="icon check-icon" viewBox="0 0 24 
  * astral's `.perk-icon` carries its tint inline rather than in the stylesheet,
  * so every card that wants one goes through here and they all match.
  */
-const perkIcon = (glyph) =>
-  `<div class="perk-icon" style="background:rgb(212 175 55 / 12%);color:var(--gold);">${glyph}</div>`
+const perkIcon = (name = 'spark') =>
+  `<div class="perk-icon" style="background:rgb(212 175 55 / 12%);color:var(--gold);">${iconSvg(name)}</div>`
+
+const WHATSAPP_BOT = '923375465038'
+const whatsappCommandUrl = (command) =>
+  `https://wa.me/${WHATSAPP_BOT}?text=${encodeURIComponent(String(command ?? ''))}`
 
 /* ──────────────────────────────── state ───────────────────────────────── */
 
@@ -43,18 +47,15 @@ const isSignedIn = () => !!state.me
 /* ──────────────────────────────── router ──────────────────────────────── */
 
 const routes = {
-  // `title` overwrites <title> on every navigation, so the home entry has to
-  // match the static <title> in index.html — otherwise the tab reads "Astral"
-  // for one frame and then flips to whatever is written here.
-  home: { view: 'view-home', title: 'Astral', load: loadHome },
-  leaderboard: { view: 'view-leaderboard', title: 'Leaderboard — Astral', load: loadLeaderboard },
-  season: { view: 'view-season', title: 'Season — Astral', load: loadSeason },
-  premium: { view: 'view-premium', title: 'Premium — Astral', load: loadPremium },
-  profile: { view: 'view-profile', title: 'Profile — Astral', load: loadProfile, auth: true },
-  settings: { view: 'view-settings', title: 'Settings — Astral', load: loadSettings, auth: true },
-  login: { view: 'view-login', title: 'Sign in — Astral', load: loadAuthMeta },
-  signup: { view: 'view-signup', title: 'Join — Astral', load: loadAuthMeta },
-  404: { view: 'view-404', title: 'Not found — Astral' },
+  home: { view: 'view-home', title: 'Home', load: loadHome },
+  leaderboard: { view: 'view-leaderboard', title: 'Leaderboard', load: loadLeaderboard },
+  season: { view: 'view-season', title: 'Season', load: loadSeason },
+  premium: { view: 'view-premium', title: 'Premium', load: loadPremium },
+  profile: { view: 'view-profile', title: 'Profile', load: loadProfile, auth: true },
+  settings: { view: 'view-settings', title: 'Settings', load: loadSettings, auth: true },
+  login: { view: 'view-login', title: 'Sign in', load: loadAuthMeta },
+  signup: { view: 'view-signup', title: 'Join', load: loadAuthMeta },
+  404: { view: 'view-404', title: 'Not found' },
 }
 
 function parseHash() {
@@ -161,7 +162,7 @@ function paintAvatar() {
   if (!btn || !inner) return
 
   if (!isSignedIn()) {
-    inner.textContent = '↪'
+    inner.innerHTML = iconSvg('chat')
     btn.classList.remove('is-premium')
     btn.setAttribute('aria-label', 'Sign in')
     btn.title = 'Sign in'
@@ -218,18 +219,18 @@ function paintBell() {
 /* ───────────────────────────── notifications ──────────────────────────── */
 
 const NOTE_ICONS = {
-  battle: '⚔️', reward: '🎁', season: '🏔️', premium: '👑', payment: '💳',
-  security: '🔐', system: '📣', daily: '📅', stamina: '⚡', dungeon: '🗝️',
+  battle: 'battle', reward: 'reward', season: 'season', premium: 'premium', payment: 'payment',
+  security: 'security', system: 'info', daily: 'calendar', stamina: 'stamina', dungeon: 'dungeon',
 }
 
-function noteIcon(kind) { return NOTE_ICONS[kind] ?? '•' }
+function noteIcon(kind) { return iconSvg(NOTE_ICONS[kind] ?? 'info', 'note-icon') }
 
 async function loadNotifications() {
   const body = $('#panelBody')
   if (!body) return
 
   if (!isSignedIn() && !hasSession()) {
-    body.innerHTML = emptyState('🔔', 'Sign in for alerts',
+    body.innerHTML = emptyState('alert', 'Sign in for alerts',
       'Your dungeon runs, rewards and payments all report here.') +
       `<div style="padding:0 6px 6px"><a class="btn btn-primary btn-block" href="#/login">Sign in</a></div>`
     return
@@ -243,7 +244,7 @@ async function loadNotifications() {
     paintBell()
     paintNotifications()
   } catch (err) {
-    body.innerHTML = emptyState('⚠️', "Couldn't load alerts", err?.message ?? '')
+    body.innerHTML = emptyState('warning', "Couldn't load alerts", err?.message ?? '')
   }
 }
 
@@ -254,7 +255,7 @@ function paintNotifications() {
   body.dataset.filled = '1'
 
   if (!items.length) {
-    body.innerHTML = emptyState('🌙', 'Nothing waiting', 'You are all caught up.')
+    body.innerHTML = emptyState('moon', 'Nothing waiting', 'You are all caught up.')
     return
   }
 
@@ -265,7 +266,7 @@ function paintNotifications() {
     const unread = !n.read ? ' is-unread' : ''
     return `
       <div class="note${sev}${unread}" data-note="${attr(n.id)}" data-derived="${n.derived ? '1' : ''}">
-        <span class="note-i">${esc(noteIcon(n.kind))}</span>
+        <span class="note-i">${noteIcon(n.kind)}</span>
         <div class="note-main">
           <div class="note-t">${esc(n.title)}</div>
           <div class="note-b">${esc(n.body)}</div>
@@ -565,14 +566,14 @@ async function loadAuthMeta() {
   if (card && meta.botNumber) {
     const wa = `https://wa.me/${String(meta.botNumber).replace(/\D/g, '')}?text=${encodeURIComponent(meta.prefix + 'menu')}`
     card.innerHTML = `
-      ${perkIcon('💬')}
+      ${perkIcon('chat')}
       <h4>Step one: say hi to the bot</h4>
       <p style="margin-bottom:14px">WhatsApp only lets the bot DM you once you've messaged it, so the code can't arrive until you do.</p>
       <a class="btn btn-primary btn-sm" href="${attr(wa)}" target="_blank" rel="noopener">
         Message +${esc(String(meta.botNumber).replace(/\D/g, ''))}
       </a>`
   } else if (card) {
-    card.innerHTML = `${perkIcon('💬')}<h4>Step one: message the bot</h4>
+    card.innerHTML = `${perkIcon('chat')}<h4>Step one: message the bot</h4>
       <p>Send the bot any message on WhatsApp first — it can only DM you back after that.</p>`
   }
 
@@ -592,9 +593,9 @@ async function loadRegisterOptions() {
   if (!classSel || !raceSel) return
 
   classSel.innerHTML = (meta.classes ?? [])
-    .map(c => `<option value="${attr(c.id)}">${esc(c.emoji ? c.emoji + ' ' : '')}${esc(c.name ?? titleCase(c.id))}</option>`).join('')
+    .map(c => `<option value="${attr(c.id)}">${esc(c.name ?? titleCase(c.id))}</option>`).join('')
   raceSel.innerHTML = (meta.races ?? [])
-    .map(r => `<option value="${attr(r.id)}">${esc(r.emoji ? r.emoji + ' ' : '')}${esc(r.name ?? titleCase(r.id))}</option>`).join('')
+    .map(r => `<option value="${attr(r.id)}">${esc(r.name ?? titleCase(r.id))}</option>`).join('')
 
   const describe = (list, sel, hintId) => {
     const hint = document.getElementById(hintId)
@@ -711,7 +712,7 @@ async function loadHome() {
   if (boardHost) {
     boardHost.innerHTML = board?.rows?.length
       ? board.rows.map(rowHtml).join('')
-      : emptyState('🏔️', 'No one on the board yet', 'Be the first to register.')
+      : emptyState('rank', 'No one on the board yet', 'Be the first to register.')
   }
 }
 
@@ -720,9 +721,9 @@ function paintHomeStatic() {
   const prefix = state.meta?.prefix ?? '.'
   if (steps) {
     steps.innerHTML = [
-      ['💬', 'Message the bot', `Open WhatsApp and send <code>${esc(prefix)}menu</code>. No download, no account.`],
-      ['🧝', 'Make your hero', `Pick a class and race with <code>${esc(prefix)}register</code>, then spend your 15 stat points.`],
-      ['⚔️', 'Climb and rank', `Fight through floors, take on other players, and push up the boards each season.`],
+      ['chat', 'Message the bot', `Open WhatsApp and send <code>${esc(prefix)}menu</code>. No download, no account.`],
+      ['character', 'Make your hero', `Pick a class and race with <code>${esc(prefix)}register</code>, then spend your 15 stat points.`],
+      ['battle', 'Climb and rank', `Fight through floors, take on other players, and push up the boards each season.`],
     ].map(([i, t, b]) => `
       <div class="perk-card reveal">
         ${perkIcon(i)}
@@ -751,17 +752,19 @@ function paintHomeStatic() {
 function rowHtml(r) {
   const rankClass = r.position <= 3 ? ` top${r.position}` : ''
   const you = state.me && r.uid === state.me.uid ? ' is-you' : ''
-  const medal = r.position === 1 ? '🥇' : r.position === 2 ? '🥈' : r.position === 3 ? '🥉' : r.position
+  const medal = r.position <= 3
+    ? iconSvg('rank', 'lb-medal')
+    : r.position
   return `
     <button class="lb-row${you}" data-uid="${attr(r.uid)}">
-      <span class="lb-rank${rankClass}">${esc(medal)}</span>
+      <span class="lb-rank${rankClass}">${typeof medal === 'string' ? medal : esc(medal)}</span>
       <span class="lb-avatar">${r.avatarUrl
         ? `<img src="${attr(r.avatarUrl)}" alt="" loading="lazy">`
         : esc(initials(r.name))}</span>
       <span class="lb-name">${esc(r.name)}${r.premium ? ' <span class="badge badge-gold">Premium</span>' : ''}
-        <span class="sub">${esc(r.rank?.emoji ?? '')} ${esc(r.rank?.title ?? '')} · Lv ${num(r.level)}${
+      <span class="sub">${esc(r.rank?.title ?? '')} · Lv ${num(r.level)}${
           r.classId ? ' · ' + esc(titleCase(r.classId)) : ''}${
-          r.character?.emoji ? ' · ' + esc(r.character.emoji) : ''}</span>
+          r.character?.name ? ' · ' + esc(r.character.name) : ''}</span>
       </span>
       <span class="lb-score">${esc(r.display)}</span>
     </button>`
@@ -796,7 +799,7 @@ async function showBoard(key, { force = false } = {}) {
       data = await api.leaderboard(key, 100)
       state.boardCache.set(key, data)
     } catch (err) {
-      list.innerHTML = emptyState('⚠️', "Couldn't load the board", err?.message ?? '')
+      list.innerHTML = emptyState('warning', "Couldn't load the board", err?.message ?? '')
       return
     }
   }
@@ -832,7 +835,7 @@ function paintBoardRows(rows) {
   if (!list) return
   list.innerHTML = rows.length
     ? rows.map(rowHtml).join('')
-    : emptyState('🏔️', 'Nothing here yet', 'Play a few rounds and this board fills up.')
+    : emptyState('rank', 'Nothing here yet', 'Play a few rounds and this board fills up.')
 }
 
 function filterBoard(query) {
@@ -843,7 +846,7 @@ function filterBoard(query) {
   if (!list) return
   list.innerHTML = hits.length
     ? hits.map(rowHtml).join('')
-    : emptyState('🔍', 'No match', `Nobody on this board is called "${query.trim()}".`)
+    : emptyState('info', 'No match', `Nobody on this board is called "${query.trim()}".`)
 }
 
 /* ─────────────────────── player detail (modal) ────────────────────────── */
@@ -860,7 +863,7 @@ async function openPlayer(uid) {
     const out = await api.player(uid)
     openModal(playerDetailHtml(out))
   } catch (err) {
-    openModal(emptyState('🚫', 'Player unavailable', err?.message ?? 'That profile could not be loaded.'))
+    openModal(emptyState('warning', 'Player unavailable', err?.message ?? 'That profile could not be loaded.'))
   }
 }
 
@@ -889,9 +892,14 @@ function playerDetailHtml({ player: p, rankings, isSelf }) {
         ? `<img src="${attr(p.avatarUrl)}" alt="">`
         : esc(initials(p.name))}</div>
       <div class="pd-id">
-        <h3>${esc(p.name)}${isSelf ? ' <span class="badge badge-lvl">You</span>' : ''}${
-          p.premium?.active ? ' <span class="badge badge-gold">Premium</span>' : ''}</h3>
-        <p class="pd-sub">${esc(p.rank.emoji ?? '')} ${esc(p.rank.title)} · ${esc(p.rank.epithet ?? '')}</p>
+        <div class="pd-name-row">
+          <h3>${esc(p.name)}</h3>
+          <div class="pd-badges">
+            ${isSelf ? '<span class="badge badge-lvl">You</span>' : ''}
+            ${p.premium?.active ? '<span class="badge badge-gold">Premium</span>' : ''}
+          </div>
+        </div>
+        <p class="pd-sub">${iconSvg('rank', 'inline-icon')} ${esc(p.rank.title)} · ${esc(p.rank.epithet ?? '')}</p>
         <p class="subtext">Lv ${num(p.level)}${p.classId ? ' · ' + esc(titleCase(p.classId)) : ''}${
           p.raceId ? ' · ' + esc(titleCase(p.raceId)) : ''}</p>
         ${p.bio ? `<p class="pd-sub" style="margin-top:7px">"${esc(p.bio)}"</p>` : ''}
@@ -922,7 +930,7 @@ function playerDetailHtml({ player: p, rankings, isSelf }) {
         <div class="card" style="display:flex;gap:12px;align-items:center">
           ${p.equippedCharacter.image
             ? `<img src="${attr(p.equippedCharacter.image)}" alt="" style="width:52px;height:52px;border-radius:var(--r);object-fit:cover">`
-            : `<span style="font-size:30px">${esc(p.equippedCharacter.emoji ?? '✨')}</span>`}
+            : iconSvg('character', 'character-placeholder')}
           <div style="min-width:0">
             <strong>${esc(p.equippedCharacter.name)}</strong>
             <p class="subtext">${esc(p.equippedCharacter.rarity ? titleCase(p.equippedCharacter.rarity) : '')}${
@@ -933,7 +941,7 @@ function playerDetailHtml({ player: p, rankings, isSelf }) {
       <div class="pd-sec-title">Alerts</div>
       ${alerts.length ? alerts.map(a => `
         <div class="alert-item${a.severity && a.severity !== 'info' ? ' sev-' + esc(a.severity) : ''}">
-          <span class="note-i">${esc(noteIcon(a.kind))}</span>
+          <span class="note-i">${noteIcon(a.kind)}</span>
           <div>
             <div class="alert-t">${esc(a.title)}</div>
             <div class="alert-b">${esc(a.body)}</div>
@@ -964,12 +972,12 @@ async function openCharacter(id) {
     openModal(`
       ${c.image ? `<div class="pd-banner" style="background-image:url('${attr(c.image)}')"></div>` : ''}
       <div class="pd-head">
-        <div class="pd-avatar">${esc(c.emoji ?? '✨')}</div>
+        <div class="pd-avatar">${iconSvg('character', 'character-placeholder')}</div>
         <div class="pd-id">
           <h3>${esc(c.name)}
             ${equipped ? '<span class="badge badge-gold">Equipped</span>' : owned ? '<span class="badge badge-lvl">Owned</span>' : ''}</h3>
           <p class="pd-sub">${esc(c.rarity ? titleCase(c.rarity) : '')}${c.characterTier ? ` · Tier ${esc(c.characterTier)}` : ''}</p>
-          ${c.gemPrice ? `<p class="subtext">${num(c.gemPrice)} 💎</p>` : ''}
+          ${c.gemPrice ? `<p class="subtext">${num(c.gemPrice)} gems</p>` : ''}
         </div>
       </div>
       <div class="pd-body">
@@ -987,7 +995,7 @@ async function openCharacter(id) {
           : `<p class="subtext">Nobody has this equipped yet.</p>`}
       </div>`)
   } catch (err) {
-    openModal(emptyState('🚫', 'Character unavailable', err?.message ?? ''))
+    openModal(emptyState('warning', 'Character unavailable', err?.message ?? ''))
   }
 }
 
@@ -1006,7 +1014,7 @@ async function loadSeason() {
     $('#seasonDesc').textContent = 'The next season has not started yet — check back soon.'
     $('#seasonClock').textContent = ''
     $('#seasonMine').innerHTML = ''
-    if (tiersHost) tiersHost.innerHTML = `<div style="flex:1">${emptyState('🏔️', 'Between seasons', 'Rewards and the battle pass return when the next season opens.')}</div>`
+    if (tiersHost) tiersHost.innerHTML = `<div style="flex:1">${emptyState('season', 'Between seasons', 'Rewards and the battle pass return when the next season opens.')}</div>`
     return
   }
 
@@ -1041,7 +1049,7 @@ async function loadSeason() {
           ? `<p class="subtext" style="margin-top:13px">Upgrade in chat with <code>${esc(state.meta?.prefix ?? '.')}season buypass</code> — ${num(s.premiumCost)} ${esc(s.premiumCurrency ?? 'gems')}.</p>`
           : ''}`
     } else {
-      mine.innerHTML = `${perkIcon('🏔️')}<h4>Track your battle pass</h4>
+      mine.innerHTML = `${perkIcon('season')}<h4>Track your battle pass</h4>
         <p style="margin-bottom:14px">Sign in to see which tiers you've reached and what's still unclaimed.</p>
         <a class="btn btn-primary btn-sm" href="#/login" data-route="login">Sign in</a>`
     }
@@ -1053,7 +1061,7 @@ async function loadSeason() {
     const nextUp = (out.tiers ?? []).find(t => t.reached && !t.claimed)
     tiersHost.innerHTML = (out.tiers ?? []).map(t => {
       const cls = t === nextUp ? ' current' : t.claimed || t.reached ? ' unlocked' : ''
-      const glyph = t.claimed ? '✓' : t.reached ? '🎁' : '🔒'
+      const glyph = t.claimed ? iconSvg('reward', 'tier-icon-svg') : t.reached ? iconSvg('gift', 'tier-icon-svg') : iconSvg('lock', 'tier-icon-svg')
       return `
         <div class="tier-node${cls}" title="${attr(t.claimed ? 'Claimed' : t.reached ? 'Ready to claim' : 'Locked')}">
           <div class="tier-num">TIER ${num(t.tier)}</div>
@@ -1084,10 +1092,9 @@ async function loadSeason() {
       <div class="perk-card reveal">
         ${e.image
           ? `<img src="${attr(e.image)}" alt="" loading="lazy"
-                  onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'perk-icon',textContent:this.dataset.fallback,style:'background:rgb(212 175 55 / 12%);color:var(--gold)'}))"
-                  data-fallback="${attr(e.emoji ?? '🎁')}"
+                  onerror="this.remove()"
                   style="width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:var(--r);margin-bottom:11px">`
-          : perkIcon(esc(e.emoji ?? '🎁'))}
+          : perkIcon('gift')}
         <h4>${esc(e.name)}</h4>
         <p>${num(e.price)} ${esc(out.currency === 'seasonPoints' ? 'pts' : out.currency)}${
           e.amount ? ` · ×${num(e.amount)}` : ''}</p>
@@ -1124,9 +1131,10 @@ async function loadPremium() {
           <li>${CHECK} Boosted rewards on dungeon runs</li>
           <li>${CHECK} Access to premium-only commands</li>
         </ul>
-        <button class="btn ${best ? 'btn-gold' : 'btn-secondary'} btn-block" data-copy="${attr(p.command)}" style="margin-top:auto">
-          ${esc(p.command)}
-        </button>
+        <a class="btn ${best ? 'btn-gold' : 'btn-secondary'} btn-block" href="${attr(whatsappCommandUrl(p.command))}" target="_blank" rel="noopener" style="margin-top:auto">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1.1-5.3A8.5 8.5 0 1 1 21 11.5z"/><path d="M8.5 8.5c.4 2.4 2.1 4.6 4.7 5.5l1.5-1.1 1.8.8c-.2 1-1 1.6-2 1.5-3.7-.4-6.8-3.5-7.2-7.2-.1-1 .5-1.8 1.5-2l.8 1.8-1.1 1.5z"/></svg>
+          Continue in WhatsApp
+        </a>
       </div>`
     }).join('')
   }
@@ -1135,12 +1143,12 @@ async function loadPremium() {
   if (mine && out.you) {
     mine.style.display = ''
     mine.innerHTML = out.you.active
-      ? `${perkIcon('👑')}<h4>Premium is active</h4>
+      ? `${perkIcon('premium')}<h4>Premium is active</h4>
          <p>${esc(titleCase(out.you.plan ?? 'Premium'))} · renews or expires ${esc(relTime(out.you.expiresAt))}.</p>`
       : out.you.pending
-        ? `${perkIcon('⏳')}<h4>Payment under review</h4>
+        ? `${perkIcon('payment')}<h4>Payment under review</h4>
            <p>We've got your ${esc(titleCase(out.you.pending.plan ?? ''))} request. An admin will confirm it shortly.</p>`
-        : `${perkIcon('✨')}<h4>You're on the free tier</h4>
+        : `${perkIcon('spark')}<h4>You're on the free tier</h4>
            <p>Everything below is optional — the game is fully playable without it.</p>`
   } else if (mine) {
     mine.style.display = 'none'
@@ -1150,12 +1158,13 @@ async function loadPremium() {
   if (gems) {
     gems.innerHTML = (out.gemPackages ?? []).map(g => `
       <div class="perk-card reveal">
-        ${perkIcon('💎')}
+        ${perkIcon('gem')}
         <h4>${num(g.gems)} gems</h4>
         <p>${esc(naira(g.priceNaira))} · ${esc(naira(g.perGemNaira))} per gem</p>
-        <button class="btn btn-ghost btn-sm btn-block" data-copy="${attr(g.command)}" style="margin-top:11px">
-          ${esc(g.command)}
-        </button>
+        <a class="btn btn-ghost btn-sm btn-block" href="${attr(whatsappCommandUrl(g.command))}" target="_blank" rel="noopener" style="margin-top:11px">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1.1-5.3A8.5 8.5 0 1 1 21 11.5z"/><path d="M8.5 8.5c.4 2.4 2.1 4.6 4.7 5.5l1.5-1.1 1.8.8c-.2 1-1 1.6-2 1.5-3.7-.4-6.8-3.5-7.2-7.2-.1-1 .5-1.8 1.5-2l.8 1.8-1.1 1.5z"/></svg>
+          Buy gems in WhatsApp
+        </a>
       </div>`).join('')
   }
 
@@ -1204,7 +1213,7 @@ async function loadProfile() {
   const inv = (p.inventory ?? []).slice(0, 24).map(i => `
     <div class="inv-slot${i.rarity === 'rare' ? ' rare' : i.rarity === 'epic' || i.rarity === 'legendary' ? ' epic' : ''}"
          title="${attr(i.name)}">
-      <span>${esc(i.emoji ?? '📦')}</span>
+      <span>${iconSvg('inventory', 'inventory-icon')}</span>
       ${i.qty > 1 ? `<span class="qty">${num(i.qty)}</span>` : ''}
     </div>`).join('')
 
@@ -1223,7 +1232,7 @@ async function loadProfile() {
           <h2>${esc(p.name)}
             <span class="badge badge-lvl">Lv ${num(p.level)}</span>
             ${p.premium?.active ? '<span class="badge badge-gold">Premium</span>' : ''}</h2>
-          <p class="handle">${esc(p.rank.emoji ?? '')} ${esc(p.rank.title)} · ${esc(p.rank.epithet ?? '')}</p>
+          <p class="handle">${iconSvg('rank', 'inline-icon')} ${esc(p.rank.title)} · ${esc(p.rank.epithet ?? '')}</p>
         </div>
         <div class="profile-actions">
           <a class="btn btn-secondary btn-sm" href="#/settings" data-route="settings">Settings</a>
@@ -1253,7 +1262,7 @@ async function loadProfile() {
 
       ${p.statPoints?.unallocated
         ? `<div class="perk-card reveal" style="margin-top:16px;border-color:rgb(212 175 55 / 40%)">
-            ${perkIcon('✨')}
+            ${perkIcon('spark')}
             <h4>${num(p.statPoints.unallocated)} stat point${p.statPoints.unallocated === 1 ? '' : 's'} unspent</h4>
             <p style="margin-bottom:12px">Spend them in chat — they do nothing sitting there.</p>
             <button class="btn btn-primary btn-sm" data-copy="${attr(prefix + 'stats')}">${esc(prefix)}stats</button>
@@ -1294,7 +1303,7 @@ async function loadProfile() {
         <button class="card reveal" data-char="${attr(p.equippedCharacter.id)}" style="text-align:left;width:100%;display:flex;gap:14px;align-items:center;cursor:pointer">
           ${p.equippedCharacter.image
             ? `<img src="${attr(p.equippedCharacter.image)}" alt="" style="width:58px;height:58px;border-radius:var(--r);object-fit:cover">`
-            : `<span style="font-size:32px">${esc(p.equippedCharacter.emoji ?? '✨')}</span>`}
+            : iconSvg('character', 'character-placeholder')}
           <span style="min-width:0">
             <strong>${esc(p.equippedCharacter.name)}</strong>
             <p class="subtext">${esc(p.equippedCharacter.ability ?? '')}</p>
@@ -1474,7 +1483,7 @@ async function loadSettings() {
           <button class="btn btn-primary btn-block" id="nameSaveBtn" type="submit">Save name</button>
         ` : `
           <div class="rename-locked">
-            <span aria-hidden="true">⏳</span>
+            ${iconSvg('payment', 'inline-icon')}
             <span>Next rename unlocks in <strong>${esc(untilLabel(rename.nextRenameAt))}</strong>
             — that's the same 7-day cooldown <code>${esc(prefix)}rename</code> uses in chat.</span>
           </div>

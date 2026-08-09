@@ -367,6 +367,10 @@ section.hero.season-hero::before{content:none;}
 .site-footer-col a:hover{color:var(--gold);}
 .site-footer-bottom{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-top:22px;border-top:1px solid var(--border-soft);flex-wrap:wrap;}
 .site-footer-social{display:flex;gap:8px;}
+/* Attribution line — quieter than the rest of the footer, but must stay legible: it's a licence requirement, not decoration. */
+.site-footer-credit{margin:14px 0 0;font-size:12px;line-height:1.7;color:var(--text-subtle);}
+.site-footer-credit a{color:var(--text-muted);text-decoration:underline;text-underline-offset:2px;transition:var(--transition);}
+.site-footer-credit a:hover{color:var(--gold);}
 
 @media (max-width:820px){
   .site-footer-top{grid-template-columns:1fr 1fr;row-gap:28px;}
@@ -467,7 +471,7 @@ section.hero.season-hero::before{content:none;}
    both at the top pins the avatar's -38px overlap regardless of how much
    text sits beside it, and the column below is free to grow. */
 .pd-head{display:flex;align-items:flex-start;gap:14px;padding:0 22px 6px;}
-.pd-avatar{width:80px;height:80px;margin-top:-38px;border-radius:999px;background:var(--grad-1);color:#0a0805;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;border:5px solid var(--bg-2);flex-shrink:0;}
+.pd-avatar{width:80px;height:80px;margin-top:-38px;border-radius:999px;background:var(--grad-1);color:#0a0805;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;border:5px solid var(--bg-2);flex-shrink:0;overflow:hidden;}
 /* The identity column. min-width:0 lets it shrink below its longest word so a
    long name wraps instead of overflowing — .modal-card sets overflow-y:auto,
    which computes overflow-x to auto too, so an overflowing name was clipped
@@ -475,8 +479,9 @@ section.hero.season-hero::before{content:none;}
 .pd-id{min-width:0;flex:1;padding-top:6px;}
 /* Block, not flex: as a flex row the name text was an anonymous item stuck at
    min-content, so it could never wrap. Inline-flex badges flow after it. */
-.pd-head h3{font-size:19px;font-weight:800;line-height:1.3;overflow-wrap:anywhere;}
-.pd-head h3 .badge{vertical-align:2px;margin-left:7px;}
+.pd-name-row{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;min-width:0;}
+.pd-head h3{min-width:0;font-size:19px;font-weight:800;line-height:1.3;overflow-wrap:anywhere;word-break:break-word;}
+.pd-badges{display:flex;align-items:center;gap:5px;flex-wrap:wrap;padding-top:2px;}
 .pd-sub{font-size:12.5px;color:var(--text-muted);margin:4px 0 0;line-height:1.45;overflow-wrap:anywhere;}
 .pd-id .subtext{overflow-wrap:anywhere;}
 .pd-body{padding:18px 22px 24px;}
@@ -538,7 +543,13 @@ section.hero.season-hero::before{content:none;}
 .skel-row{display:flex;align-items:center;gap:12px;padding:14px;}
 
 .empty{text-align:center;padding:40px 20px;}
-.empty-i{width:46px;height:46px;margin:0 auto 12px;border-radius:999px;border:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:center;font-size:20px;}
+.empty-i{width:46px;height:46px;margin:0 auto 12px;border-radius:999px;border:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:center;}
+.empty-icon{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;color:var(--gold);}
+.inline-icon{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-2px;}
+.note-icon,.lb-medal,.tier-icon-svg,.inventory-icon,.character-placeholder{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.tier-icon-svg{width:21px;height:21px;}
+.character-placeholder{width:30px;height:30px;color:var(--gold);}
+.inventory-icon{width:22px;height:22px;color:var(--gold);}
 .empty h3{font-size:15px;font-weight:800;margin-bottom:5px;}
 .empty p{font-size:13px;color:var(--text-subtle);margin:0;line-height:1.55;max-width:320px;margin-inline:auto;}
 
@@ -791,8 +802,8 @@ html.no-motion .hero h1 .grad{background:var(--grad-1);-webkit-background-clip:t
 .img-upload-preview{flex-shrink:0;background:var(--bg-3) center/cover no-repeat;
   border:1px solid var(--border);display:grid;place-items:center;
   font-size:11px;font-weight:700;color:var(--text-subtle);text-align:center;}
-.img-upload-preview.banner{width:132px;height:52px;border-radius:var(--r);}
-.img-upload-preview.avatar{width:64px;height:64px;border-radius:50%;font-size:18px;
+.img-upload-preview.banner{width:150px;height:auto;aspect-ratio:2.4 / 1;border-radius:var(--r);background-size:cover;background-position:center;}
+.img-upload-preview.avatar{width:68px;height:auto;aspect-ratio:1;border-radius:50%;font-size:18px;
   font-family:'Space Grotesk',sans-serif;color:var(--gold);}
 .img-upload-preview.empty{border-style:dashed;}
 .img-upload-preview.banner.empty span{padding:0 8px;line-height:1.3;}
@@ -808,7 +819,12 @@ html.no-motion .hero h1 .grad{background:var(--grad-1);-webkit-background-clip:t
 
 @media (max-width:520px){
   .img-upload{flex-wrap:wrap;}
-  .img-upload-preview.banner{width:100%;height:76px;}
+  .img-upload-preview.banner{width:100%;height:auto;aspect-ratio:2.4 / 1;}
+  .pd-head{gap:10px;padding-inline:16px;}
+  .pd-avatar{width:68px;height:68px;margin-top:-32px;}
+  .pd-name-row{display:block;}
+  .pd-badges{padding-top:6px;}
+  .pd-body{padding-inline:16px;}
 }
 .setting-row .setting-label{min-width:0;padding-right:14px;}
 .settings-divider{height:1px;background:var(--border-soft);margin:30px 0 0;}

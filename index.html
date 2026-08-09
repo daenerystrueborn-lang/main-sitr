@@ -28,7 +28,7 @@
     }, 3000)
   })()
 </script>
-<title>Astral</title>
+<title>Home</title>
 <meta name="description" content="Dungeons, cards, and companions — built for WhatsApp. Climb the floors, top the boards, forge a legend.">
 <meta name="theme-color" content="#000000">
 <meta property="og:title" content="Astral">
@@ -36,8 +36,8 @@
 <meta property="og:type" content="website">
 <!-- Sun favicon, inlined as SVG so there's no extra request and it stays crisp
      at every size. Same glyph as the .brand-mark in the header. -->
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d4af37' stroke-width='2' stroke-linecap='round'%3E%3Crect width='24' height='24' fill='%2307070a'/%3E%3Ccircle cx='12' cy='12' r='4.6' fill='%23d4af37' stroke='none'/%3E%3Cpath d='M12 1.6v2.6M12 19.8v2.6M4.2 4.2l1.9 1.9M17.9 17.9l1.9 1.9M1.6 12h2.6M19.8 12h2.6M4.2 19.8l1.9-1.9M17.9 6.1l1.9-1.9'/%3E%3C/svg%3E">
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d4af37' stroke-width='2' stroke-linecap='round'%3E%3Crect width='24' height='24' fill='%2307070a'/%3E%3Ccircle cx='12' cy='12' r='4.6' fill='%23d4af37' stroke='none'/%3E%3Cpath d='M12 1.6v2.6M12 19.8v2.6M4.2 4.2l1.9 1.9M17.9 17.9l1.9 1.9M1.6 12h2.6M19.8 12h2.6M4.2 19.8l1.9-1.9M17.9 6.1l1.9-1.9'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d4af37' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='11.5' fill='%2307070a'/%3E%3Ccircle cx='12' cy='12' r='4.6' fill='%23d4af37' stroke='none'/%3E%3Cpath d='M12 1.6v2.6M12 19.8v2.6M4.2 4.2l1.9 1.9M17.9 17.9l1.9 1.9M1.6 12h2.6M19.8 12h2.6M4.2 19.8l1.9-1.9M17.9 6.1l1.9-1.9'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d4af37' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='11.5' fill='%2307070a'/%3E%3Ccircle cx='12' cy='12' r='4.6' fill='%23d4af37' stroke='none'/%3E%3Cpath d='M12 1.6v2.6M12 19.8v2.6M4.2 4.2l1.9 1.9M17.9 17.9l1.9 1.9M1.6 12h2.6M19.8 12h2.6M4.2 19.8l1.9-1.9M17.9 6.1l1.9-1.9'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
@@ -68,7 +68,7 @@
         <svg class="icon" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         <span class="bell-dot" id="bellDot"></span>
       </button>
-      <button class="avatar-btn" id="avatarBtn" title="Sign in" aria-label="Sign in"><span id="avatarInner">↪</span></button>
+      <button class="avatar-btn" id="avatarBtn" title="Sign in" aria-label="Sign in"><span id="avatarInner"></span></button>
       <a class="icon-btn" href="#/settings" data-route="settings" title="Settings" aria-label="Settings">
         <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.11.35.32.66.6.9.28.24.5.46.6.7"/></svg>
       </a>
@@ -106,7 +106,7 @@
 <main class="view active" id="view-home">
   <section class="hero">
     <div class="hero-inner">
-      <div class="hero-badge">✨ Season is live</div>
+      <div class="hero-badge"><svg class="icon" viewBox="0 0 24 24"><path d="m12 3 2.1 5.9L20 10l-4.5 4.2L16.8 20 12 16.7 7.2 20l1.3-5.8L4 10l5.9-1.1L12 3z"/></svg> Season is live</div>
       <h1>Level up on <span class="grad">WhatsApp</span> with Astral</h1>
       <p id="heroSub">No install, no launcher. Message the bot on WhatsApp, make a character, and start clearing floors.</p>
       <div class="hero-actions">
@@ -238,7 +238,7 @@
          information; the heading does. Was a looping <video> pointing at
          assets/video/mei-finalform.mp4, which was never in the repo, so the
          section rendered as a flat black band. -->
-    <img id="seasonHeroArt" class="season-hero-art" src="assets/img/season/hero.jpg"
+    <img id="seasonHeroArt" class="season-hero-art" src="/assets/img/season/hero.jpg"
          alt="" aria-hidden="true" decoding="async" fetchpriority="high">
     <div class="season-hero-veil"></div>
     <div class="hero-inner">
@@ -458,7 +458,7 @@
 <main class="view" id="view-404">
   <div class="auth-wrap">
     <div class="empty">
-      <div class="empty-i">🧭</div>
+      <div class="empty-i"><svg class="empty-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2.1 4.9-4.9 2.1 2.1-4.9 4.9-2.1z"/></svg></div>
       <h3>That page doesn't exist</h3>
       <p>The link may be old, or the page moved. Everything else is still where you left it.</p>
       <a class="btn btn-primary btn-sm" href="#/" data-route="home" style="margin-top:16px;">Back home</a>
@@ -509,6 +509,20 @@
         <span class="subtext">Everything real happens in chat.</span>
       </div>
     </div>
+
+    <!--
+      Item artwork attribution. Required by CC BY 3.0 wherever the icons appear,
+      and they appear here — every item plate on this site is composited from a
+      game-icons.net icon. Full artist list lives in the bot repo's
+      NOTICE-game-icons.md; keep the two in sync if the icon set grows.
+    -->
+    <p class="site-footer-credit subtext">
+      Item icons by Lorc, Delapouite, Skoll, Sbed, Caro Asercion, Faithtoken,
+      Lucas, Willdabeast and Carl Olsen, from
+      <a href="https://game-icons.net/" target="_blank" rel="noopener noreferrer">game-icons.net</a>
+      —
+      <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener noreferrer">CC BY 3.0</a>.
+    </p>
   </div>
 </footer>
 

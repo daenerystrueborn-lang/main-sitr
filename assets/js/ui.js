@@ -9,6 +9,39 @@
 export const $ = (sel, root = document) => root.querySelector(sel)
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)]
 
+const ICON_PATHS = {
+  alert: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+  battle: '<path d="m4 4 16 16M20 4 4 20"/><circle cx="12" cy="12" r="9"/>',
+  calendar: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  character: '<circle cx="12" cy="8" r="3.5"/><path d="M5 21a7 7 0 0 1 14 0M4 4l2 2M20 4l-2 2"/>',
+  chat: '<path d="M20 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1.1-5.3A8.5 8.5 0 1 1 20 11.5z"/>',
+  compass: '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2.1 4.9-4.9 2.1 2.1-4.9 4.9-2.1z"/>',
+  dungeon: '<path d="M5 21V7l7-4 7 4v14M9 21v-5h6v5M3 21h18"/>',
+  gem: '<path d="m3 9 4-5h10l4 5-9 11L3 9z"/><path d="M3 9h18M8 4l4 16 4-16"/>',
+  gift: '<rect x="3" y="8" width="18" height="13" rx="2"/><path d="M12 8v13M3 12h18M12 8H8.5a2.5 2.5 0 1 1 2.2-3.7L12 8zM12 8h3.5a2.5 2.5 0 1 0-2.2-3.7L12 8z"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 10v6M12 7h.01"/>',
+  inventory: '<path d="M4 7h16v14H4zM4 7l2-4h12l2 4M9 11h6"/>',
+  lock: '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
+  moon: '<path d="M20 15.5A8.5 8.5 0 0 1 8.5 4 8.5 8.5 0 1 0 20 15.5z"/>',
+  payment: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h3"/>',
+  premium: '<path d="m12 3 2.1 5.9L20 10l-4.5 4.2L16.8 20 12 16.7 7.2 20l1.3-5.8L4 10l5.9-1.1L12 3z"/>',
+  rank: '<path d="M6 20V9M12 20V4M18 20v-7M3 20h18"/>',
+  reward: '<path d="m12 3 2.1 5.9L20 10l-4.5 4.2L16.8 20 12 16.7 7.2 20l1.3-5.8L4 10l5.9-1.1L12 3z"/>',
+  security: '<path d="M12 3 20 6v5c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-3z"/><path d="m8.5 12 2.2 2.2 4.8-5"/>',
+  season: '<path d="m3 20 6-8 4 5 3-4 5 7M3 20h18"/>',
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.11.35.32.66.6.9.28.24.5.46.6.7"/>',
+  spark: '<path d="m12 2 1.7 6.3L20 10l-6.3 1.7L12 18l-1.7-6.3L4 10l6.3-1.7L12 2zM19 16l.7 2.3L22 19l-2.3.7L19 22l-.7-2.3L16 19l2.3-.7L19 16z"/>',
+  stamina: '<path d="m13 2-9 12h7l-1 8 9-12h-7l1-8z"/>',
+  warning: '<path d="m12 3 9 17H3L12 3z"/><path d="M12 9v5M12 17h.01"/>',
+  whatsapp: '<path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1.1-5.3A8.5 8.5 0 1 1 21 11.5z"/><path d="M8.5 8.5c.4 2.4 2.1 4.6 4.7 5.5l1.5-1.1 1.8.8c-.2 1-1 1.6-2 1.5-3.7-.4-6.8-3.5-7.2-7.2-.1-1 .5-1.8 1.5-2l.8 1.8-1.1 1.5z"/>',
+}
+
+/** Returns a consistent line SVG for all UI iconography. */
+export function iconSvg(name = 'spark', className = 'icon') {
+  const paths = ICON_PATHS[name] ?? ICON_PATHS.spark
+  return `<svg class="${className}" viewBox="0 0 24 24" aria-hidden="true">${paths}</svg>`
+}
+
 /**
  * Escapes text before it goes anywhere near innerHTML.
  *
@@ -267,7 +300,7 @@ export function skeletonCards(count = 3) {
 }
 
 export function emptyState(icon, title, body = '') {
-  return `<div class="empty"><div class="empty-i">${esc(icon)}</div>
+  return `<div class="empty"><div class="empty-i">${iconSvg(icon, 'empty-icon')}</div>
     <h3>${esc(title)}</h3>${body ? `<p>${esc(body)}</p>` : ''}</div>`
 }
 
