@@ -253,6 +253,19 @@ export const api = {
    */
   updateSettings: (patchBody) => patch('/me/settings', patchBody),
 
+  /**
+   * Profile picture / banner. `dataUrl` is a base64 data URL — see
+   * fileToDataUrl() below, which also enforces the 5MB cap client-side.
+   *
+   * `kind` is 'pfp' or 'banner'. The server re-validates the bytes (not the
+   * declared mime type) and rate-limits to one upload every 30s, so a 429 or
+   * 400 here is normal and should be shown to the user rather than retried.
+   */
+  uploadImage: (kind, dataUrl) => post(`/me/${kind}`, { image: dataUrl }),
+
+  /** Clears pfp or banner back to the default. */
+  removeImage: (kind) => del(`/me/${kind}`),
+
   /** Signs out every device by bumping the player's session epoch. */
   revokeSessions: async () => {
     try { return await post('/me/sessions/revoke') }
@@ -268,5 +281,40 @@ export const api = {
   markAllNotificationsRead: () => post('/notifications/read-all'),
   deleteNotification: (id) => del(`/notifications/${encodeURIComponent(id)}`),
   clearNotifications: () => del('/notifications'),
+}
+
+/* ──────────────────────────── image helpers ─────────────────────────────── */
+
+export const MAX_IMAGE_BYTES = 5 * 1024 * 1024
+export const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
+
+/**
+ * Reads a File into a base64 data URL, rejecting anything oversized or of the
+ * wrong type first.
+ *
+ * The size check is on the raw File, not the encoded string: base64 inflates
+ * by ~4/3, so a 5MB file becomes ~6.7MB on the wire. The server's own limit is
+ * set against the decoded bytes, and its body parser has headroom for the
+ * inflation — checking the File here means the two agree.
+ *
+ * This is a convenience, not a security boundary. The server re-validates
+ * everything, including sniffing the actual magic numbers, because the mime
+ * type a browser reports is just a string.
+ */
+export function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    if (!file) return reject(new Error('No file selected.'))
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      return reject(new Error('Please pick a PNG, JPEG, WebP or GIF.'))
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      const mb = (file.size / 1024 / 1024).toFixed(1)
+      return reject(new Error(`That image is ${mb}MB — the limit is 5MB.`))
+    }
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(new Error('Could not read that file.'))
+    reader.readAsDataURL(file)
+  })
 }
 

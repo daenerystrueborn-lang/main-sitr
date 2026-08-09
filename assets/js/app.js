@@ -6,7 +6,7 @@
  * flicking between tabs doesn't re-hit the API, while `reload()` exists for
  * the places that must be fresh after a mutation.
  */
-import { api, ApiError, onConnectionChange, onAuthLost, hasSession } from './api.js'
+import { api, ApiError, onConnectionChange, onAuthLost, hasSession, fileToDataUrl } from './api.js'
 import {
   $, $$, esc, attr, num, compact, naira, relTime, duration, titleCase,
   toast, busy, skeletonRows, skeletonCards,
@@ -888,7 +888,7 @@ function playerDetailHtml({ player: p, rankings, isSelf }) {
       <div class="pd-avatar">${p.avatarUrl
         ? `<img src="${attr(p.avatarUrl)}" alt="">`
         : esc(initials(p.name))}</div>
-      <div style="min-width:0">
+      <div class="pd-id">
         <h3>${esc(p.name)}${isSelf ? ' <span class="badge badge-lvl">You</span>' : ''}${
           p.premium?.active ? ' <span class="badge badge-gold">Premium</span>' : ''}</h3>
         <p class="pd-sub">${esc(p.rank.emoji ?? '')} ${esc(p.rank.title)} · ${esc(p.rank.epithet ?? '')}</p>
@@ -965,7 +965,7 @@ async function openCharacter(id) {
       ${c.image ? `<div class="pd-banner" style="background-image:url('${attr(c.image)}')"></div>` : ''}
       <div class="pd-head">
         <div class="pd-avatar">${esc(c.emoji ?? '✨')}</div>
-        <div style="min-width:0">
+        <div class="pd-id">
           <h3>${esc(c.name)}
             ${equipped ? '<span class="badge badge-gold">Equipped</span>' : owned ? '<span class="badge badge-lvl">Owned</span>' : ''}</h3>
           <p class="pd-sub">${esc(c.rarity ? titleCase(c.rarity) : '')}${c.characterTier ? ` · Tier ${esc(c.characterTier)}` : ''}</p>
@@ -1409,7 +1409,53 @@ async function loadSettings() {
       <h3>Profile</h3>
       <p class="group-hint">How you appear on the leaderboard and to other players.</p>
 
-      <form id="nameForm" novalidate>
+      <div class="img-upload" id="bannerUpload">
+        <div class="img-upload-preview banner${p.bannerUrl ? '' : ' empty'}"
+             id="bannerPreview"
+             ${p.bannerUrl ? `style="background-image:url('${attr(p.bannerUrl)}')"` : ''}>
+          ${p.bannerUrl ? '' : '<span>No banner yet</span>'}
+        </div>
+        <div class="img-upload-meta">
+          <label for="bannerInput">Banner</label>
+          <p class="field-hint">Wide image behind your profile header. PNG, JPEG, WebP or GIF, up to 5MB.</p>
+          <div class="img-upload-actions">
+            <button class="btn btn-secondary btn-sm" type="button" data-pick="bannerInput">
+              ${p.hasCustomBanner ? 'Change' : 'Upload'}
+            </button>
+            ${p.hasCustomBanner
+              ? '<button class="btn btn-ghost btn-sm" type="button" data-remove-img="banner">Remove</button>'
+              : ''}
+          </div>
+          <p class="field-err" id="bannerErr"></p>
+        </div>
+        <input id="bannerInput" class="visually-hidden" type="file"
+               accept="image/png,image/jpeg,image/webp,image/gif" data-upload="banner">
+      </div>
+
+      <div class="img-upload" id="pfpUpload">
+        <div class="img-upload-preview avatar${p.avatarUrl ? '' : ' empty'}"
+             id="pfpPreview"
+             ${p.avatarUrl ? `style="background-image:url('${attr(p.avatarUrl)}')"` : ''}>
+          ${p.avatarUrl ? '' : `<span>${esc(initials(p.name))}</span>`}
+        </div>
+        <div class="img-upload-meta">
+          <label for="pfpInput">Profile picture</label>
+          <p class="field-hint">Square works best. PNG, JPEG, WebP or GIF, up to 5MB.</p>
+          <div class="img-upload-actions">
+            <button class="btn btn-secondary btn-sm" type="button" data-pick="pfpInput">
+              ${p.hasCustomPfp ? 'Change' : 'Upload'}
+            </button>
+            ${p.hasCustomPfp
+              ? '<button class="btn btn-ghost btn-sm" type="button" data-remove-img="pfp">Remove</button>'
+              : ''}
+          </div>
+          <p class="field-err" id="pfpErr"></p>
+        </div>
+        <input id="pfpInput" class="visually-hidden" type="file"
+               accept="image/png,image/jpeg,image/webp,image/gif" data-upload="pfp">
+      </div>
+
+      <form id="nameForm" novalidate style="margin-top:20px">
         <div class="field" id="nameField">
           <label for="nameInput">Display name</label>
           <input id="nameInput" type="text"
@@ -1517,6 +1563,56 @@ async function loadSettings() {
       </button>
       <button class="btn btn-danger btn-block" id="signOutBtn">Sign out</button>
     </div>`
+}
+
+/**
+ * Reads the picked file, ships it as a data URL, and folds the returned player
+ * back into `state.me`.
+ *
+ * The file input is cleared unconditionally at the end: without it, picking the
+ * same file twice in a row fires no `change` event the second time, so a failed
+ * upload could never be retried with the identical image.
+ */
+async function uploadProfileImage(kind, file, inputEl) {
+  const errId = kind === 'banner' ? 'bannerErr' : 'pfpErr'
+  fieldError(null, errId, null)
+  if (!file) return
+
+  const box = inputEl?.closest('.img-upload')
+  box?.classList.add('busy')
+  try {
+    const dataUrl = await fileToDataUrl(file)
+    const out = await api.uploadImage(kind, dataUrl)
+    if (out?.player) state.me = out.player
+    invalidate('profile', 'settings', 'leaderboard')
+    paintAvatar()
+    toast(kind === 'banner' ? 'Banner updated.' : 'Profile picture updated.')
+    await loadSettings()
+  } catch (err) {
+    fieldError(null, errId, err?.message || 'Upload failed.')
+  } finally {
+    box?.classList.remove('busy')
+    if (inputEl) inputEl.value = ''
+  }
+}
+
+async function removeProfileImage(kind, btn) {
+  const errId = kind === 'banner' ? 'bannerErr' : 'pfpErr'
+  fieldError(null, errId, null)
+  const box = btn?.closest('.img-upload')
+  box?.classList.add('busy')
+  try {
+    const out = await api.removeImage(kind)
+    if (out?.player) state.me = out.player
+    invalidate('profile', 'settings', 'leaderboard')
+    paintAvatar()
+    toast(kind === 'banner' ? 'Banner removed.' : 'Profile picture removed.')
+    await loadSettings()
+  } catch (err) {
+    fieldError(null, errId, err?.message || 'Could not remove that image.')
+  } finally {
+    box?.classList.remove('busy')
+  }
 }
 
 async function saveName(btn) {
@@ -1794,11 +1890,28 @@ function wireShell() {
 
     const kindChip = e.target.closest('.kind-chip')
     if (kindChip) toggleNoteKind(kindChip)
+
+    // The real <input type="file"> is hidden — a styled button opens it, so the
+    // control matches every other button on the page instead of rendering the
+    // browser's default file widget.
+    const pick = e.target.closest('[data-pick]')
+    if (pick) $(`#${pick.dataset.pick}`)?.click()
+
+    const removeImg = e.target.closest('[data-remove-img]')
+    if (removeImg) removeProfileImage(removeImg.dataset.removeImg, removeImg)
   })
 
   // Switches report through `change`, not `click`, so a keyboard toggle counts.
   document.addEventListener('change', (e) => {
     const el = e.target
+
+    // File pickers also report through `change`. Checked before the id gate
+    // below because these are matched by data attribute, not by id.
+    if (el?.dataset?.upload) {
+      uploadProfileImage(el.dataset.upload, el.files?.[0], el)
+      return
+    }
+
     if (!el?.id) return
 
     if (el.id === 'hideBoardToggle') {

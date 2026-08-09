@@ -272,7 +272,7 @@ section.hero.season-hero::before{content:none;}
 .profile-info{min-width:180px;}
 .profile-info h2{font-size:22px;font-weight:800;display:flex;align-items:center;gap:8px;color:var(--text);}
 .profile-info .handle{color:var(--text-subtle);font-size:13px;margin-top:2px;}
-.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:999px;font-size:10.5px;font-weight:800;}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:999px;font-size:10.5px;font-weight:800;flex-shrink:0;white-space:nowrap;}
 .badge-gold{background:rgb(212 175 55 / 15%);color:var(--gold);border:1px solid rgb(212 175 55 / 30%);}
 .badge-lvl{background:rgb(245 243 238 / 8%);color:var(--text);border:1px solid var(--border);}
 .profile-actions{display:flex;gap:8px;flex-wrap:wrap;}
@@ -340,7 +340,7 @@ section.hero.season-hero::before{content:none;}
 .lb-rank.top2{color:var(--text-muted);}
 .lb-rank.top3{color:var(--text-subtle);}
 .lb-avatar{width:34px;height:34px;border-radius:999px;background:var(--bg-4);border:1px solid var(--border);color:var(--gold);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;}
-.lb-name{flex:1;font-size:13px;font-weight:700;}
+.lb-name{flex:1;min-width:0;font-size:13px;font-weight:700;overflow-wrap:anywhere;}
 .lb-name .sub{display:block;font-size:11px;color:var(--text-subtle);font-weight:500;}
 .lb-score{font-size:13px;font-weight:800;color:var(--gold);}
 
@@ -461,10 +461,24 @@ section.hero.season-hero::before{content:none;}
   radial-gradient(circle at 20% 30%, rgb(212 175 55 / 22%), transparent 55%),
   radial-gradient(circle at 80% 70%, rgb(212 175 55 / 12%), transparent 50%),
   var(--bg-3);background-size:cover;background-position:center;position:relative;}
-.pd-head{display:flex;align-items:flex-end;gap:14px;padding:0 22px;}
+/* align-items is flex-start, not flex-end: with flex-end the text column's
+   height set the row height, so every extra line (epithet, class/race, bio)
+   dragged the avatar down out of the banner and squeezed the name. Starting
+   both at the top pins the avatar's -38px overlap regardless of how much
+   text sits beside it, and the column below is free to grow. */
+.pd-head{display:flex;align-items:flex-start;gap:14px;padding:0 22px 6px;}
 .pd-avatar{width:80px;height:80px;margin-top:-38px;border-radius:999px;background:var(--grad-1);color:#0a0805;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;border:5px solid var(--bg-2);flex-shrink:0;}
-.pd-head h3{font-size:19px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-.pd-sub{font-size:12.5px;color:var(--text-muted);margin:4px 0 0;}
+/* The identity column. min-width:0 lets it shrink below its longest word so a
+   long name wraps instead of overflowing — .modal-card sets overflow-y:auto,
+   which computes overflow-x to auto too, so an overflowing name was clipped
+   rather than visibly spilling. */
+.pd-id{min-width:0;flex:1;padding-top:6px;}
+/* Block, not flex: as a flex row the name text was an anonymous item stuck at
+   min-content, so it could never wrap. Inline-flex badges flow after it. */
+.pd-head h3{font-size:19px;font-weight:800;line-height:1.3;overflow-wrap:anywhere;}
+.pd-head h3 .badge{vertical-align:2px;margin-left:7px;}
+.pd-sub{font-size:12.5px;color:var(--text-muted);margin:4px 0 0;line-height:1.45;overflow-wrap:anywhere;}
+.pd-id .subtext{overflow-wrap:anywhere;}
 .pd-body{padding:18px 22px 24px;}
 .pd-sec-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text-subtle);margin:20px 0 10px;}
 .pd-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
@@ -763,6 +777,39 @@ html.no-motion .hero h1 .grad{background:var(--grad-1);-webkit-background-clip:t
 .settings-group > h3{font-size:12px;letter-spacing:.14em;text-transform:uppercase;
   color:var(--text-subtle);font-weight:800;margin-bottom:4px;}
 .settings-group > .group-hint{font-size:12px;color:var(--text-subtle);margin-bottom:10px;}
+
+/* ── pfp / banner upload ──────────────────────────────────────────────── */
+/* The file input is hidden but must stay focusable and in the a11y tree, so
+   it's clipped rather than display:none — the latter drops it from tab order
+   and from the label's for= association. */
+.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0;}
+
+.img-upload{display:flex;align-items:flex-start;gap:14px;padding:14px 0;
+  border-bottom:1px solid var(--border-soft);}
+.img-upload.busy{opacity:.55;pointer-events:none;}
+.img-upload-preview{flex-shrink:0;background:var(--bg-3) center/cover no-repeat;
+  border:1px solid var(--border);display:grid;place-items:center;
+  font-size:11px;font-weight:700;color:var(--text-subtle);text-align:center;}
+.img-upload-preview.banner{width:132px;height:52px;border-radius:var(--r);}
+.img-upload-preview.avatar{width:64px;height:64px;border-radius:50%;font-size:18px;
+  font-family:'Space Grotesk',sans-serif;color:var(--gold);}
+.img-upload-preview.empty{border-style:dashed;}
+.img-upload-preview.banner.empty span{padding:0 8px;line-height:1.3;}
+
+/* min-width:0 so a long error message wraps instead of pushing the preview
+   out of the row. */
+.img-upload-meta{min-width:0;flex:1;}
+.img-upload-meta label{display:block;font-size:11.5px;font-weight:800;
+  text-transform:uppercase;letter-spacing:.5px;color:var(--text-subtle);margin-bottom:4px;}
+.img-upload-meta .field-hint{margin-top:0;}
+.img-upload-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px;}
+.img-upload-meta .field-err:empty{display:none;}
+
+@media (max-width:520px){
+  .img-upload{flex-wrap:wrap;}
+  .img-upload-preview.banner{width:100%;height:76px;}
+}
 .setting-row .setting-label{min-width:0;padding-right:14px;}
 .settings-divider{height:1px;background:var(--border-soft);margin:30px 0 0;}
 .kind-chips{display:flex;gap:8px;flex-wrap:wrap;padding:12px 0 2px;}
