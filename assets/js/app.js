@@ -1231,7 +1231,7 @@ async function loadProfile() {
       </div>
       <div class="profile-info-row">
         <div class="profile-info">
-          <h2>${esc(p.name)}
+          <h2><span class="profile-name-text">${esc(p.name)}</span>
             <span class="badge badge-lvl">Lv ${num(p.level)}</span>
             ${p.premium?.active ? '<span class="badge badge-gold">Premium</span>' : ''}</h2>
           <p class="handle">${iconSvg('rank', 'inline-icon')} ${esc(p.rank.title)} · ${esc(p.rank.epithet ?? '')}</p>
@@ -1319,15 +1319,7 @@ async function loadProfile() {
         <span class="badge badge-lvl">${num(p.counts.inventory)} items</span>
       </div>
       <div class="inv-grid reveal">${inv}</div>
-    </section>` : ''}
-
-    <section class="section">
-      <div class="section-head"><div><h2>Handy commands</h2><p>Tap one to copy it, then paste it to the bot</p></div></div>
-      <div class="chip-row reveal">
-        ${['profile', 'dungeon', 'daily', 'shop', 'pvp', 'season']
-          .map(c => `<button class="chip" data-copy="${attr(prefix + c)}">${esc(prefix + c)}</button>`).join('')}
-      </div>
-    </section>`
+    </section>` : ''}`
 }
 
 /* ───────────────────────────── page: settings ─────────────────────────── */
