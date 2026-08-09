@@ -118,6 +118,15 @@ button{font-family:inherit;}
 .hero p{color:var(--text-muted);font-size:15px;line-height:1.6;max-width:480px;margin:0 auto 26px;}
 .hero-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
 
+/* Platform switch — a small sliding tab group, not a full nav. Sits between
+   the headline and the subtitle so picking Discord/Telegram swaps both the
+   gradient word in the h1 and the subtitle/CTA beneath it. */
+.platform-switch{display:inline-flex;gap:3px;padding:4px;border-radius:999px;background:var(--bg-3);border:1px solid var(--border);margin:0 auto 16px;position:relative;}
+.platform-tab{padding:7px 15px;border-radius:999px;border:none;background:none;color:var(--text-muted);font-size:12.5px;font-weight:700;cursor:pointer;transition:var(--transition);position:relative;z-index:1;}
+.platform-tab:hover{color:var(--text);}
+.platform-tab.is-active{background:var(--grad-1);color:#0a0805;}
+.platform-tab.is-soon{opacity:.85;}
+
 /* ===== SEASON HERO (full-bleed art) =====
    The art IS the background — no still image behind it, nothing letterboxed
    in a frame, just the picture bleeding edge to edge with a flat dark scrim

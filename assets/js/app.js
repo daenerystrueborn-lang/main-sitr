@@ -6,7 +6,7 @@
  * flicking between tabs doesn't re-hit the API, while `reload()` exists for
  * the places that must be fresh after a mutation.
  */
-import { api, ApiError, onConnectionChange, onAuthLost, hasSession, fileToDataUrl } from './api.js'
+import { api, ApiError, onConnectionChange, onAuthLost, hasSession, fileToDataUrl, uploadToImgbb } from './api.js'
 import {
   $, $$, esc, attr, num, compact, naira, relTime, duration, titleCase,
   toast, busy, skeletonRows, skeletonCards,
@@ -656,6 +656,67 @@ function ensureMeta() {
 
 /* ─────────────────────────────── page: home ───────────────────────────── */
 
+/**
+ * Only WhatsApp is live. Discord and Telegram tabs exist so people know
+ * they're coming, but selecting them swaps the hero into a "coming soon"
+ * state instead of a play button — there's no bot to message yet.
+ */
+const PLATFORMS = {
+  whatsapp: {
+    label: 'WhatsApp',
+    live: true,
+    sub: 'Message the bot on WhatsApp, make a character, and start clearing floors.',
+  },
+  discord: {
+    label: 'Discord',
+    live: false,
+    sub: 'Astral on Discord is on the way — the WhatsApp bot is live right now if you want to start today.',
+  },
+  telegram: {
+    label: 'Telegram',
+    live: false,
+    sub: 'Astral on Telegram is on the way — the WhatsApp bot is live right now if you want to start today.',
+  },
+}
+
+function setHeroPlatform(key) {
+  const platform = PLATFORMS[key] ?? PLATFORMS.whatsapp
+  $$('.platform-tab').forEach(tab => {
+    const active = tab.dataset.platform === key
+    tab.classList.toggle('is-active', active)
+    tab.setAttribute('aria-selected', String(active))
+  })
+
+  const name = $('#heroPlatformName')
+  if (name) name.textContent = platform.label
+
+  const sub = $('#heroSub')
+  if (sub) sub.textContent = platform.sub
+
+  const actions = $('#heroActions')
+  if (actions) {
+    actions.innerHTML = platform.live
+      ? `<a class="btn btn-primary" id="heroPlay" href="#/signup">
+           <svg class="icon" viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1.1-5.3A8.5 8.5 0 1 1 21 11.5z"/></svg> Start playing
+         </a>
+         <a class="btn btn-secondary" href="#/leaderboard" data-route="leaderboard">
+           <svg class="icon" viewBox="0 0 24 24"><path d="M4 20h16M7 20v-7M12 20V6M17 20v-11"/></svg> See the boards
+         </a>`
+      : `<span class="btn btn-secondary" style="pointer-events:none;opacity:.75;">Coming soon</span>
+         <a class="btn btn-primary" href="#/signup">
+           <svg class="icon" viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1.1-5.3A8.5 8.5 0 1 1 21 11.5z"/></svg> Play on WhatsApp instead
+         </a>`
+  }
+}
+
+function wirePlatformSwitch() {
+  $('#platformSwitch')?.addEventListener('click', (e) => {
+    const tab = e.target.closest('.platform-tab')
+    if (!tab) return
+    setHeroPlatform(tab.dataset.platform)
+  })
+}
+
 async function loadHome() {
   const statsHost = $('#homeStats')
   const boardHost = $('#homeBoard')
@@ -672,8 +733,9 @@ async function loadHome() {
 
   if (meta) {
     const sub = $('#heroSub')
-    if (sub && meta.botName) {
-      sub.innerHTML = `No install, no launcher. Message <strong>${esc(meta.botName)}</strong> on WhatsApp, make a character with <code>${esc(meta.prefix)}register</code>, and start clearing floors.`
+    const activePlatform = $('.platform-tab.is-active')?.dataset.platform ?? 'whatsapp'
+    if (sub && meta.botName && activePlatform === 'whatsapp') {
+      sub.innerHTML = `Message <strong>${esc(meta.botName)}</strong> on WhatsApp, make a character with <code>${esc(meta.prefix)}register</code>, and start clearing floors.`
     }
     const support = $('#footerSupport')
     if (support && meta.supportGroupLink) {
@@ -1585,7 +1647,12 @@ async function uploadProfileImage(kind, file, inputEl) {
   box?.classList.add('busy')
   try {
     const dataUrl = await fileToDataUrl(file)
-    const out = await api.uploadImage(kind, dataUrl)
+    // Host the image on ImgBB (via our proxy, so the API key never touches
+    // the browser) first, then hand the bot backend the resulting URL —
+    // that's what gets saved as avatarUrl/bannerUrl and shown on every
+    // device the player signs into.
+    const hostedUrl = await uploadToImgbb(dataUrl, kind)
+    const out = await api.uploadImageUrl(kind, hostedUrl)
     if (out?.player) state.me = out.player
     invalidate('profile', 'settings', 'leaderboard')
     paintAvatar()
@@ -1854,6 +1921,7 @@ function wireShell() {
   $('#clearNotesBtn')?.addEventListener('click', clearNotes)
   $('#modalX')?.addEventListener('click', closeModal)
   $('#modalScrim')?.addEventListener('click', closeModal)
+  wirePlatformSwitch()
 
   $('#avatarBtn')?.addEventListener('click', () => {
     goTo(isSignedIn() ? 'profile' : 'login')

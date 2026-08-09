@@ -107,9 +107,14 @@
   <section class="hero">
     <div class="hero-inner">
       <div class="hero-badge"><svg class="icon" viewBox="0 0 24 24"><path d="m12 3 2.1 5.9L20 10l-4.5 4.2L16.8 20 12 16.7 7.2 20l1.3-5.8L4 10l5.9-1.1L12 3z"/></svg> Season is live</div>
-      <h1>Level up on <span class="grad">WhatsApp</span> with Astral</h1>
-      <p id="heroSub">No install, no launcher. Message the bot on WhatsApp, make a character, and start clearing floors.</p>
-      <div class="hero-actions">
+      <h1>Level up on <span class="grad" id="heroPlatformName">WhatsApp</span> with Astral</h1>
+      <div class="platform-switch" id="platformSwitch" role="tablist" aria-label="Choose a platform">
+        <button class="platform-tab is-active" type="button" data-platform="whatsapp" role="tab" aria-selected="true">WhatsApp</button>
+        <button class="platform-tab" type="button" data-platform="discord" role="tab" aria-selected="false">Discord</button>
+        <button class="platform-tab" type="button" data-platform="telegram" role="tab" aria-selected="false">Telegram</button>
+      </div>
+      <p id="heroSub">Message the bot on WhatsApp, make a character, and start clearing floors.</p>
+      <div class="hero-actions" id="heroActions">
         <a class="btn btn-primary" id="heroPlay" href="#/signup">
           <svg class="icon" viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1.1-5.3A8.5 8.5 0 1 1 21 11.5z"/></svg> Start playing
         </a>
@@ -477,6 +482,7 @@
           <div class="brand-mark"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></div>
         </div>
         <p class="site-footer-tag" id="footerNote">Play it on WhatsApp.</p>
+        <p class="site-footer-tag" style="opacity:.65;font-size:12px;margin-top:2px;">Discord &amp; Telegram — coming soon.</p>
         <a class="btn btn-gold btn-sm" id="footerCta" href="#/signup" data-route="signup">Start playing</a>
       </div>
 

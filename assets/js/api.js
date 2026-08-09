@@ -38,6 +38,51 @@ function resolveBase() {
 
 export const API_BASE = resolveBase()
 
+/**
+ * Base URL for the ImgBB upload proxy (a small Vercel serverless function —
+ * see the astral-imgbb-proxy project). The ImgBB key itself never lives in
+ * this file or anywhere else in the frontend; it stays server-side in that
+ * proxy's environment variables. Override with `window.ASTRAL_IMGBB_PROXY`
+ * or `?imgbbProxy=https://host` (remembered the same way ?api= is).
+ */
+function resolveImgbbProxyBase() {
+  const fromQuery = new URLSearchParams(location.search).get('imgbbProxy')
+  if (fromQuery) {
+    try { localStorage.setItem('astral:imgbbProxy', fromQuery) } catch {}
+    return fromQuery.replace(/\/+$/, '')
+  }
+  if (window.ASTRAL_IMGBB_PROXY) return String(window.ASTRAL_IMGBB_PROXY).replace(/\/+$/, '')
+  try {
+    const saved = localStorage.getItem('astral:imgbbProxy')
+    if (saved) return saved.replace(/\/+$/, '')
+  } catch {}
+  // Fill in your deployed proxy's URL here once it's live, e.g.
+  // 'https://astral-imgbb-proxy.vercel.app'
+  return 'https://proxy-astral-api-image.vercel.app'
+}
+
+export const IMGBB_PROXY_BASE = resolveImgbbProxyBase()
+
+/**
+ * Uploads an image to ImgBB via our own proxy (never talks to ImgBB
+ * directly — no API key in the browser) and returns the hosted URL.
+ */
+export async function uploadToImgbb(dataUrl, name) {
+  if (!IMGBB_PROXY_BASE) {
+    throw new Error('Image host isn\u2019t configured yet — set ASTRAL_IMGBB_PROXY.')
+  }
+  const res = await fetch(`${IMGBB_PROXY_BASE}/api/upload`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image: dataUrl, name }),
+  })
+  const data = await res.json().catch(() => null)
+  if (!res.ok || !data?.url) {
+    throw new Error(data?.error || 'Image upload failed.')
+  }
+  return data.url
+}
+
 /* ───────────────────────────── session token ───────────────────────────── */
 
 let token = null
@@ -262,6 +307,14 @@ export const api = {
    * 400 here is normal and should be shown to the user rather than retried.
    */
   uploadImage: (kind, dataUrl) => post(`/me/${kind}`, { image: dataUrl }),
+
+  /**
+   * Same endpoint, but hands the bot a URL that's already hosted (from the
+   * ImgBB proxy) instead of raw bytes. Needs the bot's `/me/pfp` and
+   * `/me/banner` handlers to accept `{ url }` as an alternative to
+   * `{ image }` — see astral-imgbb-proxy/README.md for that backend change.
+   */
+  uploadImageUrl: (kind, url) => post(`/me/${kind}`, { url }),
 
   /** Clears pfp or banner back to the default. */
   removeImage: (kind) => del(`/me/${kind}`),
