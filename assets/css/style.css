@@ -198,11 +198,40 @@ section.hero.season-hero::before{content:none;}
 .feature-card::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgb(0 0 0 / 10%) 0%,rgb(0 0 0 / 40%) 45%,rgb(0 0 0 / 94%) 100%);}
 .feature-card:hover{border-color:var(--gold);transform:translateY(-3px);box-shadow:var(--shadow);}
 /* `.art` swaps the flat gradient panel for the card's own artwork, passed in
-   as --art on the element. Desaturated so four different paintings still read
-   as one gold-on-black set; the ::after scrim keeps the label legible. */
-.feature-card.art::before{background-image:var(--art);background-size:cover;background-position:center;filter:saturate(.35) contrast(1.08) brightness(.62);transition:var(--transition);}
-.feature-card.art::after{background:linear-gradient(180deg,rgb(0 0 0 / 25%) 0%,rgb(0 0 0 / 55%) 45%,rgb(0 0 0 / 95%) 100%);}
-.feature-card.art:hover::before{filter:saturate(.5) contrast(1.1) brightness(.75);transform:scale(1.04);}
+   as --art on the element. Lightly desaturated so four different paintings
+   still read as one gold-on-black set; the ::after scrim keeps the label
+   legible without burying the painting.
+
+   Two things here are deliberate:
+
+   1. The full `background` shorthand, not a lone `background-image` longhand.
+      The base rule (.feature-card::before) also uses the shorthand, so it sets
+      background-color/size/position/repeat as a unit. Overriding only
+      background-image here left the art layered over that rule's leftovers
+      instead of replacing them cleanly. One complete layer, no interaction.
+
+   2. `var(--art, none)` — with no fallback, an --art that fails to resolve
+      makes the whole declaration invalid at computed-value time, which is
+      indistinguishable from the art simply not loading. The fallback degrades
+      to the plain panel instead.
+
+   The filter used to be saturate(.35) brightness(.62), which on top of the
+   ::after scrim below multiplied out to roughly 3% of source luminance at the
+   bottom of the card and ~46% at the top — dark source art crushed to a flat
+   black panel. Keep any future adjustments multiplied against that scrim. */
+.feature-card.art::before{background:var(--art, none) center/cover no-repeat;filter:saturate(.72) contrast(1.04) brightness(.92);transition:var(--transition);}
+.feature-card.art::after{background:linear-gradient(180deg,rgb(0 0 0 / 8%) 0%,rgb(0 0 0 / 32%) 45%,rgb(0 0 0 / 88%) 100%);}
+.feature-card.art:hover::before{filter:saturate(.9) contrast(1.06) brightness(1.04);transform:scale(1.04);}
+/* Hardcoded backstop. --art above is the mechanism of record, but it routes the
+   URL through a custom property, and when the art failed to appear there was no
+   way to tell "custom property didn't reach the pseudo-element" apart from
+   "image didn't load" — both render an empty ::before. These four rules name the
+   files directly, so the art paints even if the var() path breaks. Same URLs, so
+   when --art works these are redundant, not additive. Keep both in sync. */
+.feature-card.mode-dungeon::before{background:url('/assets/img/modes/dungeon.jpg') center/cover no-repeat;}
+.feature-card.mode-characters::before{background:url('/assets/img/modes/characters.jpg') center/cover no-repeat;}
+.feature-card.mode-arena::before{background:url('/assets/img/modes/arena.jpg') center/cover no-repeat;}
+.feature-card.mode-battlepass::before{background:url('/assets/img/modes/battlepass.jpg') center/cover no-repeat;}
 /* The Characters card is a plain div now that the page is gone — it shouldn't
    pretend to be clickable. */
 .feature-card:not(a){cursor:default;}

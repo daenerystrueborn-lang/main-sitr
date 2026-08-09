@@ -140,19 +140,19 @@
              it (assets/css/style.css), not this document — so 'assets/img/...'
              here silently became '/assets/css/assets/img/...' and 404'd. Leading
              slash removes the base entirely. Don't "tidy" these back to relative. -->
-        <a class="feature-card art reveal" href="#/season" data-route="season" style="--art:url('/assets/img/modes/dungeon.jpg')">
+        <a class="feature-card art mode-dungeon reveal" href="#/season" data-route="season" style="--art:url('/assets/img/modes/dungeon.jpg')">
           <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M14.5 3.5l6 6-8 8-6-6 8-8z"/><path d="M3 21l4-1 8.5-8.5"/></svg></div>
           <div class="feature-content"><h3>Dungeon</h3><p>Solo or party raids with loot, bosses and deeper floors.</p></div>
         </a>
-        <div class="feature-card art reveal" style="--art:url('/assets/img/modes/characters.jpg')">
+        <div class="feature-card art mode-characters reveal" style="--art:url('/assets/img/modes/characters.jpg')">
           <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></div>
           <div class="feature-content"><h3>Characters</h3><p>Collect and equip companions that buff your stats.</p></div>
         </div>
-        <a class="feature-card art reveal" href="#/leaderboard" data-route="leaderboard" style="--art:url('/assets/img/modes/arena.jpg')">
+        <a class="feature-card art mode-arena reveal" href="#/leaderboard" data-route="leaderboard" style="--art:url('/assets/img/modes/arena.jpg')">
           <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/><circle cx="12" cy="12" r="9"/></svg></div>
           <div class="feature-content"><h3>PvP Arena</h3><p>Challenge other players and climb the ranked ladder.</p></div>
         </a>
-        <a class="feature-card art reveal" href="#/season" data-route="season" style="--art:url('/assets/img/modes/battlepass.jpg')">
+        <a class="feature-card art mode-battlepass reveal" href="#/season" data-route="season" style="--art:url('/assets/img/modes/battlepass.jpg')">
           <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M12 2l2.4 6.9L21 9l-5 4.6L17.4 21 12 17.3 6.6 21 8 13.6 3 9l6.6-.1L12 2z"/></svg></div>
           <div class="feature-content"><h3>Battle Pass</h3><p>Seasonal tiers of gold, gear and exclusive rewards.</p></div>
         </a>
@@ -233,13 +233,13 @@
 <!-- ===================================================== -->
 <main class="view" id="view-season">
   <section class="hero season-hero">
-    <!-- Mei's final form IS the background — no still image, no poster, nothing
-         framed. muted + playsinline is what lets mobile autoplay it at all.
-         aria-hidden because it carries no information; the heading does. -->
-    <video id="seasonHeroVideo" class="season-hero-video" autoplay muted loop playsinline
-           preload="auto" aria-hidden="true" tabindex="-1">
-      <source src="assets/video/mei-finalform.mp4" type="video/mp4">
-    </video>
+    <!-- The art IS the background — no still frame in a box, nothing letterboxed,
+         just the image bleeding edge to edge. aria-hidden because it carries no
+         information; the heading does. Was a looping <video> pointing at
+         assets/video/mei-finalform.mp4, which was never in the repo, so the
+         section rendered as a flat black band. -->
+    <img id="seasonHeroArt" class="season-hero-art" src="assets/img/season/hero.jpg"
+         alt="" aria-hidden="true" decoding="async" fetchpriority="high">
     <div class="season-hero-veil"></div>
     <div class="hero-inner">
       <div class="hero-badge">
