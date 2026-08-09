@@ -132,6 +132,7 @@ function reportError(err) {
 
 function closePanel() {
   $('#panel')?.classList.remove('open')
+  $('#panelBackdrop')?.classList.remove('open')
   $('#bellBtn')?.setAttribute('aria-expanded', 'false')
 }
 
@@ -139,6 +140,7 @@ function togglePanel() {
   const panel = $('#panel')
   if (!panel) return
   const open = panel.classList.toggle('open')
+  $('#panelBackdrop')?.classList.toggle('open', open)
   $('#bellBtn')?.setAttribute('aria-expanded', String(open))
   if (open) loadNotifications()
 }
@@ -1419,7 +1421,7 @@ async function loadSettings() {
       <p class="group-hint">How you appear on the leaderboard and to other players.</p>
 
       <div class="img-upload" id="bannerUpload">
-        <div class="img-upload-preview banner${p.bannerUrl ? '' : ' empty'}"
+        <div class="img-upload-preview banner${p.bannerUrl ? '' : ' is-empty'}"
              id="bannerPreview"
              ${p.bannerUrl ? `style="background-image:url('${attr(p.bannerUrl)}')"` : ''}>
           ${p.bannerUrl ? '' : '<span>No banner yet</span>'}
@@ -1442,7 +1444,7 @@ async function loadSettings() {
       </div>
 
       <div class="img-upload" id="pfpUpload">
-        <div class="img-upload-preview avatar${p.avatarUrl ? '' : ' empty'}"
+        <div class="img-upload-preview avatar${p.avatarUrl ? '' : ' is-empty'}"
              id="pfpPreview"
              ${p.avatarUrl ? `style="background-image:url('${attr(p.avatarUrl)}')"` : ''}>
           ${p.avatarUrl ? '' : `<span>${esc(initials(p.name))}</span>`}
@@ -1853,6 +1855,7 @@ function wireGlobalClicks() {
 
 function wireShell() {
   $('#bellBtn')?.addEventListener('click', (e) => { e.stopPropagation(); togglePanel() })
+  $('#panelBackdrop')?.addEventListener('click', closePanel)
   $('#menuToggle')?.addEventListener('click', toggleDrawer)
   $('#scrim')?.addEventListener('click', closeDrawer)
   $('#readAllBtn')?.addEventListener('click', markAllRead)

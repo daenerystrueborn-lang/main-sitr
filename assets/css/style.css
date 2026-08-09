@@ -420,12 +420,24 @@ section.hero.season-hero::before{content:none;}
 .bell-wrap{position:relative;}
 .bell-dot{position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:999px;background:var(--grad-1);border:2px solid var(--bg);display:none;}
 .bell-dot.is-on{display:block;}
+/* A dim scrim behind the panel, same idea as the drawer's — without it the
+   page underneath stays fully visible and interactive-looking, so an open
+   panel just reads as "floating in the wrong place" instead of a focused
+   overlay anchored to the bell. */
+.panel-backdrop{position:fixed;inset:0;background:rgb(0 0 0 / 45%);z-index:79;opacity:0;pointer-events:none;transition:opacity .2s;}
+.panel-backdrop.open{opacity:1;pointer-events:auto;}
 /* The panel is pinned 70px below the top of the viewport, so its ceiling has
    to be measured from there — `min(70svh,520px)` ignored the offset and on a
    short viewport the box ran off the bottom of the screen. calc(100dvh - 86px)
    keeps 16px of breathing room below it at any height, and dvh (not vh) so
-   mobile browser chrome collapsing doesn't leave it overhanging. */
-.panel{position:fixed;top:70px;right:20px;width:min(360px,calc(100vw - 32px));max-height:min(70svh,520px,calc(100dvh - 86px));z-index:80;border:1px solid var(--border);border-radius:var(--r-lg);background:rgba(10,10,10,.94);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:var(--shadow);display:flex;flex-direction:column;opacity:0;transform:translateY(-8px) scale(.98);pointer-events:none;transition:var(--transition);transform-origin:top right;overflow:hidden;}
+   mobile browser chrome collapsing doesn't leave it overhanging.
+   It's a short dropdown, not a full-height drawer: it hangs from the bell
+   icon (top-right, right:20px matches the header's edge padding) and its
+   height is capped by content via max-height, never forced to fill the
+   viewport. Opening scales up from that top-right corner — transform-origin
+   is set below — rather than just sliding down, so it reads as "popping out
+   of the bell" instead of a generic panel appearing from nowhere. */
+.panel{position:fixed;top:70px;right:20px;width:min(360px,calc(100vw - 32px));max-height:min(70svh,520px,calc(100dvh - 86px));z-index:80;border:1px solid var(--border);border-radius:var(--r-lg);background:rgba(10,10,10,.96);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:var(--shadow);display:flex;flex-direction:column;opacity:0;transform:translateY(-6px) scale(.94);pointer-events:none;transition:opacity .18s ease,transform .22s cubic-bezier(.2,.9,.25,1.1);transform-origin:top right;overflow:hidden;}
 .panel.open{opacity:1;transform:none;pointer-events:auto;}
 .panel-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border-soft);flex-shrink:0;}
 .panel-head strong{font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:800;flex:1;min-width:0;}
@@ -805,8 +817,8 @@ html.no-motion .hero h1 .grad{background:var(--grad-1);-webkit-background-clip:t
 .img-upload-preview.banner{width:150px;height:auto;aspect-ratio:2.4 / 1;border-radius:var(--r);background-size:cover;background-position:center;}
 .img-upload-preview.avatar{width:68px;height:auto;aspect-ratio:1;border-radius:50%;font-size:18px;
   font-family:'Space Grotesk',sans-serif;color:var(--gold);}
-.img-upload-preview.empty{border-style:dashed;}
-.img-upload-preview.banner.empty span{padding:0 8px;line-height:1.3;}
+.img-upload-preview.is-empty{border-style:dashed;}
+.img-upload-preview.banner.is-empty span{padding:0 8px;line-height:1.3;}
 
 /* min-width:0 so a long error message wraps instead of pushing the preview
    out of the row. */
