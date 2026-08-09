@@ -1634,6 +1634,17 @@ async function loadSettings() {
  * Reads the picked file, ships it as a data URL, and folds the returned player
  * back into `state.me`.
  *
+ * UPLOAD PATH: straight to the bot. `POST /api/me/:kind` takes the raw base64
+ * and does the ImgBB call itself, server-side, with the bot's own key — the
+ * key never touches the browser, and there's one hop instead of two.
+ *
+ * The Vercel proxy is kept only as a fallback for when that call can't be
+ * made at all (proxy still holds a working key if the bot's is unset or its
+ * quota is spent). It uploads to ImgBB and hands back a finished URL, which
+ * the bot accepts via `{ url }` — it validates the host before storing it.
+ * A 4xx is NOT retried: that's the server rejecting the image on its merits
+ * (too big, wrong type, rate-limited) and the proxy would reject it too.
+ *
  * The file input is cleared unconditionally at the end: without it, picking the
  * same file twice in a row fires no `change` event the second time, so a failed
  * upload could never be retried with the identical image.
@@ -1647,12 +1658,19 @@ async function uploadProfileImage(kind, file, inputEl) {
   box?.classList.add('busy')
   try {
     const dataUrl = await fileToDataUrl(file)
-    // Host the image on ImgBB (via our proxy, so the API key never touches
-    // the browser) first, then hand the bot backend the resulting URL —
-    // that's what gets saved as avatarUrl/bannerUrl and shown on every
-    // device the player signs into.
-    const hostedUrl = await uploadToImgbb(dataUrl, kind)
-    const out = await api.uploadImageUrl(kind, hostedUrl)
+
+    let out
+    try {
+      out = await api.uploadImage(kind, dataUrl)
+    } catch (err) {
+      // Only fall back when the bot couldn't complete the upload itself —
+      // offline (status 0) or a failure on its ImgBB call (502). Anything
+      // else is a verdict on the image, so surface it.
+      if (err?.status !== 0 && err?.status !== 502) throw err
+      const hostedUrl = await uploadToImgbb(dataUrl, kind)
+      out = await api.uploadImageUrl(kind, hostedUrl)
+    }
+
     if (out?.player) state.me = out.player
     invalidate('profile', 'settings', 'leaderboard')
     paintAvatar()

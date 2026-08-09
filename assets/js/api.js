@@ -299,8 +299,9 @@ export const api = {
   updateSettings: (patchBody) => patch('/me/settings', patchBody),
 
   /**
-   * Profile picture / banner. `dataUrl` is a base64 data URL — see
-   * fileToDataUrl() below, which also enforces the 5MB cap client-side.
+   * Profile picture / banner — the normal path. `dataUrl` is a base64 data URL
+   * (see fileToDataUrl() below, which enforces the 5MB cap client-side); the
+   * bot uploads it to ImgBB itself using its own server-side key.
    *
    * `kind` is 'pfp' or 'banner'. The server re-validates the bytes (not the
    * declared mime type) and rate-limits to one upload every 30s, so a 429 or
@@ -309,10 +310,10 @@ export const api = {
   uploadImage: (kind, dataUrl) => post(`/me/${kind}`, { image: dataUrl }),
 
   /**
-   * Same endpoint, but hands the bot a URL that's already hosted (from the
-   * ImgBB proxy) instead of raw bytes. Needs the bot's `/me/pfp` and
-   * `/me/banner` handlers to accept `{ url }` as an alternative to
-   * `{ image }` — see astral-imgbb-proxy/README.md for that backend change.
+   * Same endpoint, but hands the bot a URL that's already hosted, for when the
+   * bot couldn't do the ImgBB call itself and app.js fell back to the proxy.
+   * The bot accepts `{ url }` as an alternative to `{ image }` and checks the
+   * host is ImgBB before storing it.
    */
   uploadImageUrl: (kind, url) => post(`/me/${kind}`, { url }),
 
