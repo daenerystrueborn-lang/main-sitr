@@ -182,6 +182,27 @@ function paintAvatar() {
     drawerAuth.href = isSignedIn() ? '#' : '#/login'
   }
 
+  // The footer's Account column had a hardcoded "Sign in" that nothing ever
+  // touched, so it kept inviting you to sign in while you were already signed
+  // in. Same treatment as the drawer link — one auth affordance, one state.
+  // Setting dataset.route to '' leaves the attribute in place, so the
+  // delegated a[data-route] handler still sees it and can route the click to
+  // signOut() instead of navigating.
+  const footerAuth = $('#footerAuth')
+  if (footerAuth) {
+    footerAuth.textContent = isSignedIn() ? 'Sign out' : 'Sign in'
+    footerAuth.dataset.route = isSignedIn() ? '' : 'login'
+    footerAuth.href = isSignedIn() ? '#' : '#/login'
+  }
+
+  // Footer CTA is a sign-up pitch to strangers and a shortcut for players.
+  const footerCta = $('#footerCta')
+  if (footerCta) {
+    footerCta.textContent = isSignedIn() ? 'Open your profile' : 'Start playing'
+    footerCta.dataset.route = isSignedIn() ? 'profile' : 'signup'
+    footerCta.href = isSignedIn() ? '#/profile' : '#/signup'
+  }
+
   const heroPlay = $('#heroPlay')
   if (heroPlay) {
     heroPlay.textContent = isSignedIn() ? 'Open your profile' : 'Start playing'
@@ -241,7 +262,7 @@ function paintNotifications() {
     // Derived alerts can't be dismissed — they clear themselves once the
     // underlying thing is dealt with, so offering an X would be a lie.
     const sev = n.severity && n.severity !== 'info' ? ` sev-${esc(n.severity)}` : ''
-    const unread = !n.read && !n.derived ? ' is-unread' : ''
+    const unread = !n.read ? ' is-unread' : ''
     return `
       <div class="note${sev}${unread}" data-note="${attr(n.id)}" data-derived="${n.derived ? '1' : ''}">
         <span class="note-i">${esc(noteIcon(n.kind))}</span>
@@ -259,10 +280,12 @@ async function markAllRead() {
   const stop = busy($('#readAllBtn'))
   try {
     await api.markAllNotificationsRead()
-    for (const n of state.notes.items) if (!n.derived) n.read = true
-    // Derived alerts still count toward the dot — they're unresolved work,
-    // not unread news, so "mark all read" can't clear them.
-    state.notes.unread = state.notes.items.filter(n => n.derived && n.severity !== 'info').length
+    // Everything the user can see gets marked read — including derived alerts,
+    // which the server now acknowledges by signature so they don't come back
+    // unread on the next poll. The alert itself stays in the list (the work is
+    // still outstanding), it just stops lighting the bell.
+    for (const n of state.notes.items) n.read = true
+    state.notes.unread = 0
     paintBell()
     paintNotifications()
   } catch (err) { reportError(err) } finally { stop() }
@@ -273,7 +296,7 @@ async function clearNotes() {
   try {
     await api.clearNotifications()
     state.notes.items = state.notes.items.filter(n => n.derived)
-    state.notes.unread = state.notes.items.filter(n => n.severity !== 'info').length
+    state.notes.unread = state.notes.items.filter(n => !n.read && n.severity !== 'info').length
     paintBell()
     paintNotifications()
     toast('History cleared', 'ok')
@@ -325,7 +348,58 @@ async function afterSignIn(player, { needsRegistration = false } = {}) {
   toast(`Welcome back, ${player?.name ?? 'traveller'}`, 'ok')
 }
 
+/**
+ * A yes/no modal built on the existing #modal shell. Resolves true only on
+ * the confirm button — closing by scrim, X or Escape resolves false, which is
+ * why this listens for the modal losing `.open` rather than trusting the
+ * buttons to be the only exit.
+ */
+function confirmAction({ title, body, confirmLabel = 'Confirm', danger = true }) {
+  return new Promise((resolve) => {
+    openModal(`
+      <div class="pd-body" style="padding-top:22px">
+        <h3 style="margin-bottom:8px">${esc(title)}</h3>
+        <p class="subtext" style="margin-bottom:20px">${esc(body)}</p>
+        <button class="btn ${danger ? 'btn-danger' : 'btn-primary'} btn-block" id="confirmYes">
+          ${esc(confirmLabel)}
+        </button>
+        <button class="btn btn-ghost btn-block" id="confirmNo" style="margin-top:8px">Cancel</button>
+      </div>`)
+
+    let settled = false
+    const finish = (value) => {
+      if (settled) return
+      settled = true
+      observer.disconnect()
+      resolve(value)
+    }
+
+    // Catches every dismissal path at once — scrim click, X, and Escape all
+    // funnel through closeModal() removing `.open`.
+    const modal = $('#modal')
+    const observer = new MutationObserver(() => {
+      if (!modal?.classList.contains('open')) finish(false)
+    })
+    if (modal) observer.observe(modal, { attributes: true, attributeFilter: ['class'] })
+
+    $('#confirmYes')?.addEventListener('click', () => { closeModal(); finish(true) })
+    $('#confirmNo')?.addEventListener('click', () => { closeModal(); finish(false) })
+  })
+}
+
 async function signOut() {
+  // Opt-out guard from Settings → This device. Covers every entry point —
+  // the drawer, the footer, and the settings page's own button — so the
+  // preference means the same thing wherever you signed out from.
+  if (localPrefs().confirmSignOut) {
+    const ok = await confirmAction({
+      title: 'Sign out?',
+      body: 'You will need a fresh code from the bot to sign back in.',
+      confirmLabel: 'Sign out',
+    })
+    if (!ok) return
+  }
+
   try { await api.logout() } catch {}
   state.me = null
   state.needsRegistration = false
@@ -925,13 +999,6 @@ async function loadSeason() {
   const tiersHost = $('#seasonTiers')
   if (tiersHost) tiersHost.innerHTML = skeletonRows(6)
 
-  // The hero video autoplays on its own; this only restarts it after a
-  // navigate-away paused it. .play() can reject (autoplay policy, save-data,
-  // reduced-motion) — the black hero background is the fallback, so a rejection
-  // is deliberately ignored.
-  const vid = $('#seasonHeroVideo')
-  if (vid) { try { vid.play()?.catch(() => {}) } catch {} }
-
   const out = await api.season()
 
   if (!out.active) {
@@ -1254,11 +1321,82 @@ async function loadProfile() {
 
 /* ───────────────────────────── page: settings ─────────────────────────── */
 
+/**
+ * Device-local preferences. These deliberately do NOT go to the API: they're
+ * about this browser (motion, confirmations), not about the character, and
+ * syncing them would mean a phone's choice silently changing a laptop's.
+ * Anything the bot also needs to know lives on the player record instead.
+ */
+const LOCAL_PREFS_KEY = 'astral:prefs'
+const LOCAL_PREF_DEFAULTS = { reduceMotion: false, confirmSignOut: true }
+
+function localPrefs() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LOCAL_PREFS_KEY) ?? '{}')
+    return { ...LOCAL_PREF_DEFAULTS, ...(raw && typeof raw === 'object' ? raw : {}) }
+  } catch { return { ...LOCAL_PREF_DEFAULTS } }
+}
+
+function setLocalPref(key, value) {
+  const next = { ...localPrefs(), [key]: value }
+  try { localStorage.setItem(LOCAL_PREFS_KEY, JSON.stringify(next)) } catch {}
+  applyLocalPrefs()
+  return next
+}
+
+/**
+ * Reflects local prefs onto the document. Called from boot() BEFORE
+ * initMotion(), because the reveal observer checks for `.no-motion` when it
+ * decides whether to run at all.
+ */
+function applyLocalPrefs() {
+  const prefs = localPrefs()
+  document.documentElement.classList.toggle('no-motion', !!prefs.reduceMotion)
+}
+
+/** One `.setting-row` with a switch. `id` is read back by the change handler. */
+function switchRow(id, label, desc, checked) {
+  return `
+    <div class="setting-row">
+      <div class="setting-label">
+        <div class="label">${esc(label)}</div>
+        <div class="desc">${esc(desc)}</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="${attr(id)}" ${checked ? 'checked' : ''}>
+        <span class="switch-track"></span>
+      </label>
+    </div>`
+}
+
+/** Human-readable "1 day 4h" for the rename cooldown. */
+function untilLabel(ts) {
+  const ms = ts - Date.now()
+  if (ms <= 0) return 'now'
+  const totalHours = Math.ceil(ms / 3_600_000)
+  const days = Math.floor(totalHours / 24)
+  const hours = totalHours % 24
+  if (days > 0) return `${days} day${days === 1 ? '' : 's'}${hours > 0 ? ` ${hours}h` : ''}`
+  return `${hours} hour${hours === 1 ? '' : 's'}`
+}
+
+const NOTE_KIND_LABELS = {
+  system: 'System', security: 'Security', season: 'Season', premium: 'Premium',
+  reward: 'Rewards', battle: 'Battles', social: 'Social',
+}
+
 async function loadSettings() {
   const card = $('#settingsCard')
   if (!card) return
   const p = state.me ?? (await api.me()).player
   state.me = p
+
+  const prefix = state.meta?.prefix ?? (await ensureMeta())?.prefix ?? '.'
+  const s = p.settings ?? {}
+  const rename = s.rename ?? { canRename: true, minLength: 2, maxLength: 20, cooldownDays: 7 }
+  const muted = new Set(s.mutedNotificationKinds ?? [])
+  const kinds = s.notificationKinds ?? Object.keys(NOTE_KIND_LABELS)
+  const prefs = localPrefs()
 
   card.innerHTML = `
     <p class="subtext">Settings</p>
@@ -1267,22 +1405,154 @@ async function loadSettings() {
       Signed in as <strong>${esc(p.name)}</strong> · Lv ${num(p.level)}
     </p>
 
-    <form id="bioForm" novalidate>
-      <div class="field" id="bioField">
-        <label for="bioInput">Bio</label>
-        <input id="bioInput" type="text" maxlength="120" placeholder="Nine words, no more."
-               value="${attr(p.bio ?? '')}">
-        <p class="field-hint">Shown on your public profile. Up to 9 words.</p>
-        <p class="field-err" id="bioErr"></p>
-      </div>
-      <button class="btn btn-primary btn-block" id="bioSaveBtn" type="submit">Save bio</button>
-    </form>
+    <div class="settings-group">
+      <h3>Profile</h3>
+      <p class="group-hint">How you appear on the leaderboard and to other players.</p>
 
-    <div class="section-head" style="margin:34px 0 8px"><div><h2 style="font-size:17px">Session</h2></div></div>
-    <p class="subtext" style="margin-bottom:14px">
-      The rest of your character is changed in chat, where the bot can validate it properly.
-    </p>
-    <button class="btn btn-danger btn-block" id="signOutBtn">Sign out</button>`
+      <form id="nameForm" novalidate>
+        <div class="field" id="nameField">
+          <label for="nameInput">Display name</label>
+          <input id="nameInput" type="text"
+                 minlength="${attr(rename.minLength ?? 2)}"
+                 maxlength="${attr(rename.maxLength ?? 20)}"
+                 placeholder="Your name in-game"
+                 value="${attr(p.name ?? '')}"
+                 ${rename.canRename ? '' : 'disabled'}>
+          <p class="field-hint">
+            ${rename.minLength ?? 2}–${rename.maxLength ?? 20} characters. Letters, numbers,
+            spaces and <code>-_.'</code>. Changeable once every ${rename.cooldownDays ?? 7} days.
+          </p>
+          <p class="field-err" id="nameErr"></p>
+        </div>
+        ${rename.canRename ? `
+          <button class="btn btn-primary btn-block" id="nameSaveBtn" type="submit">Save name</button>
+        ` : `
+          <div class="rename-locked">
+            <span aria-hidden="true">⏳</span>
+            <span>Next rename unlocks in <strong>${esc(untilLabel(rename.nextRenameAt))}</strong>
+            — that's the same 7-day cooldown <code>${esc(prefix)}rename</code> uses in chat.</span>
+          </div>
+        `}
+      </form>
+
+      <form id="bioForm" novalidate style="margin-top:18px">
+        <div class="field" id="bioField">
+          <label for="bioInput">Bio</label>
+          <input id="bioInput" type="text" maxlength="120" placeholder="Nine words, no more."
+                 value="${attr(p.bio ?? '')}">
+          <p class="field-hint">Shown on your public profile. Up to 9 words.</p>
+          <p class="field-err" id="bioErr"></p>
+        </div>
+        <button class="btn btn-primary btn-block" id="bioSaveBtn" type="submit">Save bio</button>
+      </form>
+    </div>
+
+    <div class="settings-group">
+      <h3>Privacy</h3>
+      <p class="group-hint">Applies everywhere — the site and the bot's own leaderboards.</p>
+      ${switchRow(
+        'hideBoardToggle',
+        'Hide me from leaderboards',
+        'Removes you from every ranking and hides your public profile page.',
+        !!s.hiddenFromLeaderboard,
+      )}
+    </div>
+
+    <div class="settings-group">
+      <h3>Notifications</h3>
+      <p class="group-hint">Tap a category to mute it. Muted alerts stop counting toward the bell.</p>
+      <div class="kind-chips" id="kindChips">
+        ${kinds.map(k => `
+          <button type="button" class="chip kind-chip ${muted.has(k) ? 'is-muted' : 'active'}"
+                  data-kind="${attr(k)}"
+                  aria-pressed="${muted.has(k) ? 'false' : 'true'}">
+            ${esc(NOTE_KIND_LABELS[k] ?? titleCase(k))}
+          </button>`).join('')}
+      </div>
+      ${switchRow(
+        'dmNotesToggle',
+        'Also message me on WhatsApp',
+        'Lets the bot DM you about things that need attention, not just the bell.',
+        s.dmNotifications !== false,
+      )}
+    </div>
+
+    <div class="settings-group">
+      <h3>This device</h3>
+      <p class="group-hint">Stored in this browser only — your other devices keep their own.</p>
+      ${switchRow(
+        'reduceMotionToggle',
+        'Reduce motion',
+        'Turns off entrance animations, parallax and looping effects.',
+        !!prefs.reduceMotion,
+      )}
+      ${switchRow(
+        'confirmSignOutToggle',
+        'Confirm before signing out',
+        'Asks first, so a stray tap on the menu does not end your session.',
+        prefs.confirmSignOut !== false,
+      )}
+    </div>
+
+    <div class="settings-group">
+      <h3>Your ID</h3>
+      <p class="group-hint">Share this to let someone open your public profile.</p>
+      <div class="copy-box">
+        <span>${esc(p.uid ?? '—')}</span>
+        <button class="btn btn-ghost btn-sm" data-copy="${attr(p.uid ?? '')}"
+                data-copy-msg="Player ID copied">Copy</button>
+      </div>
+    </div>
+
+    <div class="settings-divider"></div>
+
+    <div class="settings-group">
+      <h3>Session</h3>
+      <p class="group-hint">
+        Everything else about your character — class, stats, gear — is changed in chat,
+        where the bot can validate it properly.
+      </p>
+      <button class="btn btn-ghost btn-block" id="revokeBtn" style="margin-bottom:10px">
+        Sign out of all devices
+      </button>
+      <button class="btn btn-danger btn-block" id="signOutBtn">Sign out</button>
+    </div>`
+}
+
+async function saveName(btn) {
+  const input = $('#nameInput')
+  const value = (input?.value ?? '').trim()
+  fieldError('nameField', 'nameErr', null)
+
+  // Mirror the server's rules so the common mistakes are caught without a
+  // round-trip. The server re-checks all of them regardless.
+  if (value.length < 2 || value.length > 20) {
+    fieldError('nameField', 'nameErr', 'Name must be 2–20 characters.')
+    return
+  }
+  if (!/^[\p{L}\p{N} _.'-]+$/u.test(value)) {
+    fieldError('nameField', 'nameErr', "Only letters, numbers, spaces and -_.'")
+    return
+  }
+  if (value === state.me?.name) {
+    fieldError('nameField', 'nameErr', 'That is already your name.')
+    return
+  }
+
+  const stop = busy(btn)
+  try {
+    const out = await api.updateName(value)
+    state.me = out.player
+    // The name shows up on the profile page and on every leaderboard row, and
+    // renaming burns the cooldown — so this page has to re-render too.
+    invalidate('profile', 'settings', 'leaderboard')
+    state.boardCache.clear()
+    paintAvatar()
+    toast('Name changed', 'ok')
+    loadSettings()
+  } catch (err) {
+    fieldError('nameField', 'nameErr', err?.message ?? 'Could not save.')
+  } finally { stop() }
 }
 
 async function saveBio(btn) {
@@ -1308,6 +1578,80 @@ async function saveBio(btn) {
   } finally { stop() }
 }
 
+/**
+ * Sends one server-side setting. Optimistic: the switch has already moved, so
+ * on failure we put it back rather than leaving the UI claiming something the
+ * server didn't do.
+ */
+async function saveSetting(patch, { revert } = {}) {
+  try {
+    const out = await api.updateSettings(patch)
+    state.me = out.player
+    // Hiding from the leaderboard changes what those pages should show.
+    if ('hiddenFromLeaderboard' in patch) {
+      invalidate('leaderboard', 'profile')
+      state.boardCache.clear()
+    }
+    if ('mutedNotificationKinds' in patch) loadNotifications()
+    toast('Setting saved', 'ok')
+  } catch (err) {
+    revert?.()
+    reportError(err)
+  }
+}
+
+/** Toggles one notification kind's mute state and persists the whole list. */
+function toggleNoteKind(chip) {
+  const kind = chip.dataset.kind
+  const muted = new Set(state.me?.settings?.mutedNotificationKinds ?? [])
+  const nowMuted = !muted.has(kind)
+
+  if (nowMuted) muted.add(kind)
+  else muted.delete(kind)
+
+  chip.classList.toggle('is-muted', nowMuted)
+  chip.classList.toggle('active', !nowMuted)
+  chip.setAttribute('aria-pressed', nowMuted ? 'false' : 'true')
+
+  saveSetting({ mutedNotificationKinds: [...muted] }, {
+    revert: () => {
+      chip.classList.toggle('is-muted', !nowMuted)
+      chip.classList.toggle('active', nowMuted)
+      chip.setAttribute('aria-pressed', nowMuted ? 'true' : 'false')
+    },
+  })
+}
+
+/** "Sign out of all devices" — invalidates every token, including this one. */
+async function revokeSessions(btn) {
+  const ok = await confirmAction({
+    title: 'Sign out everywhere?',
+    body: 'Every device signed in to your account will be signed out, including this one. '
+      + 'You can sign back in with a new code any time.',
+    confirmLabel: 'Sign out everywhere',
+  })
+  if (!ok) return
+
+  const stop = busy(btn)
+  try {
+    await api.revokeSessions()
+    toast('Signed out on all devices', 'ok')
+  } catch (err) {
+    reportError(err)
+  } finally {
+    stop()
+    // The token is dropped locally either way — a failed revoke that left the
+    // session alive is still safer to treat as signed out on this device.
+    state.me = null
+    state.needsRegistration = false
+    state.notes = { items: [], unread: 0 }
+    loaded.clear()
+    paintAvatar()
+    paintBell()
+    goTo('home')
+  }
+}
+
 /* ─────────────────────────────── event wiring ─────────────────────────── */
 
 /**
@@ -1319,11 +1663,12 @@ function wireGlobalClicks() {
   document.addEventListener('click', async (e) => {
     const t = e.target
 
-    // Copy-a-command pills (also used for the premium buy buttons).
+    // Copy-a-command pills (also used for the premium buy buttons, and for
+    // the player ID in settings — hence the overridable message).
     const copyBtn = t.closest('[data-copy]')
     if (copyBtn) {
       e.preventDefault()
-      copyText(copyBtn.dataset.copy, 'Command copied')
+      copyText(copyBtn.dataset.copy, copyBtn.dataset.copyMsg ?? 'Command copied')
       return
     }
 
@@ -1389,7 +1734,7 @@ function wireGlobalClicks() {
     // matters for links to the page you're already on, which don't re-render.
     const link = t.closest('a[data-route]')
     if (link) {
-      if (link.id === 'drawerAuth' && isSignedIn()) {
+      if ((link.id === 'drawerAuth' || link.id === 'footerAuth') && isSignedIn()) {
         e.preventDefault()
         signOut()
         return
@@ -1429,15 +1774,46 @@ function wireShell() {
     closeDrawer()
   })
 
-  // Settings and bio live inside re-rendered markup, so delegate.
+  // Settings lives inside re-rendered markup, so delegate all of it.
   document.addEventListener('submit', (e) => {
     if (e.target.id === 'bioForm') {
       e.preventDefault()
       saveBio($('#bioSaveBtn'))
     }
+    if (e.target.id === 'nameForm') {
+      e.preventDefault()
+      saveName($('#nameSaveBtn'))
+    }
   })
+
   document.addEventListener('click', (e) => {
     if (e.target.closest('#signOutBtn')) signOut()
+
+    const revoke = e.target.closest('#revokeBtn')
+    if (revoke) revokeSessions(revoke)
+
+    const kindChip = e.target.closest('.kind-chip')
+    if (kindChip) toggleNoteKind(kindChip)
+  })
+
+  // Switches report through `change`, not `click`, so a keyboard toggle counts.
+  document.addEventListener('change', (e) => {
+    const el = e.target
+    if (!el?.id) return
+
+    if (el.id === 'hideBoardToggle') {
+      saveSetting({ hiddenFromLeaderboard: el.checked }, { revert: () => { el.checked = !el.checked } })
+    }
+    if (el.id === 'dmNotesToggle') {
+      saveSetting({ dmNotifications: el.checked }, { revert: () => { el.checked = !el.checked } })
+    }
+    if (el.id === 'reduceMotionToggle') {
+      setLocalPref('reduceMotion', el.checked)
+      toast(el.checked ? 'Motion reduced' : 'Animations on', 'ok')
+    }
+    if (el.id === 'confirmSignOutToggle') {
+      setLocalPref('confirmSignOut', el.checked)
+    }
   })
 }
 
@@ -1514,6 +1890,9 @@ function wireConnection() {
 }
 
 async function boot() {
+  // Before initMotion(): the reveal observer checks for `.no-motion` when it
+  // decides whether to run at all.
+  applyLocalPrefs()
   initMotion()
   wireShell()
   wireGlobalClicks()
@@ -1523,11 +1902,6 @@ async function boot() {
 
   window.addEventListener('hashchange', () => {
     clearInterval(seasonTimer)
-    // Stop the season hero video when you leave the route — an offscreen
-    // <video> keeps decoding frames and eats battery on mobile. loadSeason()
-    // starts it again on the way back in.
-    const vid = $('#seasonHeroVideo')
-    if (vid) { try { vid.pause() } catch {} }
     render()
   })
 

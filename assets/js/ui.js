@@ -135,7 +135,14 @@ export function busy(btn) {
  * MutationObserver picks up new .reveal nodes as they land in the DOM.
  */
 
-const REDUCED = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+/**
+ * True when motion should be suppressed — either the OS asked (media query)
+ * or the user asked in Settings → This device, which sets `.no-motion` on
+ * <html> before initMotion() runs (see applyLocalPrefs in app.js).
+ */
+const REDUCED = () =>
+  document.documentElement.classList.contains('no-motion')
+  || !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
 /** Marks an element revealed, and cleans up the compositor hint afterwards. */
 function show(el) {

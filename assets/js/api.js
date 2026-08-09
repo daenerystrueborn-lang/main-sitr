@@ -237,8 +237,27 @@ export const api = {
   /** Standings across all six boards, for the profile page. */
   myRankings: () => get('/me/rankings'),
 
-  /** The only mutation the site can make to a player. Max 9 words. */
+  /** Bio: max 9 words / 120 chars, same rule the bot's .setbio enforces. */
   updateBio: (bio) => patch('/me', { bio }),
+
+  /**
+   * Display name. Server-gated to once every 7 days (player.lastRenameAt) —
+   * identical rules to the bot's .rename, so chat and web can't disagree.
+   * Rejects with a 400 carrying `onCooldown` when it's too soon.
+   */
+  updateName: (name) => patch('/me', { name }),
+
+  /**
+   * Preference toggles. Every field is optional — send only what changed.
+   * { hiddenFromLeaderboard?, mutedNotificationKinds?, dmNotifications? }
+   */
+  updateSettings: (patchBody) => patch('/me/settings', patchBody),
+
+  /** Signs out every device by bumping the player's session epoch. */
+  revokeSessions: async () => {
+    try { return await post('/me/sessions/revoke') }
+    finally { setToken(null) }
+  },
 
   /**
    * Derived alerts first (things that still need doing, not dismissable),
