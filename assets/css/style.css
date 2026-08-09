@@ -476,14 +476,14 @@ section.hero.season-hero::before{content:none;}
 .pd-banner{height:118px;background:
   radial-gradient(circle at 20% 30%, rgb(212 175 55 / 22%), transparent 55%),
   radial-gradient(circle at 80% 70%, rgb(212 175 55 / 12%), transparent 50%),
-  var(--bg-3);background-size:cover;background-position:center;position:relative;}
+  var(--bg-3);background-size:cover;background-position:center;position:relative;z-index:0;}
 /* align-items is flex-start, not flex-end: with flex-end the text column's
    height set the row height, so every extra line (epithet, class/race, bio)
    dragged the avatar down out of the banner and squeezed the name. Starting
    both at the top pins the avatar's -38px overlap regardless of how much
    text sits beside it, and the column below is free to grow. */
-.pd-head{display:flex;align-items:flex-start;gap:14px;padding:0 22px 6px;}
-.pd-avatar{width:80px;height:80px;margin-top:-38px;border-radius:999px;background:var(--grad-1);color:#0a0805;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;border:5px solid var(--bg-2);flex-shrink:0;overflow:hidden;}
+.pd-head{position:relative;z-index:1;display:flex;align-items:flex-start;gap:14px;padding:0 22px 6px;}
+.pd-avatar{position:relative;z-index:1;width:80px;height:80px;margin-top:-38px;border-radius:999px;background:var(--grad-1);color:#0a0805;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;border:5px solid var(--bg-2);flex-shrink:0;overflow:hidden;}
 /* The identity column. min-width:0 lets it shrink below its longest word so a
    long name wraps instead of overflowing — .modal-card sets overflow-y:auto,
    which computes overflow-x to auto too, so an overflowing name was clipped
