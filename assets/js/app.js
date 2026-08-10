@@ -270,8 +270,11 @@ function paintNotifications() {
   }
 
   body.innerHTML = items.map(n => {
-    // Derived alerts can't be dismissed — they clear themselves once the
-    // underlying thing is dealt with, so offering an X would be a lie.
+    // Derived alerts are dismissible too. They used to have no X, on the theory
+    // that they clear themselves once the underlying thing is dealt with — but
+    // a bell holding only derived alerts then had no way to be emptied, which
+    // read as if the entries were hardcoded. The server now hides a dismissed
+    // alert by signature until its text changes, so the X is honest.
     const sev = n.severity && n.severity !== 'info' ? ` sev-${esc(n.severity)}` : ''
     const unread = !n.read ? ' is-unread' : ''
     return `
@@ -282,7 +285,7 @@ function paintNotifications() {
           <div class="note-b">${esc(n.body)}</div>
           <div class="note-time">${n.derived ? 'Needs attention' : esc(relTime(n.at))}</div>
         </div>
-        ${n.derived ? '' : `<button class="note-x" data-del="${attr(n.id)}" aria-label="Dismiss">×</button>`}
+        <button class="note-x" data-del="${attr(n.id)}" aria-label="Dismiss">×</button>
       </div>`
   }).join('')
 }
@@ -306,8 +309,11 @@ async function clearNotes() {
   const stop = busy($('#clearNotesBtn'))
   try {
     await api.clearNotifications()
-    state.notes.items = state.notes.items.filter(n => n.derived)
-    state.notes.unread = state.notes.items.filter(n => !n.read && n.severity !== 'info').length
+    // Clear empties the whole panel now, derived alerts included — the server
+    // dismisses those by signature in the same request, so they don't reappear
+    // on the next poll.
+    state.notes.items = []
+    state.notes.unread = 0
     paintBell()
     paintNotifications()
     toast('History cleared', 'ok')
