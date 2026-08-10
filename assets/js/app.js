@@ -35,6 +35,9 @@ const state = {
   meta: null,
   notes: { items: [], unread: 0 },
   board: 'level',
+  // The stacked rows currently drawn in the profile inventory grid, so a slot
+  // click can resolve back to its item without a refetch.
+  inv: [],
   boardCache: new Map(),
   lbRows: [],
   otp: { phone: null, masked: null, mode: 'login' },
@@ -50,6 +53,11 @@ const routes = {
   home: { view: 'view-home', title: 'Home', load: loadHome },
   leaderboard: { view: 'view-leaderboard', title: 'Leaderboard', load: loadLeaderboard },
   season: { view: 'view-season', title: 'Season', load: loadSeason },
+  // Neither gates on auth — both are browsable signed out, and only the buy
+  // buttons route to login. A shop you can't look at without an account is a
+  // worse pitch than one you can.
+  shop: { view: 'view-shop', title: 'Shop', load: loadShop },
+  cards: { view: 'view-cards', title: 'Cards', load: loadCards },
   premium: { view: 'view-premium', title: 'Premium', load: loadPremium },
   profile: { view: 'view-profile', title: 'Profile', load: loadProfile, auth: true },
   settings: { view: 'view-settings', title: 'Settings', load: loadSettings, auth: true },
@@ -1063,6 +1071,36 @@ async function openCharacter(id) {
   }
 }
 
+/**
+ * Item detail, opened from an inventory slot.
+ *
+ * Everything shown is already in the stacked row `/api/me` sent, so unlike
+ * openCharacter() this needs no fetch and no skeleton — the modal is populated
+ * in one call, which also sidesteps the double-openModal focus bug entirely.
+ */
+function openItem(item) {
+  if (!item) return
+  const bonuses = Object.entries(item.statBonuses ?? {})
+    .map(([k, v]) => `<div class="pd-stat"><div class="pd-stat-k">${esc(k.toUpperCase())}</div><div class="pd-stat-v">${v > 0 ? '+' : ''}${num(v)}</div></div>`)
+    .join('')
+
+  openModal(`
+    <div class="pd-head">
+      <div class="pd-avatar">${item.image
+        ? `<img src="${attr(item.image)}" alt="" style="width:100%;height:100%;object-fit:contain">`
+        : iconSvg('inventory', 'inventory-icon')}</div>
+      <div class="pd-id">
+        <h3>${esc(item.name)}${item.qty > 1 ? ` <span class="badge badge-lvl">×${num(item.qty)}</span>` : ''}</h3>
+        <p class="pd-sub">${esc([item.rarity && titleCase(item.rarity), item.type && titleCase(item.type)].filter(Boolean).join(' · '))}</p>
+      </div>
+    </div>
+    <div class="pd-body">
+      ${item.description ? `<p class="subtext">${esc(item.description)}</p>` : ''}
+      ${bonuses ? `<div class="pd-sec-title">Stat bonuses</div><div class="pd-stats">${bonuses}</div>` : ''}
+      ${item.sellPrice ? `<div class="pd-sec-title">Value</div><p class="subtext">Sells for ${num(item.sellPrice)} solars each.</p>` : ''}
+    </div>`)
+}
+
 /* ─────────────────────────────── page: season ─────────────────────────── */
 
 let seasonTimer = null
@@ -1136,34 +1174,399 @@ async function loadSeason() {
     }).join('')
   }
 
-  const shop = $('#seasonShop')
-  const shopHead = $('#seasonShopHead')
-  if (shop) {
-    // This section is the "Characters" showcase, not the full season shop —
-    // only the four listed below are ever displayed, whatever else the API
-    // ships. Matching is on the name so a re-priced or re-imaged entry keeps
-    // working; ids change between seasons, names don't.
-    const SHOWN_CHARACTERS = ['mei', 'urahah', 'willow', 'wither']
-    const entries = (out.shop ?? []).filter(e =>
-      SHOWN_CHARACTERS.includes(String(e.name ?? '').trim().toLowerCase()))
+  renderSeasonRoster(s, out)
+  renderSeasonLore(s, out)
+}
 
-    // The API only ships entries whose artwork host is actually up, and the
-    // filter above can empty the list on its own, so an empty section is a
-    // normal state rather than an error — hide the heading along with the
-    // grid instead of leaving "Characters" floating over nothing.
-    if (shopHead) shopHead.style.display = entries.length ? '' : 'none'
-    shop.innerHTML = entries.map(e => `
-      <div class="perk-card reveal">
-        ${e.image
-          ? `<img src="${attr(e.image)}" alt="" loading="lazy"
-                  onerror="this.remove()"
-                  style="width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:var(--r);margin-bottom:11px">`
-          : perkIcon('gift')}
-        <h4>${esc(e.name)}</h4>
-        <p>${num(e.price)} ${esc(out.currency === 'seasonPoints' ? 'pts' : out.currency)}${
-          e.amount ? ` · ×${num(e.amount)}` : ''}</p>
-        ${e.purchaseLimit ? `<p class="subtext" style="margin-top:6px">Limit ${num(e.purchaseLimit)}</p>` : ''}
+/**
+ * The season's featured characters.
+ *
+ * Rendered from `season.roster`, which the API builds by merging the narrative
+ * cast (`season.characters` — mei/urahara/willow) with the shop's own
+ * `rewardType: 'character'` rows (urahara/wither). This used to filter the
+ * `shop` payload against a hardcoded name list, which could only ever surface
+ * the intersection of those two sets: one character, Wither. Names were also
+ * matched bare ('mei') against the API's full names ('Kisuke Urahara'), and one
+ * entry was misspelled. All of that is gone — the roster is season data, so the
+ * API is what knows it.
+ */
+function renderSeasonRoster(s, out) {
+  const host = $('#seasonRoster')
+  const head = $('#seasonRosterHead')
+  if (!host) return
+
+  const roster = s.roster ?? []
+  if (head) head.style.display = roster.length ? '' : 'none'
+
+  const currency = (c) => (c === 'seasonPoints' ? 'pts' : c ?? 'pts')
+
+  host.innerHTML = roster.map(c => {
+    // `tag` is the display badge (legendary / special); `rarity` is the
+    // mechanical grade that prices gems. Show the tag when there is one and
+    // fall back to rarity, so every tile carries exactly one badge.
+    const badge = c.tag ?? c.rarity
+    return `
+    <button type="button" class="perk-card reveal" data-char="${attr(c.id)}"
+            aria-label="${attr(`${c.name} details`)}">
+      ${c.image
+        ? `<img src="${attr(c.image)}" alt="" loading="lazy"
+                onerror="this.remove()"
+                style="width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:var(--r);margin-bottom:11px">`
+        : perkIcon('gift')}
+      ${badge ? `<span class="rarity-pill r-${attr(String(badge).toLowerCase())}">${esc(titleCase(badge))}</span>` : ''}
+      <h4>${esc(c.name)}</h4>
+      ${c.seasonTier ? `<p class="subtext">${esc(titleCase(c.seasonTier))} character</p>` : ''}
+      <p>${c.purchasable
+        ? `${num(c.price)} ${esc(currency(c.currency))}`
+        : c.gemPrice ? `${num(c.gemPrice)} gems` : 'Earned in game'}</p>
+      ${c.ability ? `<p class="subtext" style="margin-top:6px">${esc(c.ability)}</p>` : ''}
+    </button>`
+  }).join('')
+}
+
+/**
+ * Season story: the premise, each character's blurb, the live point bonuses,
+ * and what happens to leftover points when the season closes. All four come
+ * straight from data/seasons.json via /api/season — none of it was shipped to
+ * the site before, so this section is new rather than moved.
+ */
+function renderSeasonLore(s, out) {
+  const host = $('#seasonLore')
+  if (!host) return
+
+  const lore = s.lore ?? {}
+  const roster = s.roster ?? []
+
+  // Blurbs are keyed by character id, alongside non-character keys like
+  // `guide` and `reservedNpcId` — so walk the roster, not the lore object.
+  const blurbs = roster
+    .map(c => ({ c, text: lore[c.id] }))
+    .filter(e => e.text)
+
+  const guide = roster.find(c => c.id === lore.guide)
+
+  // Only the bonuses that are actually set, labelled the way the chat view
+  // labels them, so the site can't drift from what the bot awards.
+  const BONUS_LABELS = {
+    killPoints: ['pts per kill', '+'],
+    bossKillPoints: ['pts per boss', '+'],
+    winPoints: ['pts per win', '+'],
+    killXpPercent: ['XP on kills', '+', '%'],
+    killSolarsPercent: ['solars on kills', '+', '%'],
+    winXpPercent: ['XP on wins', '+', '%'],
+    winSolarsPercent: ['solars on wins', '+', '%'],
+  }
+  const bonuses = Object.entries(s.bonuses ?? {})
+    .filter(([k, v]) => BONUS_LABELS[k] && v)
+    .map(([k, v]) => {
+      const [label, pre, suf = ''] = BONUS_LABELS[k]
+      return `<div class="pd-stat"><div class="pd-stat-k">${esc(label)}</div>
+        <div class="pd-stat-v">${esc(pre)}${num(v)}${esc(suf)}</div></div>`
+    }).join('')
+
+  const conv = s.endOfSeason?.seasonPointsToSolars
+
+  host.innerHTML = `
+    <div class="card lore-card reveal">
+      <p class="lore-lead">${esc(s.description ?? '')}</p>
+      ${guide ? `<p class="subtext">Your guide this season is
+        <button type="button" class="link-btn" data-char="${attr(guide.id)}">${esc(guide.name)}</button>.</p>` : ''}
+    </div>
+
+    ${blurbs.length ? `<div class="grid-2" style="margin-top:18px">
+      ${blurbs.map(({ c, text }) => `
+        <button type="button" class="perk-card reveal" data-char="${attr(c.id)}"
+                aria-label="${attr(`${c.name} details`)}">
+          <h4>${esc(c.name)}</h4>
+          <p>${esc(text)}</p>
+        </button>`).join('')}
+    </div>` : ''}
+
+    ${bonuses ? `<div class="card reveal" style="margin-top:18px">
+      <h4 style="margin:0 0 13px">Season bonuses</h4>
+      <div class="pd-stats" style="margin:0">${bonuses}</div>
+    </div>` : ''}
+
+    ${conv ? `<p class="subtext" style="margin-top:14px">
+      When the season closes, every unspent season point converts to
+      ${num(conv)} solars${s.endOfSeason?.keepUnlockedContent
+        ? ', and everything you unlocked stays yours' : ''}.
+    </p>` : ''}`
+}
+
+/* ──────────────────────────────── page: shop ──────────────────────────── */
+
+/** Last /api/shop payload, so tab switches repaint without a refetch. */
+let shopData = null
+let shopShelf = null
+
+async function loadShop() {
+  const grid = $('#shopGrid')
+  if (grid) grid.innerHTML = skeletonCards(8)
+
+  shopData = await api.shop()
+  const shelves = shopData.shelves ?? []
+  if (!shelves.some(s => s.key === shopShelf)) shopShelf = shelves[0]?.key ?? null
+
+  const tabs = $('#shopTabs')
+  if (tabs) {
+    tabs.innerHTML = shelves.map(s => `
+      <button class="tab-btn${s.key === shopShelf ? ' active' : ''}" data-shelf="${attr(s.key)}" role="tab">
+        ${esc(s.emoji ?? '')} ${esc(s.label)}
+      </button>`).join('')
+  }
+
+  paintShopBalance()
+  paintShopShelf()
+}
+
+function paintShopBalance() {
+  const host = $('#shopBalance')
+  if (!host) return
+  const you = shopData?.you
+
+  if (!you) {
+    host.innerHTML = `<a class="btn btn-primary btn-sm" href="#/login" data-route="login">Sign in to buy</a>`
+    return
+  }
+  host.innerHTML = `
+    <div class="shop-wallet">
+      <span><strong>${num(you.solars)}</strong> solars</span>
+      <span class="subtext">${num(you.inventory)} / ${num(you.inventoryCap)} slots</span>
+      ${you.discount ? `<span class="rarity-pill r-legendary">${num(you.discount)}% off</span>` : ''}
+    </div>`
+}
+
+function paintShopShelf() {
+  const grid = $('#shopGrid')
+  if (!grid || !shopData) return
+
+  const shelf = (shopData.shelves ?? []).find(s => s.key === shopShelf)
+  if (!shelf) {
+    grid.innerHTML = emptyState('inventory', 'Nothing in stock', 'The shop has no items in this category right now.')
+    return
+  }
+
+  const you = shopData.you
+  const discount = you?.discount ?? 0
+  // The API ships list price; the discount is a mod on the player, so the
+  // price shown here has to match what /api/shop/buy will actually charge.
+  const priceOf = (row) => Math.max(1, Math.round((row.buyPrice ?? 0) * (1 - discount / 100)))
+
+  grid.innerHTML = shelf.groups.map(g => `
+    <div class="shop-group">
+      <div class="shop-group-head">${esc(g.label)}</div>
+      <div class="grid-4">
+        ${g.rows.map(row => {
+          const price = priceOf(row)
+          const locked = you && (you.level ?? 1) < (row.levelReq ?? 1)
+          const bonuses = Object.entries(row.statBonuses ?? {})
+            .map(([k, v]) => `${k.toUpperCase()} ${v > 0 ? '+' : ''}${v}`).join(' · ')
+          return `
+          <div class="perk-card shop-card reveal">
+            ${row.image
+              ? `<img src="${attr(row.image)}" alt="" loading="lazy" class="shop-img"
+                      onerror="this.remove()">`
+              : perkIcon('inventory')}
+            ${row.rarity ? `<span class="rarity-pill r-${attr(String(row.rarity).toLowerCase())}">${esc(titleCase(row.rarity))}</span>` : ''}
+            <h4>${esc(row.name)}</h4>
+            ${row.description ? `<p>${esc(row.description)}</p>` : ''}
+            ${bonuses ? `<p class="subtext" style="margin-top:6px">${esc(bonuses)}</p>` : ''}
+            <div class="shop-price">
+              <span class="gold">${num(price)} solars${discount ? ` <s class="subtext">${num(row.buyPrice)}</s>` : ''}</span>
+              ${row.levelReq > 1 ? `<span class="subtext">Lv ${num(row.levelReq)}</span>` : ''}
+            </div>
+            ${locked
+              ? `<button class="btn btn-secondary btn-sm btn-block" disabled>Requires level ${num(row.levelReq)}</button>`
+              : `<button class="btn btn-primary btn-sm btn-block" data-buy="${attr(row.id)}"
+                         data-name="${attr(row.name)}" data-price="${attr(String(price))}">Buy</button>`}
+          </div>`
+        }).join('')}
+      </div>
+    </div>`).join('')
+}
+
+/** Buy flow, shared by the Buy button on every shop card. */
+async function buyShopItem(id, name, price) {
+  if (!isSignedIn()) return goTo('login')
+
+  const ok = await confirmAction({
+    title: `Buy ${name}?`,
+    body: `This costs ${Number(price).toLocaleString()} solars and is taken from your balance immediately.`,
+    confirmLabel: 'Buy it',
+    danger: false,
+  })
+  if (!ok) return
+
+  try {
+    const out = await api.buyItem(id, 1)
+    toast(`Bought ${out.bought?.name ?? name}`, 'ok')
+
+    // Keep the page honest without a full reload: the response carries the
+    // authoritative balance and slot count.
+    if (shopData?.you) {
+      shopData.you.solars = out.balance ?? shopData.you.solars
+      shopData.you.inventory = out.inventory?.length ?? shopData.you.inventory
+      paintShopBalance()
+    }
+    // The profile's inventory and wallet are now stale.
+    invalidate('profile')
+    if (out.player) state.me = out.player
+  } catch (err) {
+    reportError(err)
+  }
+}
+
+/* ─────────────────────────────── page: cards ──────────────────────────── */
+
+let cardPage = 1
+let cardTier = ''
+
+async function loadCards() {
+  const tierGrid = $('#cardTierGrid')
+  if (tierGrid) tierGrid.innerHTML = skeletonCards(5)
+
+  const prices = await api.cardPrices()
+
+  const balance = $('#cardBalance')
+  if (balance) {
+    balance.innerHTML = prices.you
+      ? `<div class="shop-wallet"><span><strong>${num(prices.you.solars)}</strong> solars</span></div>`
+      : `<a class="btn btn-primary btn-sm" href="#/login" data-route="login">Sign in to buy</a>`
+  }
+
+  if (tierGrid) {
+    tierGrid.innerHTML = (prices.tiers ?? []).map(t => `
+      <div class="perk-card card-tier reveal">
+        <div class="card-tier-stars">${esc(t.stars ?? '')}</div>
+        <h4>Tier ${esc(t.tier)}</h4>
+        <p>${t.poolSize ? `${num(t.poolSize)} cards in this tier` : 'A random card of this tier'}</p>
+        <div class="shop-price"><span class="gold">${num(t.price)} solars</span></div>
+        <button class="btn btn-primary btn-sm btn-block" data-buytier="${attr(t.tier)}"
+                data-price="${attr(String(t.price))}">Buy a pull</button>
       </div>`).join('')
+  }
+
+  // Tier filters for the catalog below. '' is "all".
+  const filters = $('#cardFilters')
+  if (filters) {
+    const tiers = ['', ...(prices.tiers ?? []).map(t => t.tier), '5', 'S']
+    filters.innerHTML = tiers.map(t => `
+      <button class="tab-btn${t === cardTier ? ' active' : ''}" data-cardtier="${attr(t)}" role="tab">
+        ${t === '' ? 'All' : `Tier ${esc(t)}`}
+      </button>`).join('')
+  }
+
+  cardPage = 1
+  await paintCardCatalog({ reset: true })
+}
+
+/**
+ * Card art, as an <img> or a <video>.
+ *
+ * Roughly one card in six on shoob's CDN is an animated `.webm`, which an
+ * <img> can never paint — it just fires onerror and the tile loses its art.
+ * Those get a muted autoplaying loop instead, which is how the card is meant
+ * to look. `playsinline` keeps iOS from taking it fullscreen, and the poster
+ * stays empty so nothing flashes before the first frame.
+ */
+function cardArt(url, className) {
+  if (!url) return perkIcon('gem')
+  if (/\.(webm|mp4)(\?|$)/i.test(url)) {
+    // Under reduced motion the loop is dropped and the card sits on its first
+    // frame, so the art is still visible without anything moving.
+    const still = document.documentElement.classList.contains('no-motion')
+      || !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    const motionAttrs = still ? 'preload="auto"' : 'autoplay loop preload="metadata"'
+    return `<video class="${attr(className)}" src="${attr(url)}" muted playsinline
+                    ${motionAttrs} onerror="this.remove()"></video>`
+  }
+  return `<img src="${attr(url)}" alt="" loading="lazy" class="${attr(className)}" onerror="this.remove()">`
+}
+
+/**
+ * Fetch one catalog page.
+ *
+ * Goes through the bot rather than straight to cards-api-seven.vercel.app:
+ * that host sends no Access-Control-Allow-Origin, so the browser discards the
+ * response before JS can read it. The bot proxies it instead.
+ */
+async function paintCardCatalog({ reset = false } = {}) {
+  const host = $('#cardCatalog')
+  const more = $('#cardMore')
+  if (!host) return
+  if (reset) host.innerHTML = skeletonCards(8)
+  if (more) more.disabled = true
+
+  try {
+    const out = await api.cardCatalog({ page: cardPage, limit: 24, tier: cardTier || undefined })
+    const html = (out.cards ?? []).map(c => `
+      <div class="perk-card card-tile reveal">
+        ${cardArt(c.imageUrl, 'card-img')}
+        <span class="rarity-pill r-t${attr(String(c.tier).toLowerCase())}">Tier ${esc(c.tier)}</span>
+        <h4>${esc(c.title)}</h4>
+        <p>${esc(c.series ?? '')}</p>
+      </div>`).join('')
+
+    if (reset) host.innerHTML = html || emptyState('gem', 'No cards', 'Nothing matched this filter.')
+    else host.insertAdjacentHTML('beforeend', html)
+
+    if (more) {
+      more.style.display = out.hasMore ? '' : 'none'
+      more.disabled = false
+    }
+  } catch (err) {
+    if (reset) host.innerHTML = emptyState('warning', 'Card vault unavailable', err?.message ?? '')
+    if (more) more.style.display = 'none'
+  }
+}
+
+/** Buy one guaranteed-tier pull, then show what came out. */
+async function buyCardPull(tier, price) {
+  if (!isSignedIn()) return goTo('login')
+
+  const ok = await confirmAction({
+    title: `Buy a tier ${tier} pull?`,
+    body: `This costs ${Number(price).toLocaleString()} solars. The tier is guaranteed; which card you get is random.`,
+    confirmLabel: 'Pull a card',
+    danger: false,
+  })
+  if (!ok) return
+
+  try {
+    const out = await api.buyCardTier(tier)
+    const c = out.card ?? {}
+    if (out.player) state.me = out.player
+    invalidate('profile', 'cards')
+
+    // An animated card can't be a CSS background-image, so the banner becomes
+    // a <video> for those and a plain background for stills.
+    const isMotion = /\.(webm|mp4)(\?|$)/i.test(c.imageUrl ?? '')
+    const banner = !c.imageUrl
+      ? ''
+      : isMotion
+        ? `<div class="pd-banner">${cardArt(c.imageUrl, 'pd-banner-media')}</div>`
+        : `<div class="pd-banner" style="background-image:url('${attr(c.imageUrl)}')"></div>`
+
+    openModal(`
+      ${banner}
+      <div class="pd-head">
+        <div class="pd-id">
+          <h3>${esc(c.title ?? 'New card')}</h3>
+          <p class="pd-sub">Tier ${esc(c.tier ?? tier)} ${esc(c.stars ?? '')}${c.series ? ` · ${esc(c.series)}` : ''}</p>
+        </div>
+      </div>
+      <div class="pd-body">
+        <p class="subtext">Added to your collection. Balance is now
+          ${num(out.balance ?? 0)} solars.</p>
+      </div>`)
+
+    const balance = $('#cardBalance')
+    if (balance && out.balance != null) {
+      balance.innerHTML = `<div class="shop-wallet"><span><strong>${num(out.balance)}</strong> solars</span></div>`
+    }
+  } catch (err) {
+    reportError(err)
   }
 }
 
@@ -1274,12 +1677,24 @@ async function loadProfile() {
       <div class="pd-stat-v">#${num(v.position)}<span style="font-size:12px;color:var(--text-subtle)"> / ${num(v.of)}</span></div>
     </div>`).join('')
 
-  const inv = (p.inventory ?? []).slice(0, 24).map(i => `
-    <div class="inv-slot${i.rarity === 'rare' ? ' rare' : i.rarity === 'epic' || i.rarity === 'legendary' ? ' epic' : ''}"
-         title="${attr(i.name)}">
-      <span>${iconSvg('inventory', 'inventory-icon')}</span>
+  // Slots show the item's real plate (the same /assets/items/<id>.png the bot
+  // renders in chat) and fall back to the generic glyph only when there's no
+  // artwork or it fails to load — matching the `onerror` pattern used for
+  // season art. `.inv-slot` has always had `cursor:pointer`; `data-item` is
+  // what finally makes that true, via the delegated handler.
+  state.inv = (p.inventory ?? []).slice(0, 24)
+  const inv = state.inv.map((i, idx) => `
+    <button type="button"
+         class="inv-slot${i.rarity === 'rare' ? ' rare' : i.rarity === 'epic' || i.rarity === 'legendary' ? ' epic' : ''}"
+         data-item="${attr(String(idx))}"
+         title="${attr(i.name)}" aria-label="${attr(i.name)}">
+      ${i.image
+        ? `<img src="${attr(i.image)}" alt="" loading="lazy" class="inv-img"
+                onerror="this.insertAdjacentHTML('afterend', this.dataset.fb); this.remove()"
+                data-fb="${attr(`<span>${iconSvg('inventory', 'inventory-icon')}</span>`)}">`
+        : `<span>${iconSvg('inventory', 'inventory-icon')}</span>`}
       ${i.qty > 1 ? `<span class="qty">${num(i.qty)}</span>` : ''}
-    </div>`).join('')
+    </button>`).join('')
 
   host.innerHTML = `
     <div class="profile-banner"${p.bannerUrl ? ` style="background-image:url('${attr(p.bannerUrl)}');background-size:cover;background-position:center;"` : ''}></div>
@@ -1857,17 +2272,75 @@ function wireGlobalClicks() {
     }
 
     // Leaderboard row / wielder row → player detail with stats + alerts.
+    // A card can contain its own links and buttons (a "Buy" action, a route
+    // link); those must win, or clicking them would also open the card's modal
+    // behind whatever they do. `closest` finds the innermost match, so if an
+    // interactive descendant sits between the target and the card, this card
+    // isn't the thing that was clicked.
+    const innerCtl = t.closest('a[href],button:not([data-uid]):not([data-char]):not([data-item])')
+
     const row = t.closest('[data-uid]')
-    if (row) {
+    if (row && !(innerCtl && row.contains(innerCtl) && innerCtl !== row)) {
       e.preventDefault()
       openPlayer(row.dataset.uid)
       return
     }
 
     const charCard = t.closest('[data-char]')
-    if (charCard) {
+    if (charCard && !(innerCtl && charCard.contains(innerCtl) && innerCtl !== charCard)) {
       e.preventDefault()
       openCharacter(charCard.dataset.char)
+      return
+    }
+
+    // Inventory slot → item detail. The index keys into the rows the profile
+    // last rendered, so no refetch is needed.
+    const itemSlot = t.closest('[data-item]')
+    if (itemSlot && !(innerCtl && itemSlot.contains(innerCtl) && innerCtl !== itemSlot)) {
+      e.preventDefault()
+      openItem(state.inv[Number(itemSlot.dataset.item)])
+      return
+    }
+
+    // Shop: category tab, then the Buy button on a card.
+    const shelfTab = t.closest('[data-shelf]')
+    if (shelfTab) {
+      e.preventDefault()
+      shopShelf = shelfTab.dataset.shelf
+      for (const b of $$('#shopTabs .tab-btn')) b.classList.toggle('active', b.dataset.shelf === shopShelf)
+      paintShopShelf()
+      return
+    }
+
+    const buyBtn = t.closest('[data-buy]')
+    if (buyBtn) {
+      e.preventDefault()
+      buyShopItem(buyBtn.dataset.buy, buyBtn.dataset.name, buyBtn.dataset.price)
+      return
+    }
+
+    // Cards: tier purchase, catalog filter, and paging.
+    const pullBtn = t.closest('[data-buytier]')
+    if (pullBtn) {
+      e.preventDefault()
+      buyCardPull(pullBtn.dataset.buytier, pullBtn.dataset.price)
+      return
+    }
+
+    const tierTab = t.closest('[data-cardtier]')
+    if (tierTab) {
+      e.preventDefault()
+      cardTier = tierTab.dataset.cardtier
+      for (const b of $$('#cardFilters .tab-btn')) b.classList.toggle('active', b.dataset.cardtier === cardTier)
+      cardPage = 1
+      paintCardCatalog({ reset: true })
+      return
+    }
+
+    if (t.closest('#cardMore')) {
+      e.preventDefault()
+      cardPage += 1
+      paintCardCatalog()
       return
     }
 

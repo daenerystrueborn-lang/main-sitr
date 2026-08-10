@@ -304,6 +304,11 @@ section.hero.season-hero::before{content:none;}
 @media (max-width:700px){.inv-grid{grid-template-columns:repeat(4,1fr);}}
 .inv-slot{aspect-ratio:1;border:1px solid var(--border);border-radius:var(--r);background:var(--bg-2);display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;transition:var(--transition);position:relative;}
 .inv-slot:hover{border-color:var(--gold);background:var(--bg-3);}
+/* Slots are <button>s now (keyboard-reachable, announced as controls), so the
+   UA's own button chrome has to be cleared or it fights the tile styling. */
+.inv-slot{padding:0;font-family:inherit;color:inherit;-webkit-appearance:none;appearance:none;overflow:hidden;}
+.inv-img{width:76%;height:76%;object-fit:contain;transition:transform var(--dur) var(--ease-out);}
+.inv-slot:hover .inv-img{transform:scale(1.08);}
 .inv-slot.rare{border-color:rgb(245 243 238 / 35%);box-shadow:inset 0 0 0 1px rgb(245 243 238 / 12%);}
 .inv-slot.epic{border-color:rgb(212 175 55 / 55%);box-shadow:inset 0 0 0 1px rgb(212 175 55 / 25%);}
 .inv-slot .qty{position:absolute;bottom:2px;right:4px;font-size:9px;font-weight:800;color:var(--text-muted);}
@@ -336,6 +341,78 @@ section.hero.season-hero::before{content:none;}
 .perk-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:12px;}
 .perk-card h4{font-size:14px;font-weight:700;margin-bottom:5px;}
 .perk-card p{font-size:12px;color:var(--text-subtle);line-height:1.5;}
+
+/* Roster/shop tiles are real <button>s so they're keyboard-reachable and
+   announced as controls. A button brings its own centred text, its own font
+   and a shrink-to-fit width, none of which belong on a grid tile. */
+button.perk-card{width:100%;text-align:left;font:inherit;color:inherit;-webkit-appearance:none;appearance:none;}
+
+/* Only a tile that actually does something gets the hand — same reasoning as
+   `.feature-card:not(a){cursor:default}` above. A hover lift on a tile that
+   ignores the click is a promise the page doesn't keep. */
+.perk-card[data-char],.perk-card[data-item],a.perk-card,button.perk-card{cursor:pointer;}
+.perk-card:not([data-char]):not([data-item]):not(a):not(button){cursor:default;}
+.perk-card:not([data-char]):not([data-item]):not(a):not(button):hover{
+  transform:none;border-color:var(--border);box-shadow:none;}
+.perk-card:focus-visible,.inv-slot:focus-visible,.tier-node:focus-visible{
+  outline:2px solid var(--gold);outline-offset:2px;}
+
+/* Rarity / display-tag badge. `tag` is a marketing label (legendary, special)
+   and `rarity` is the mechanical grade — they share this pill because they
+   occupy the same slot on a tile, never both at once. */
+.rarity-pill{display:inline-block;padding:2px 8px;margin-bottom:7px;border-radius:999px;
+  font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
+  background:var(--bg-4);color:var(--text-muted);border:1px solid var(--border);}
+.rarity-pill.r-legendary,.rarity-pill.r-mythic{background:rgb(212 175 55 / 15%);color:var(--gold);border-color:rgb(212 175 55 / 45%);}
+.rarity-pill.r-special{background:rgb(168 85 247 / 15%);color:#c99bff;border-color:rgb(168 85 247 / 45%);}
+.rarity-pill.r-epic{background:rgb(168 85 247 / 12%);color:#bd8dfa;border-color:rgb(168 85 247 / 35%);}
+.rarity-pill.r-rare{background:rgb(96 165 250 / 12%);color:#8ec2ff;border-color:rgb(96 165 250 / 35%);}
+.rarity-pill.r-uncommon{background:rgb(74 222 128 / 12%);color:#86e2a6;border-color:rgb(74 222 128 / 32%);}
+
+/* Season lore */
+.lore-card{border-left:2px solid var(--gold);}.lore-lead{font-size:15px;line-height:1.7;color:var(--text);margin:0;}
+.lore-card .subtext{margin-top:11px;}
+.link-btn{background:none;border:none;padding:0;font:inherit;color:var(--gold);
+  font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:2px;}
+.link-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:3px;}
+
+/* ── shop ─────────────────────────────────────────────────────────────── */
+.shop-wallet{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px;}
+.shop-wallet strong{color:var(--gold);font-size:15px;}
+.shop-group{margin-bottom:30px;}
+.shop-group-head{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-subtle);margin-bottom:13px;padding-bottom:7px;border-bottom:1px solid var(--border-soft);}
+.shop-card{display:flex;flex-direction:column;}
+.shop-img{width:100%;aspect-ratio:1;object-fit:contain;background:var(--bg-3);
+  border-radius:var(--r);margin-bottom:11px;padding:10px;
+  transition:transform var(--dur-slow) var(--ease-out);}
+.shop-card:hover img{transform:scale(1.05);}
+.shop-price{display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+  margin:11px 0;font-size:13px;font-weight:700;}
+.shop-price .gold{color:var(--gold);}
+.shop-price s{font-weight:400;margin-left:5px;}
+/* Pushes the Buy button to a common baseline so a row of cards with unequal
+   description lengths still has its actions aligned. */
+.shop-card .btn{margin-top:auto;}
+
+/* ── cards ────────────────────────────────────────────────────────────── */
+.card-tier{display:flex;flex-direction:column;text-align:center;}
+.card-tier-stars{font-size:17px;color:var(--gold);margin-bottom:7px;letter-spacing:.08em;}
+.card-tier .shop-price{justify-content:center;}
+.card-tier .btn{margin-top:auto;}
+/* Catalog tiles are display-only — the card you get is a random pull of the
+   tier, so nothing here should read as clickable. */
+.card-tile{cursor:default;}
+.card-img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:var(--r);margin-bottom:11px;
+  transition:transform var(--dur-slow) var(--ease-out);}
+/* Animated cards render as <video>, so the hover rule has to name both. */
+.card-tile:hover img,.card-tile:hover video{transform:scale(1.04);}
+/* The pull-result banner is a background-image for still cards and a real
+   <video> for animated ones; this makes the video fill the banner identically. */
+.pd-banner-media{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+.rarity-pill.r-ts{background:rgb(212 175 55 / 18%);color:var(--gold);border-color:rgb(212 175 55 / 50%);}
+.rarity-pill.r-t6,.rarity-pill.r-t5{background:rgb(168 85 247 / 14%);color:#c99bff;border-color:rgb(168 85 247 / 40%);}
+.rarity-pill.r-t4,.rarity-pill.r-t3{background:rgb(96 165 250 / 12%);color:#8ec2ff;border-color:rgb(96 165 250 / 35%);}
 
 /* faq */
 .faq-item{border-bottom:1px solid var(--border-soft);}
@@ -784,7 +861,11 @@ textarea:focus-visible,[tabindex]:focus-visible{
   .feature-card:hover .feature-content,
   .feature-card:hover .feature-icon,
   .feature-card.art:hover::before,
-  .perk-card:hover img{transform:none;}
+  .perk-card:hover img,
+  .inv-slot:hover .inv-img,
+  .shop-card:hover img,
+  .card-tile:hover img,
+  .card-tile:hover video{transform:none;}
   .xp-fill{transition:none;}
   .modal-card,.modal-scrim{transition:opacity .01s;}
 }

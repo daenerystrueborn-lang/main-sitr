@@ -59,6 +59,8 @@
       <a class="nav-slot" href="#/" data-route="home">Home</a>
       <a class="nav-slot" href="#/leaderboard" data-route="leaderboard">Leaderboard</a>
       <a class="nav-slot" href="#/season" data-route="season">Season</a>
+      <a class="nav-slot" href="#/shop" data-route="shop">Shop</a>
+      <a class="nav-slot" href="#/cards" data-route="cards">Cards</a>
       <a class="nav-slot" href="#/premium" data-route="premium">Premium</a>
     </nav>
 
@@ -83,6 +85,8 @@
   <a class="drawer-link" href="#/" data-route="home">Home</a>
   <a class="drawer-link" href="#/leaderboard" data-route="leaderboard">Leaderboard</a>
   <a class="drawer-link" href="#/season" data-route="season">Season</a>
+  <a class="drawer-link" href="#/shop" data-route="shop">Shop</a>
+  <a class="drawer-link" href="#/cards" data-route="cards">Cards</a>
   <a class="drawer-link" href="#/premium" data-route="premium">Premium</a>
   <a class="drawer-link" href="#/profile" data-route="profile">Profile</a>
   <a class="drawer-link" href="#/settings" data-route="settings">Settings</a>
@@ -270,6 +274,16 @@
     <section class="section">
       <div class="section-head">
         <div>
+          <h2>The story so far</h2>
+          <p>Why this season is happening, and who is in it</p>
+        </div>
+      </div>
+      <div id="seasonLore"></div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
           <h2>Tier rewards</h2>
           <p>Everything the pass hands out this season</p>
         </div>
@@ -278,13 +292,13 @@
     </section>
 
     <section class="section">
-      <div class="section-head" id="seasonShopHead" style="display:none;">
+      <div class="section-head" id="seasonRosterHead" style="display:none;">
         <div>
-          <h2>Characters</h2>
-          <p>Spend season points before the season closes</p>
+          <h2>Season roster</h2>
+          <p>The characters this season revolves around — tap one for their kit</p>
         </div>
       </div>
-      <div class="grid-4" id="seasonShop"></div>
+      <div class="grid-4" id="seasonRoster"></div>
     </section>
   </div>
 </main>
@@ -317,6 +331,57 @@
 
     <section class="section">
       <div class="card" id="payCard"></div>
+    </section>
+  </div>
+</main>
+
+<!-- ===================================================== -->
+<!-- SHOP -->
+<!-- ===================================================== -->
+<main class="view" id="view-shop">
+  <div class="page" style="padding-top:56px;">
+    <section class="section" style="padding-top:0;">
+      <div class="section-head">
+        <div>
+          <h2>Shop</h2>
+          <p>The same stock the bot sells in chat — buy it here instead</p>
+        </div>
+        <div id="shopBalance"></div>
+      </div>
+      <div class="tab-row" id="shopTabs" role="tablist"></div>
+      <div id="shopGrid"></div>
+    </section>
+  </div>
+</main>
+
+<!-- ===================================================== -->
+<!-- CARDS -->
+<!-- ===================================================== -->
+<main class="view" id="view-cards">
+  <div class="page" style="padding-top:56px;">
+    <section class="section" style="padding-top:0;">
+      <div class="section-head">
+        <div>
+          <h2>Card vault</h2>
+          <p>Buy a guaranteed tier — the card itself is a random pull</p>
+        </div>
+        <div id="cardBalance"></div>
+      </div>
+      <div class="grid-4" id="cardTierGrid"></div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>Browse the collection</h2>
+          <p>Every card in the vault. Display only — pulls are random.</p>
+        </div>
+      </div>
+      <div class="tab-row" id="cardFilters" role="tablist"></div>
+      <div class="grid-4" id="cardCatalog"></div>
+      <div style="display:flex;justify-content:center;margin-top:22px;">
+        <button class="btn btn-secondary btn-sm" id="cardMore" style="display:none;">Load more</button>
+      </div>
     </section>
   </div>
 </main>
@@ -491,6 +556,8 @@
         <a href="#/" data-route="home">Home</a>
         <a href="#/leaderboard" data-route="leaderboard">Leaderboard</a>
         <a href="#/season" data-route="season">Season</a>
+        <a href="#/shop" data-route="shop">Shop</a>
+        <a href="#/cards" data-route="cards">Cards</a>
         <a href="#/premium" data-route="premium">Premium</a>
       </div>
 

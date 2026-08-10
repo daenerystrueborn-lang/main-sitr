@@ -308,11 +308,53 @@ export function emptyState(icon, title, body = '') {
 
 let lastFocused = null
 
+/** Everything inside the card that can hold focus, in document order. */
+const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
+
+/**
+ * Keep Tab inside the open modal.
+ *
+ * Without this, tabbing past the last control walks into the page behind the
+ * scrim — which is still scroll-locked and visually dimmed, so focus simply
+ * disappears for sighted keyboard users and screen readers start reading a
+ * page the user can't see.
+ */
+function trapTab(e) {
+  if (e.key !== 'Tab') return
+  const card = $('#modal')?.querySelector('.modal-card')
+  if (!card) return
+
+  const items = [...card.querySelectorAll(FOCUSABLE)].filter(el => el.offsetParent !== null)
+  if (!items.length) return
+
+  const first = items[0]
+  const last = items[items.length - 1]
+  const active = document.activeElement
+
+  if (e.shiftKey && (active === first || !card.contains(active))) {
+    e.preventDefault()
+    last.focus()
+  } else if (!e.shiftKey && active === last) {
+    e.preventDefault()
+    first.focus()
+  }
+}
+
 export function openModal(html) {
   const modal = $('#modal')
   const body = $('#modalBody')
   if (!modal || !body) return
-  lastFocused = document.activeElement
+
+  // Only the *first* open captures the return target. openPlayer() and
+  // openCharacter() both call this twice — skeleton, then content — and the
+  // second call used to overwrite lastFocused with the modal's own close
+  // button, so dismissing dropped focus instead of returning it to the tile.
+  const wasOpen = modal.classList.contains('open')
+  if (!wasOpen) {
+    lastFocused = document.activeElement
+    document.addEventListener('keydown', trapTab, true)
+  }
+
   body.innerHTML = html
   modal.classList.add('open')
   document.body.style.overflow = 'hidden'
@@ -322,7 +364,11 @@ export function openModal(html) {
 export function closeModal() {
   const modal = $('#modal')
   if (!modal?.classList.contains('open')) return
+  // Removing `.open` is the signal confirm()'s MutationObserver waits on — it
+  // resolves false when the dialog is dismissed any other way — so it stays
+  // exactly here, before anything that could throw.
   modal.classList.remove('open')
+  document.removeEventListener('keydown', trapTab, true)
   document.body.style.overflow = ''
   lastFocused?.focus?.()
   lastFocused = null

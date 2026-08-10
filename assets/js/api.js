@@ -241,6 +241,35 @@ export const api = {
   /** Plans + payment details. Served at runtime so prices are never stale. */
   premium: () => get('/premium'),
 
+  /* ──────────────────────────────── shop ───────────────────────────────── */
+
+  /** The buyable catalog, grouped the same way the chat `.shop` groups it. */
+  shop: () => get('/shop'),
+
+  /**
+   * Buy `qty` of one item. The response carries the new balance and the
+   * restacked inventory, so a successful buy repaints without a refetch.
+   */
+  buyItem: (id, qty = 1) => post('/shop/buy', { id, qty }),
+
+  /* ──────────────────────────────── cards ──────────────────────────────── */
+
+  /** Buyable tiers with prices. Tiers 5 and S are earn-only and absent. */
+  cardPrices: () => get('/cards/prices'),
+
+  /** Buys one random card of a guaranteed tier. */
+  buyCardTier: (tier) => post('/cards/buy-tier', { tier }),
+
+  /**
+   * Browse the card catalog.
+   *
+   * Proxied through the bot rather than called from the browser: the upstream
+   * Cards API sends no CORS headers, so a direct fetch is discarded before JS
+   * can read it. See the endpoint comment in lib/api-server.js.
+   */
+  cardCatalog: ({ page = 1, limit = 24, tier } = {}) =>
+    get(`/cards/catalog?page=${page}&limit=${limit}${tier ? `&tier=${encodeURIComponent(tier)}` : ''}`),
+
   /* ──────────────────────────────── auth ───────────────────────────────── */
 
   /** Sends the 6-digit code to the player's WhatsApp DM. */
