@@ -211,6 +211,21 @@ const post = (p, body) => request(p, { method: 'POST', body })
 const patch = (p, body) => request(p, { method: 'PATCH', body })
 const del = (p) => request(p, { method: 'DELETE' })
 
+/**
+ * How the caller identifies the account a code is for.
+ *
+ * A plain string is a typed phone number, which is the sign-UP path. An object
+ * carrying `handle` is an account already resolved from a character name by
+ * lookupAccount(), which is the sign-IN path — the browser never sees the real
+ * number, only the handle that stands for it.
+ */
+function otpTarget(target) {
+  if (typeof target === 'string') return { phone: target }
+  if (target?.handle) return { handle: target.handle }
+  if (target?.phone) return { phone: target.phone }
+  return {}
+}
+
 /* ───────────────────────────── public data ─────────────────────────────── */
 
 export const api = {
@@ -272,15 +287,32 @@ export const api = {
 
   /* ──────────────────────────────── auth ───────────────────────────────── */
 
-  /** Sends the 6-digit code to the player's WhatsApp DM. */
-  requestOtp: (phone) => post('/auth/request-otp', { phone }),
+  /**
+   * Step 1 of signing in: find the account behind a character name.
+   *
+   * Resolves to { name, level, rank, avatarUrl, maskedPhone, handle }. The
+   * masked number is there so the player can confirm the account is theirs
+   * before a code is sent; `handle` is an opaque short-lived token that stands
+   * in for the account (and its real number) in the next two calls. 404s with
+   * `found: false` when no character goes by that name.
+   */
+  lookupAccount: (username) => post('/auth/lookup', { username }),
+
+  /**
+   * Sends the 6-digit code to the account's WhatsApp DM.
+   *
+   * Pass the object from lookupAccount() to sign IN, or a typed phone number
+   * string to sign UP — a new player has no name to look up yet.
+   */
+  requestOtp: (target) => post('/auth/request-otp', otpTarget(target)),
 
   /**
    * Exchanges a code for a session. Stores the bearer token on success.
-   * `needsRegistration` means the number is verified but has no character yet.
+   * `needsRegistration` means the account is verified but has no character yet.
+   * `target` is whatever was handed to requestOtp().
    */
-  verifyOtp: async (phone, code) => {
-    const out = await post('/auth/verify-otp', { phone, code })
+  verifyOtp: async (target, code) => {
+    const out = await post('/auth/verify-otp', { ...otpTarget(target), code })
     if (out?.token) setToken(out.token)
     return out
   },

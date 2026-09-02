@@ -411,15 +411,15 @@
 
       <div class="auth-step active" id="loginStep1">
         <h2>Sign in</h2>
-        <p class="subtext" style="margin-bottom:22px;">We'll DM a 6-digit code to your WhatsApp from the bot's own number.</p>
-        <form id="loginPhoneForm" novalidate>
-          <div class="field" id="loginPhoneField">
-            <label for="loginPhone">WhatsApp number</label>
-            <input id="loginPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="e.g. 2348012345678">
-            <p class="field-hint">Include your country code. This is the number you play on.</p>
-            <p class="field-err" id="loginPhoneErr"></p>
+        <p class="subtext" style="margin-bottom:22px;">Type your username. We'll find your account and DM a 6-digit code to the WhatsApp number attached to it.</p>
+        <form id="loginNameForm" novalidate>
+          <div class="field" id="loginNameField">
+            <label for="loginName">Username</label>
+            <input id="loginName" type="text" inputmode="text" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="e.g. Astral">
+            <p class="field-hint">Your username, or the name on your profile. Capitals don't matter.</p>
+            <p class="field-err" id="loginNameErr"></p>
           </div>
-          <button class="btn btn-primary btn-block" id="loginSendBtn" type="submit">Send me a code</button>
+          <button class="btn btn-primary btn-block" id="loginFindBtn" type="submit">Find my account</button>
         </form>
         <div class="auth-alt">
           <span>New here?</span><a href="#/signup" data-route="signup">Create a character</a>
@@ -427,6 +427,29 @@
       </div>
 
       <div class="auth-step" id="loginStep2">
+        <h2>Is this you?</h2>
+        <p class="subtext" style="margin-bottom:18px;">Check the number before we send anything.</p>
+        <div class="card" id="loginConfirmCard" style="margin-bottom:18px;">
+          <div style="display:flex;align-items:center;gap:14px;">
+            <img id="loginFoundArt" alt="" width="56" height="56"
+                 style="width:56px;height:56px;border-radius:14px;object-fit:cover;flex:0 0 auto;background:rgba(255,255,255,.06);">
+            <div style="min-width:0;">
+              <strong id="loginFoundName" style="display:block;font-size:1.05rem;">&nbsp;</strong>
+              <span class="subtext" id="loginFoundSub" style="display:block;"></span>
+            </div>
+          </div>
+          <p class="field-hint" style="margin-top:14px;margin-bottom:0;">
+            The code goes to <strong id="loginFoundPhone">the WhatsApp account linked to this character</strong>.
+          </p>
+        </div>
+        <p class="field-err" id="loginConfirmErr"></p>
+        <button class="btn btn-primary btn-block" id="loginSendBtn" type="button">Send the code</button>
+        <div class="auth-alt">
+          <a id="loginConfirmBackBtn">That's not me</a>
+        </div>
+      </div>
+
+      <div class="auth-step" id="loginStep3">
         <h2>Enter the code</h2>
         <p class="subtext" id="loginSentTo" style="margin-bottom:22px;">Check your WhatsApp for the code.</p>
         <div class="otp-row" id="otpRow">
@@ -442,7 +465,7 @@
         <div class="auth-alt">
           <a id="otpResendBtn">Resend code</a>
           <span>·</span>
-          <a id="otpBackBtn">Use another number</a>
+          <a id="otpBackBtn">Use a different username</a>
         </div>
       </div>
 

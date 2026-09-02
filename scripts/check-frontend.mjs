@@ -51,8 +51,9 @@ for (const m of allJs.matchAll(/getElementById\('([A-Za-z0-9_-]+)'\)/g)) jsIds.a
 // so no static lookup finds them. Listed explicitly because these are exactly
 // the ids a rename would silently break.
 const DYNAMIC_IDS = new Set([
-  'loginStep1', 'loginStep2', 'signupStep1', 'signupStep2', 'signupStep3',
-  'loginPhoneField', 'signupPhoneField', 'loginPhoneErr', 'signupPhoneErr',
+  'loginStep1', 'loginStep2', 'loginStep3', 'signupStep1', 'signupStep2', 'signupStep3',
+  'loginNameField', 'loginNameErr', 'loginConfirmCard', 'loginConfirmErr',
+  'signupPhoneField', 'signupPhoneErr',
   'loginSentTo', 'signupSentTo', 'otpRow', 'signupOtpRow', 'otpErr', 'signupOtpErr',
   'regNameField', 'regNameErr', 'bioField', 'bioErr', 'regClassHint', 'regRaceHint',
 ])

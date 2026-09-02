@@ -40,7 +40,15 @@ const state = {
   inv: [],
   boardCache: new Map(),
   lbRows: [],
-  otp: { phone: null, masked: null, mode: 'login' },
+  /**
+   * The in-flight sign-in/sign-up attempt.
+   *
+   * `target` is what identifies the account to the API: `{ handle }` when
+   * signing in (the browser is never given the real number, only a short-lived
+   * handle from /auth/lookup), or a typed phone string when signing up, where
+   * there is no username to look up yet.
+   */
+  otp: { target: null, masked: null, name: null, mode: 'login', registered: false },
 }
 
 const loaded = new Set()
@@ -351,7 +359,7 @@ async function afterSignIn(player, { needsRegistration = false } = {}) {
     await loadRegisterOptions()
     showStep('signup', 3)
     goTo('signup')
-    toast('Number verified — build your character', 'ok')
+    toast('Number verified, now build your character', 'ok')
     return
   }
 
@@ -433,9 +441,14 @@ async function signOut() {
 /* ────────────────────────────── auth: shared ──────────────────────────── */
 
 /** Swaps which `.auth-step` is visible for login/signup. */
+/**
+ * Swaps which `.auth-step` is visible for login/signup.
+ *
+ * Both flows have three steps now: signing in is name → confirm the number →
+ * code, signing up is number → code → character.
+ */
 function showStep(mode, step) {
-  const total = mode === 'signup' ? 3 : 2
-  for (let i = 1; i <= total; i++) {
+  for (let i = 1; i <= 3; i++) {
     const el = document.getElementById(`${mode}Step${i}`)
     el?.classList.toggle('active', i === step)
   }
@@ -504,40 +517,151 @@ function clearOtp(rowId) {
   row?.querySelector('input')?.focus()
 }
 
+/** Wipes the in-flight attempt so a stale handle can't be reused. */
+function resetOtpState(mode = 'login') {
+  state.otp = { target: null, masked: null, name: null, mode, registered: false }
+}
+
 /**
- * Requests a code. Shared by login and signup — the only difference is which
- * step markup gets shown afterwards.
+ * True when the server says the sign-in attempt has gone stale. Handles are
+ * good for ten minutes; past that the only cure is to look the name up again,
+ * so every caller that sees this sends the player back to step 1 rather than
+ * showing an error next to a button that can no longer work.
  */
-async function sendOtp(mode, phone, btn) {
-  const fieldId = `${mode}PhoneField`
-  const errId = `${mode}PhoneErr`
+function isHandleExpired(err) {
+  return err instanceof ApiError && err.code === 'handle_expired'
+}
+
+/**
+ * Step 1 of signing in: look up a username and show what came back.
+ *
+ * The API takes either the reserved @handle or the character name, so this
+ * sends whatever was typed through untouched.
+ *
+ * Nothing is sent to WhatsApp here, which is the whole reason this step
+ * exists. Someone who types a name that turns out to belong to a different
+ * player should discover that from the card in front of them, not by making a
+ * stranger's phone buzz with a code.
+ */
+async function findAccount(btn) {
+  const typed = ($('#loginName')?.value ?? '').trim()
+  fieldError('loginNameField', 'loginNameErr', null)
+
+  if (typed.length < 2) {
+    fieldError('loginNameField', 'loginNameErr', 'Enter your username or character name.')
+    return
+  }
+
+  const stop = busy(btn)
+  try {
+    const found = await api.lookupAccount(typed)
+    resetOtpState('login')
+    state.otp.target = { handle: found.handle }
+    state.otp.masked = found.maskedPhone ?? null
+    state.otp.name = found.name ?? typed
+    state.otp.registered = true
+
+    paintFoundAccount(found)
+    showStep('login', 2)
+  } catch (err) {
+    fieldError('loginNameField', 'loginNameErr', err?.message ?? 'Could not find that account.')
+    reportError(err)
+  } finally { stop() }
+}
+
+/** Fills the "is this you?" card from an /auth/lookup result. */
+function paintFoundAccount(found) {
+  const art = document.getElementById('loginFoundArt')
+  if (art) {
+    if (found.avatarUrl) {
+      art.src = found.avatarUrl
+      art.style.display = ''
+    } else {
+      art.removeAttribute('src')
+      art.style.display = 'none'
+    }
+  }
+
+  const name = document.getElementById('loginFoundName')
+  if (name) name.textContent = found.name ?? ''
+
+  const sub = document.getElementById('loginFoundSub')
+  if (sub) {
+    const bits = []
+    // The @handle first when they have one: it's the thing they just typed, so
+    // it's the fastest confirmation that the right account came back.
+    if (found.username) bits.push(`@${found.username}`)
+    if (found.level) bits.push(`Level ${found.level}`)
+    if (found.rank?.title) bits.push([found.rank.emoji, found.rank.title].filter(Boolean).join(' '))
+    sub.textContent = bits.join(' · ')
+  }
+
+  const phone = document.getElementById('loginFoundPhone')
+  // No masked number means a LID-keyed WhatsApp account, whose id carries no
+  // phone number at all. The DM still lands, there is just nothing to show.
+  if (phone) phone.textContent = found.maskedPhone ?? 'the WhatsApp account linked to this character'
+
+  const err = document.getElementById('loginConfirmErr')
+  if (err) err.textContent = ''
+}
+
+/**
+ * Requests a code. Shared by login and signup — the difference is only what
+ * identifies the account and which step comes next.
+ *
+ * `target` is `{ handle }` on the login path (the account was already resolved
+ * from a name by findAccount, and the browser never holds the real number) or
+ * a typed phone string on the signup path.
+ */
+async function sendOtp(mode, target, btn) {
+  const login = mode === 'login'
+  const fieldId = login ? 'loginConfirmCard' : 'signupPhoneField'
+  const errId = login ? 'loginConfirmErr' : 'signupPhoneErr'
   fieldError(fieldId, errId, null)
 
-  if (!phone || phone.replace(/\D/g, '').length < 8) {
+  if (login && !target?.handle) {
+    resetOtpState('login')
+    fieldError('loginNameField', 'loginNameErr', 'Search for your name again.')
+    showStep('login', 1)
+    return
+  }
+  if (!login && String(target ?? '').replace(/\D/g, '').length < 8) {
     fieldError(fieldId, errId, 'Enter a valid WhatsApp number.')
     return
   }
 
   const stop = busy(btn)
   try {
-    const out = await api.requestOtp(phone)
-    state.otp = { phone, masked: out.maskedPhone ?? phone, mode, registered: !!out.registered }
+    const out = await api.requestOtp(target)
+    state.otp = {
+      target,
+      // The login path already has a mask from the lookup; keep it if the
+      // send didn't return one (a LID account has no number either way).
+      masked: out.maskedPhone ?? (login ? state.otp.masked : String(target)),
+      name: login ? state.otp.name : null,
+      mode,
+      registered: !!out.registered,
+    }
 
     const sentTo = document.getElementById(`${mode}SentTo`)
     if (sentTo) {
-      sentTo.innerHTML = `Code sent to <strong>${esc(out.maskedPhone ?? phone)}</strong> — it expires ${esc(relTime(out.expiresAt))}.`
+      sentTo.innerHTML = state.otp.masked
+        ? `Code sent to <strong>${esc(state.otp.masked)}</strong>. It expires ${esc(relTime(out.expiresAt))}.`
+        : `Code sent to your WhatsApp. It expires ${esc(relTime(out.expiresAt))}.`
     }
 
     // The API's own words, which the bot echoes in the DM.
     toast(out.message ?? 'OTP has been sent to your DM', 'ok')
-    showStep(mode, 2)
-    clearOtp(mode === 'signup' ? 'signupOtpRow' : 'otpRow')
+    showStep(mode, login ? 3 : 2)
+    clearOtp(login ? 'otpRow' : 'signupOtpRow')
 
     // Local testing convenience only; the API omits this unless DEV_MODE is on.
     if (out.devCode) toast(`Dev code: ${out.devCode}`)
   } catch (err) {
-    if (err instanceof ApiError && err.status === 429 && err.retryAfterMs) {
-      fieldError(fieldId, errId, `${err.message}`)
+    if (isHandleExpired(err)) {
+      resetOtpState('login')
+      fieldError('loginNameField', 'loginNameErr', err.message)
+      showStep('login', 1)
     } else {
       fieldError(fieldId, errId, err?.message ?? 'Could not send the code.')
     }
@@ -546,8 +670,9 @@ async function sendOtp(mode, phone, btn) {
 }
 
 async function submitOtp(mode, btn) {
-  const rowId = mode === 'signup' ? 'signupOtpRow' : 'otpRow'
-  const errId = mode === 'signup' ? 'signupOtpErr' : 'otpErr'
+  const login = mode === 'login'
+  const rowId = login ? 'otpRow' : 'signupOtpRow'
+  const errId = login ? 'otpErr' : 'signupOtpErr'
   const errEl = document.getElementById(errId)
   const code = readOtp(rowId)
 
@@ -556,16 +681,23 @@ async function submitOtp(mode, btn) {
     if (errEl) errEl.textContent = 'Enter all six digits.'
     return
   }
-  if (!state.otp.phone) {
+  if (!state.otp.target) {
     if (errEl) errEl.textContent = 'Request a new code first.'
     return
   }
 
   const stop = busy(btn)
   try {
-    const out = await api.verifyOtp(state.otp.phone, code)
+    const out = await api.verifyOtp(state.otp.target, code)
     await afterSignIn(out.player, { needsRegistration: !!out.needsRegistration })
   } catch (err) {
+    if (isHandleExpired(err)) {
+      resetOtpState('login')
+      clearOtp(rowId)
+      fieldError('loginNameField', 'loginNameErr', err.message)
+      showStep('login', 1)
+      return
+    }
     if (errEl) errEl.textContent = err?.message ?? 'Verification failed.'
     clearOtp(rowId)
   } finally { stop() }
@@ -2500,10 +2632,22 @@ function wireShell() {
 }
 
 function wireAuthForms() {
-  $('#loginPhoneForm')?.addEventListener('submit', (e) => {
+  // Sign in: name → confirm → code. The name form only LOOKS the account up;
+  // the send button lives on step 2, after the player has seen the number.
+  $('#loginNameForm')?.addEventListener('submit', (e) => {
     e.preventDefault()
-    sendOtp('login', $('#loginPhone').value, $('#loginSendBtn'))
+    findAccount($('#loginFindBtn'))
   })
+  $('#loginSendBtn')?.addEventListener('click', () =>
+    sendOtp('login', state.otp.target, $('#loginSendBtn')))
+  $('#loginConfirmBackBtn')?.addEventListener('click', () => {
+    resetOtpState('login')
+    showStep('login', 1)
+    $('#loginName')?.focus()
+  })
+
+  // Sign up still starts from a typed number: a brand-new player has no
+  // username to look up yet.
   $('#signupPhoneForm')?.addEventListener('submit', (e) => {
     e.preventDefault()
     sendOtp('signup', $('#signupPhone').value, $('#signupSendBtn'))
@@ -2516,13 +2660,19 @@ function wireAuthForms() {
   $('#otpVerifyBtn')?.addEventListener('click', () => submitOtp('login', $('#otpVerifyBtn')))
   $('#signupVerifyBtn')?.addEventListener('click', () => submitOtp('signup', $('#signupVerifyBtn')))
 
-  $('#otpBackBtn')?.addEventListener('click', () => showStep('login', 1))
+  // Back from the code step returns to the USERNAME field, not to the confirm
+  // card: "use a different username" has to actually let you type one.
+  $('#otpBackBtn')?.addEventListener('click', () => {
+    resetOtpState('login')
+    showStep('login', 1)
+    $('#loginName')?.focus()
+  })
   $('#signupBackBtn')?.addEventListener('click', () => showStep('signup', 1))
 
   $('#otpResendBtn')?.addEventListener('click', () =>
-    sendOtp('login', state.otp.phone ?? $('#loginPhone').value, $('#otpResendBtn')))
+    sendOtp('login', state.otp.target, $('#otpResendBtn')))
   $('#signupResendBtn')?.addEventListener('click', () =>
-    sendOtp('signup', state.otp.phone ?? $('#signupPhone').value, $('#signupResendBtn')))
+    sendOtp('signup', state.otp.target ?? $('#signupPhone').value, $('#signupResendBtn')))
 
   // Auto-submit once all six digits are in — one less tap on mobile.
   wireOtpRow('otpRow', () => submitOtp('login', $('#otpVerifyBtn')))
