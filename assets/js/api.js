@@ -250,6 +250,32 @@ export const api = {
   characters: () => get('/characters'),
   character: (id) => get(`/characters/${encodeURIComponent(id)}`),
 
+  /* ────────────────────────── character spins ──────────────────────────── */
+
+  /**
+   * Every spin banner the bot has registered, with your standing on each.
+   * Session-optional: signed out, the per-player fields (spinsUsed, gems,
+   * owned) come back null/false but each banner still describes itself, so a
+   * visitor sees what they'd be spinning for. An empty list is normal — it
+   * means no character is currently spinnable from the web.
+   *
+   * The odds are never in this payload — only the cost, the lifetime cap and
+   * how far through it you are. The bot treats its dead zone and plateau as
+   * secret on every surface, and the site is no exception.
+   */
+  spins: () => get('/spins'),
+
+  /**
+   * Pull the banner `count` times. The server clamps to the banner's own
+   * per-pull cap and stops early on a win, on an empty wallet, or the moment
+   * a one-of-one is claimed — so `results.length` is what actually happened,
+   * not what was asked for.
+   *
+   * Refusals that cost nothing come back as 4xx with the reason: 402 (gems),
+   * 409 (already owned / claimed / no spins left), 423 (owner froze it).
+   */
+  spinCharacter: (id, count = 1) => post(`/characters/${encodeURIComponent(id)}/spin`, { count }),
+
   season: () => get('/season'),
   seasonTier: (tier) => get(`/season/tier/${encodeURIComponent(tier)}`),
 
@@ -269,7 +295,7 @@ export const api = {
 
   /* ──────────────────────────────── cards ──────────────────────────────── */
 
-  /** Buyable tiers with prices. Tiers 5 and S are earn-only and absent. */
+  /** Buyable tiers with prices, cheapest first. Covers 1-6 and S. */
   cardPrices: () => get('/cards/prices'),
 
   /** Buys one random card of a guaranteed tier. */

@@ -159,7 +159,10 @@ else ok(`all ${navTargets.size} data-route links resolve to a route`)
 const assets = new Set([
   // data: URIs are inlined content, not files — the SVG favicon is one.
   ...[...html.matchAll(/(?:src|href)="((?!https?:|data:|#|mailto:)[^"]+)"/g)].map(m => m[1]),
-  ...[...css.matchAll(/url\(['"]?((?!data:|https?:)[^'")]+)['"]?\)/g)].map(m => m[1]),
+  // Comments are stripped first: style.css documents the url() quote-escaping
+  // bug in prose, and an example url('…') inside a comment is not an asset.
+  // Left in, it reported the literal ellipsis as a file missing from disk.
+  ...[...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/url\(['"]?((?!data:|https?:)[^'")]+)['"]?\)/g)].map(m => m[1]),
 ])
 const missingAssets = []
 for (const a of assets) {

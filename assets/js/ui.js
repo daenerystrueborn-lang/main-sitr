@@ -73,6 +73,32 @@ export function compact(n) {
 
 export const naira = (n) => '₦' + Number(n ?? 0).toLocaleString()
 
+/**
+ * A naira price rendered as dollars, for display only.
+ *
+ * Nothing on this site is charged in dollars: the bot prices everything in
+ * naira and collects naira, so this is a second label on one charge, never a
+ * second price. Callers keep the naira figure visible beside it.
+ *
+ * `rate` is naira-per-dollar and must come from the API. A rate baked into the
+ * frontend would be stale within weeks and would need a redeploy to correct,
+ * so there is no default here on purpose. Returns null when the rate is
+ * missing or nonsense, which lets callers fall back to naira rather than
+ * printing "$NaN" over a real price.
+ *
+ * Anything that costs real money floors at $0.01: the cheapest per-day and
+ * per-gem figures round to nothing at a four-digit rate, and "$0.00" reads as
+ * free.
+ */
+export function usd(nairaAmount, rate) {
+  const amount = Number(nairaAmount)
+  const perDollar = Number(rate)
+  if (!Number.isFinite(amount) || !Number.isFinite(perDollar) || perDollar <= 0) return null
+  const value = amount / perDollar
+  const shown = value > 0 && value < 0.01 ? 0.01 : value
+  return '$' + shown.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
 /** "3h ago" / "in 2d". Past and future both read naturally. */
 export function relTime(ts) {
   if (!ts) return ''

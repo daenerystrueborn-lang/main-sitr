@@ -324,6 +324,9 @@ section.hero.season-hero::before{content:none;}
 .plan-price{font-size:36px;font-weight:800;margin:10px 0 2px;font-family:'Space Grotesk',sans-serif;}
 .plan-price span{font-size:14px;color:var(--text-subtle);font-weight:600;}
 .plan-desc{font-size:12.5px;color:var(--text-subtle);margin-bottom:18px;}
+/* The naira amount under a converted dollar price. Louder than .plan-desc on
+   purpose: it is the figure a Nigerian buyer actually transfers. */
+.price-naira{font-size:12.5px;font-weight:600;color:var(--text-muted);margin-bottom:4px;}
 .plan-features{list-style:none;padding:0;margin:0 0 22px;display:flex;flex-direction:column;gap:11px;}
 .plan-features li{display:flex;align-items:flex-start;gap:9px;font-size:13px;color:var(--text-muted);}
 .plan-features li .check{color:var(--success);flex-shrink:0;margin-top:1px;}
@@ -413,6 +416,84 @@ button.perk-card{width:100%;text-align:left;font:inherit;color:inherit;-webkit-a
 .rarity-pill.r-ts{background:rgb(212 175 55 / 18%);color:var(--gold);border-color:rgb(212 175 55 / 50%);}
 .rarity-pill.r-t6,.rarity-pill.r-t5{background:rgb(168 85 247 / 14%);color:#c99bff;border-color:rgb(168 85 247 / 40%);}
 .rarity-pill.r-t4,.rarity-pill.r-t3{background:rgb(96 165 250 / 12%);color:#8ec2ff;border-color:rgb(96 165 250 / 35%);}
+
+/* ── card pull reveal ──────────────────────────────────────────────────
+   The popup after buying a guaranteed-tier pull.
+
+   Pointedly not .pd-banner: that is a 118px strip filled with
+   background-size:cover, and card art is portrait, so it cropped every
+   card down to an unreadable band across its middle. The frame here is
+   tall and the art is contained inside it, letterboxed against the vault
+   glow, so the whole card is visible whatever its aspect ratio. Going
+   through a real <img>/<video> (cardArt()) also sidesteps a live bug in
+   the old markup: attr() escapes ' to &#39;, the HTML parser turns that
+   back into a bare quote, and inside style="…url('…')" it closed the
+   url() early and the art silently disappeared. */
+.pull-reveal{display:flex;flex-direction:column;}
+.pull-art{position:relative;display:flex;align-items:center;justify-content:center;
+  height:min(46svh,340px);padding:18px 18px 0;overflow:hidden;
+  border-radius:var(--r-xl) var(--r-xl) 0 0;
+  background:radial-gradient(circle at 50% 0%, rgb(212 175 55 / 18%), transparent 62%), var(--bg-3);}
+.pull-art-media{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;
+  border-radius:var(--r-lg);box-shadow:0 14px 34px rgb(0 0 0 / 55%);
+  animation:pullIn .42s var(--ease-out) both;}
+/* cardArt() falls back to an inline perk icon for a card with no art. */
+.pull-art .perk-icon{opacity:.55;}
+@keyframes pullIn{from{opacity:0;transform:scale(.92) translateY(10px);}to{opacity:1;transform:none;}}
+.pull-info{padding:18px 22px 22px;text-align:center;}
+.pull-info .rarity-pill{margin-bottom:9px;}
+.pull-info h3{margin:0 0 3px;font-size:19px;}
+.pull-info .pd-sub{margin:0;}
+.pull-stars{margin:7px 0 10px;color:var(--gold);font-size:13px;letter-spacing:.14em;}
+.pull-info .subtext{margin:0 0 16px;}
+
+/* The wait between confirming and revealing. /cards/buy-tier pulls from
+   the upstream vault before it debits, and confirmAction() has already
+   dismissed its own dialog by then, so this holds the screen instead of
+   leaving a second or two of nothing. */
+.pull-wait{padding:44px 26px;text-align:center;}
+.pull-wait-orb{width:46px;height:46px;margin:0 auto 18px;border-radius:var(--r-full);
+  border:2px solid var(--border);border-top-color:var(--gold);animation:spin .8s linear infinite;}
+.pull-wait h3{margin:0 0 6px;font-size:17px;}
+.pull-wait .subtext{margin:0;}
+
+/* spin banner
+   ─────────────────────────────────────────────────────────────────────────
+   The character spin banner on the season page.
+
+   Landscape, unlike .pull-art above: this one sits in the page rather than
+   in a modal, so the art is a side panel and the copy runs beside it. Gacha
+   art is portrait, so the panel is given a fixed width and the image is
+   contained inside it, letterboxed the same way the pull reveal is, instead
+   of being cropped by background-size:cover. Stacks on narrow screens. */
+.spin-banner{display:flex;gap:0;padding:0;overflow:hidden;}
+.spin-art{position:relative;flex:0 0 232px;display:flex;align-items:center;justify-content:center;
+  min-height:236px;padding:18px;overflow:hidden;
+  background:radial-gradient(circle at 50% 0%, rgb(212 175 55 / 16%), transparent 64%), var(--bg-3);}
+.spin-art img{max-width:100%;max-height:280px;width:auto;height:auto;object-fit:contain;
+  border-radius:var(--r-lg);box-shadow:0 12px 30px rgb(0 0 0 / 50%);}
+.spin-art .perk-icon{opacity:.5;}
+.spin-info{flex:1;min-width:0;padding:20px 22px;}
+.spin-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.spin-head h3{margin:0;font-size:19px;}
+.spin-head .rarity-pill{margin-bottom:0;}
+.spin-stars{margin:6px 0 0;color:var(--gold);font-size:13px;letter-spacing:.14em;}
+.spin-desc{margin:10px 0 14px;font-size:13.5px;color:var(--text-muted);line-height:1.6;}
+.spin-info .shop-wallet{margin-top:12px;}
+/* Every non-spinnable state (yours, claimed, frozen, spent) renders as this
+   one line with a badge, so the card never changes height as it changes
+   state. */
+.spin-note{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  margin:14px 0 0;font-size:13px;color:var(--text-muted);}
+.spin-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+/* The miss reel in the reveal modal: one glyph per spin, monospaced so the
+   marks line up in a row rather than drifting with the body font. */
+.spin-reel{margin:2px 0 14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:15px;line-height:1.9;color:var(--text-subtle);word-break:break-all;}
+@media (max-width:640px){
+  .spin-banner{flex-direction:column;}
+  .spin-art{flex:0 0 auto;min-height:0;height:min(38svh,272px);}
+}
 
 /* faq */
 .faq-item{border-bottom:1px solid var(--border-soft);}

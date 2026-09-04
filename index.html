@@ -300,6 +300,20 @@
       </div>
       <div class="grid-4" id="seasonRoster"></div>
     </section>
+
+    <!-- Spin banner. Rendered independently of season state: the banner is not
+         season-bound, so it has to survive loadSeason()'s between-seasons
+         early return. The whole section hides itself when the bot has no
+         spinnable banner registered. -->
+    <section class="section" id="spinBannerSection" style="display:none;">
+      <div class="section-head">
+        <div>
+          <h2>Spin banner</h2>
+          <p>Pull for a character you cannot buy at any price</p>
+        </div>
+      </div>
+      <div id="spinBanner"></div>
+    </section>
   </div>
 </main>
 

@@ -8,7 +8,7 @@
  */
 import { api, ApiError, onConnectionChange, onAuthLost, hasSession, fileToDataUrl, uploadToImgbb } from './api.js'
 import {
-  $, $$, esc, attr, num, compact, naira, relTime, duration, titleCase,
+  $, $$, esc, attr, num, compact, naira, usd, relTime, duration, titleCase,
   toast, busy, skeletonRows, skeletonCards,
   emptyState, openModal, closeModal, initials, bar, copyText, initMotion, iconSvg,
 } from './ui.js'
@@ -1247,6 +1247,12 @@ async function loadSeason() {
   const tiersHost = $('#seasonTiers')
   if (tiersHost) tiersHost.innerHTML = skeletonRows(6)
 
+  // Before the !active return below, and deliberately not awaited alongside the
+  // season fetch: a spin banner is not season content. Gogeta's runs between
+  // seasons, so gating it on an active season would hide a banner that is still
+  // live. It renders (or hides itself) on its own.
+  const banner = renderSpinBanner()
+
   const out = await api.season()
 
   if (!out.active) {
@@ -1255,6 +1261,7 @@ async function loadSeason() {
     $('#seasonClock').textContent = ''
     $('#seasonMine').innerHTML = ''
     if (tiersHost) tiersHost.innerHTML = `<div style="flex:1">${emptyState('season', 'Between seasons', 'Rewards and the battle pass return when the next season opens.')}</div>`
+    await banner
     return
   }
 
@@ -1314,6 +1321,7 @@ async function loadSeason() {
 
   renderSeasonRoster(s, out)
   renderSeasonLore(s, out)
+  await banner
 }
 
 /**
@@ -1360,6 +1368,201 @@ function renderSeasonRoster(s, out) {
       ${c.ability ? `<p class="subtext" style="margin-top:6px">${esc(c.ability)}</p>` : ''}
     </button>`
   }).join('')
+}
+
+/* ───────────────────────────── spin banners ───────────────────────────── */
+
+/** Gem amounts are fractional (1.5 a spin), so round before formatting. */
+const gemAmount = (n) => num(Math.round((Number(n) || 0) * 100) / 100)
+
+/**
+ * The character spin banners, drawn under the season page.
+ *
+ * Deliberately its own fetch rather than a slice of the season payload: a
+ * banner is not season-bound (Gogeta's runs between seasons too) and
+ * loadSeason() returns early when no season is active, so folding this into
+ * that payload would make the banner vanish exactly when it should still be
+ * spinnable. Called before that early return for the same reason.
+ *
+ * Fails quietly. A banner list that won't load must not take the rest of the
+ * season page down with it.
+ *
+ * Which characters are spinnable comes entirely from the API's /spins list, so
+ * a new banner added to the bot's lib/spin-banners.js shows up here with no
+ * change to this file.
+ */
+async function renderSpinBanner() {
+  const section = $('#spinBannerSection')
+  const host = $('#spinBanner')
+  if (!section || !host) return
+
+  let banners = []
+  try {
+    banners = (await api.spins())?.banners ?? []
+  } catch {
+    section.style.display = 'none'
+    return
+  }
+
+  section.style.display = banners.length ? '' : 'none'
+  if (banners.length) host.innerHTML = banners.map(spinBannerCard).join('')
+}
+
+/**
+ * One banner.
+ *
+ * The action block's branches run in the same order the API applies its own
+ * gates, so what the button offers and what a pull would actually do can never
+ * disagree. Note what is NOT here: the odds. The bot never reveals its dead
+ * zone or plateau on any surface, and all the API sends is the cost, the
+ * lifetime cap and how far through it you are.
+ */
+function spinBannerCard(b) {
+  const c = b.character ?? {}
+  const prefix = state.meta?.prefix ?? '.'
+  const stars = c.stars ? '★'.repeat(c.stars) + '☆'.repeat(Math.max(0, 5 - c.stars)) : ''
+
+  let action
+  if (b.claimedByYou || b.owned) {
+    action = `<p class="spin-note"><span class="badge badge-gold">Yours</span>
+      Equip ${esc(c.name)} in chat with <code>${esc(prefix)}character equip ${esc(c.id)}</code>.</p>`
+  } else if (b.claimed) {
+    action = `<p class="spin-note"><span class="badge badge-lvl">Claimed</span>
+      ${b.claimedBy ? `${esc(b.claimedBy)} got there first.` : 'Another player got there first.'}
+      ${b.exclusive ? 'One player, bot-wide. This banner is closed for good.' : ''}</p>`
+  } else if (b.locked) {
+    action = `<p class="spin-note"><span class="badge badge-lvl">Closed</span>
+      This banner is frozen right now. Check back soon.</p>`
+  } else if (!isSignedIn()) {
+    action = `<a class="btn btn-primary btn-sm" href="#/login" data-route="login">Sign in to spin</a>`
+  } else if (b.spinsLeft <= 0) {
+    action = `<p class="spin-note"><span class="badge badge-lvl">Spent</span>
+      You have used all ${num(b.maxSpins)} of your spins.</p>`
+  } else {
+    // The batch button is capped by whichever runs out first: ten, the spins
+    // this player has left, or the banner's own per-pull limit.
+    const batch = Math.min(10, b.spinsLeft, b.maxPerPull)
+    action = `
+      <div class="spin-actions">
+        <button class="btn btn-primary btn-sm" data-spin="${attr(c.id)}" data-count="1">
+          Spin ×1 · ${gemAmount(b.cost)} gems</button>
+        ${batch > 1 ? `<button class="btn btn-secondary btn-sm" data-spin="${attr(c.id)}" data-count="${batch}">
+          Spin ×${batch} · ${gemAmount(b.cost * batch)} gems</button>` : ''}
+      </div>`
+  }
+
+  return `
+    <div class="card spin-banner reveal">
+      <div class="spin-art">
+        ${c.image
+          ? `<img src="${attr(c.image)}" alt="" loading="lazy" onerror="this.remove()">`
+          : perkIcon('gift')}
+      </div>
+      <div class="spin-info">
+        <div class="spin-head">
+          <h3>${esc(c.name ?? 'Unknown')}</h3>
+          ${b.exclusive ? '<span class="rarity-pill r-ts">One of one</span>' : ''}
+        </div>
+        ${stars ? `<div class="spin-stars">${stars}</div>` : ''}
+        ${c.ability?.name
+          ? `<p class="subtext">${esc(c.ability.name)}${c.ability.flavor ? `: ${esc(c.ability.flavor)}` : ''}</p>`
+          : ''}
+        ${c.description ? `<p class="spin-desc">${esc(c.description)}</p>` : ''}
+        ${bar('Spins used', b.spinsUsed, b.maxSpins)}
+        ${b.gems != null
+          ? `<div class="shop-wallet"><span><strong>${gemAmount(b.gems)}</strong> gems</span></div>`
+          : ''}
+        ${action}
+      </div>
+    </div>`
+}
+
+/**
+ * Pull a banner, then show what happened.
+ *
+ * Same shape as buyCardPull() and for the same reason: the confirm closes the
+ * modal, so without the "spinning" frame the whole round trip would happen
+ * with nothing on screen and the result would arrive out of nowhere.
+ *
+ * Every no-cost refusal (claimed, frozen, out of gems, no spins left) is the
+ * API's call, not this function's — it just reports what came back, so the
+ * client can never wrongly tell someone they can't spin.
+ */
+async function spinBannerPull(id, count, btn = null) {
+  if (!isSignedIn()) return goTo('login')
+
+  const ok = await confirmAction({
+    title: count > 1 ? `Spin ${count} times?` : 'Spin once?',
+    body: 'Gems are spent per spin, win or lose. A spin that lands stops the rest of the batch.',
+    confirmLabel: count > 1 ? `Spin ×${count}` : 'Spin',
+    danger: false,
+  })
+  if (!ok) return
+
+  const done = busy(btn)
+  openModal(`
+    <div class="pull-wait">
+      <div class="pull-wait-orb"></div>
+      <h3>Spinning…</h3>
+      <p class="subtext">Rolling the banner.</p>
+    </div>`)
+
+  try {
+    const out = await api.spinCharacter(id, count)
+    const c = out.character ?? {}
+    if (out.player) state.me = out.player
+    invalidate('profile', 'season')
+
+    const reel = (out.results ?? []).map(r => (r.won ? '✦' : '·')).join(' ')
+    const pulls = out.spinsThisPull ?? out.results?.length ?? 0
+
+    openModal(out.won
+      ? `<div class="pull-reveal">
+          <div class="pull-art">${c.image
+            ? `<img src="${attr(c.image)}" alt="" class="pull-art-media">`
+            : perkIcon('gift')}</div>
+          <div class="pull-info">
+            ${out.exclusive ? '<span class="rarity-pill r-ts">One of one</span>' : ''}
+            <h3>${esc(c.name ?? 'Obtained')}</h3>
+            ${c.stars ? `<div class="pull-stars">${'★'.repeat(c.stars)}${'☆'.repeat(Math.max(0, 5 - c.stars))}</div>` : ''}
+            <p class="subtext">Won on spin ${num(out.lastSpin)} for ${gemAmount(out.spent)} gems.
+              ${out.exclusive ? 'Locked bot-wide, nobody else can ever obtain them.' : ''}
+              Balance is now <strong>${gemAmount(out.balance)}</strong> gems.</p>
+            <p class="subtext">Equip in chat with
+              <code>${esc(state.meta?.prefix ?? '.')}character equip ${esc(c.id)}</code>.</p>
+            <button class="btn btn-primary btn-block" id="pullDone">Nice</button>
+          </div>
+        </div>`
+      : `<div class="pull-reveal">
+          <div class="pull-info">
+            <h3>No luck</h3>
+            <div class="spin-reel">${esc(reel)}</div>
+            <p class="subtext">${num(pulls)} spin${pulls === 1 ? '' : 's'} for
+              ${gemAmount(out.spent)} gems. Nothing held.</p>
+            ${bar('Spins used', out.spinsUsed, out.maxSpins)}
+            <p class="subtext">Balance is now <strong>${gemAmount(out.balance)}</strong> gems.</p>
+            <button class="btn btn-primary btn-block" id="pullDone">Try again later</button>
+          </div>
+        </div>`)
+    $('#pullDone')?.addEventListener('click', closeModal)
+
+    toast(out.won ? `${c.name} obtained` : `No luck, ${pulls} spin${pulls === 1 ? '' : 's'} spent`,
+      out.won ? 'ok' : '')
+
+    // Repaint from the state the server just reported, so the pity bar, the
+    // balance and the buttons all move together without a second fetch.
+    await renderSpinBanner()
+  } catch (err) {
+    // The waiting frame has to come down on failure too, or a 402/409/423
+    // leaves "Spinning…" turning over an error toast.
+    closeModal()
+    reportError(err)
+    // A refusal usually means the banner's state moved (claimed, frozen), so
+    // redraw rather than leaving a button that can no longer work.
+    renderSpinBanner().catch(() => {})
+  } finally {
+    done()
+  }
 }
 
 /**
@@ -1562,7 +1765,9 @@ let cardTier = ''
 
 async function loadCards() {
   const tierGrid = $('#cardTierGrid')
-  if (tierGrid) tierGrid.innerHTML = skeletonCards(5)
+  // Seven, matching BUYABLE_CARD_TIERS: 1-6 plus S. Undercounting here made the
+  // grid visibly jump a row when the real tiles landed.
+  if (tierGrid) tierGrid.innerHTML = skeletonCards(7)
 
   const prices = await api.cardPrices()
 
@@ -1586,9 +1791,14 @@ async function loadCards() {
   }
 
   // Tier filters for the catalog below. '' is "all".
+  //
+  // Taken straight from the priced tiers now. 5 and S used to be appended by
+  // hand because the API refused to sell them and so never listed them; both
+  // are in BUYABLE_CARD_TIERS today, and the manual append had started
+  // rendering each of them twice.
   const filters = $('#cardFilters')
   if (filters) {
-    const tiers = ['', ...(prices.tiers ?? []).map(t => t.tier), '5', 'S']
+    const tiers = ['', ...(prices.tiers ?? []).map(t => t.tier)]
     filters.innerHTML = tiers.map(t => `
       <button class="tab-btn${t === cardTier ? ' active' : ''}" data-cardtier="${attr(t)}" role="tab">
         ${t === '' ? 'All' : `Tier ${esc(t)}`}
@@ -1659,8 +1869,27 @@ async function paintCardCatalog({ reset = false } = {}) {
   }
 }
 
-/** Buy one guaranteed-tier pull, then show what came out. */
-async function buyCardPull(tier, price) {
+/**
+ * Buy one guaranteed-tier pull, then show what came out.
+ *
+ * Three things this deliberately does NOT reuse from the profile-detail modal:
+ *
+ *   1. `.pd-banner` — a 118px strip with `background-size:cover`. Gacha art is
+ *      portrait, so cover cropped every card to an unreadable horizontal sliver
+ *      of its own middle. The art gets its own tall frame instead.
+ *   2. A CSS `background-image:url('…')`. attr() escapes `'` to `&#39;`, which
+ *      the HTML parser decodes back to a bare `'` before CSS ever sees it, so a
+ *      URL containing an apostrophe closed the url() early and the art vanished.
+ *      An <img>/<video> src has no such hole.
+ *   3. `.pd-head` — it is built around a `.pd-avatar` with a -38px overlap, and
+ *      this modal has no avatar, so the row collapsed into a gap.
+ *
+ * The dead time is the other half of the fix: /cards/buy-tier fetches from the
+ * upstream vault before it debits, which takes a second or two. confirmAction()
+ * closes the modal on confirm, so without the "opening" frame below the whole
+ * wait happened with nothing on screen and the reveal arrived out of nowhere.
+ */
+async function buyCardPull(tier, price, btn = null) {
   if (!isSignedIn()) return goTo('login')
 
   const ok = await confirmAction({
@@ -1671,40 +1900,49 @@ async function buyCardPull(tier, price) {
   })
   if (!ok) return
 
+  const done = busy(btn)
+  openModal(`
+    <div class="pull-wait">
+      <div class="pull-wait-orb"></div>
+      <h3>Opening a tier ${esc(tier)} pull…</h3>
+      <p class="subtext">Pulling from the vault. Nothing is charged until a card comes back.</p>
+    </div>`)
+
   try {
     const out = await api.buyCardTier(tier)
     const c = out.card ?? {}
     if (out.player) state.me = out.player
     invalidate('profile', 'cards')
 
-    // An animated card can't be a CSS background-image, so the banner becomes
-    // a <video> for those and a plain background for stills.
-    const isMotion = /\.(webm|mp4)(\?|$)/i.test(c.imageUrl ?? '')
-    const banner = !c.imageUrl
-      ? ''
-      : isMotion
-        ? `<div class="pd-banner">${cardArt(c.imageUrl, 'pd-banner-media')}</div>`
-        : `<div class="pd-banner" style="background-image:url('${attr(c.imageUrl)}')"></div>`
-
+    const shownTier = String(c.tier ?? tier)
     openModal(`
-      ${banner}
-      <div class="pd-head">
-        <div class="pd-id">
+      <div class="pull-reveal">
+        <div class="pull-art">${cardArt(c.imageUrl, 'pull-art-media')}</div>
+        <div class="pull-info">
+          <span class="rarity-pill r-t${attr(shownTier.toLowerCase())}">Tier ${esc(shownTier)}</span>
           <h3>${esc(c.title ?? 'New card')}</h3>
-          <p class="pd-sub">Tier ${esc(c.tier ?? tier)} ${esc(c.stars ?? '')}${c.series ? ` · ${esc(c.series)}` : ''}</p>
+          ${c.series ? `<p class="pd-sub">${esc(c.series)}</p>` : ''}
+          <div class="pull-stars">${esc(c.stars ?? '')}</div>
+          <p class="subtext">Added to your collection. Balance is now
+            <strong>${num(out.balance ?? 0)}</strong> solars.</p>
+          <button class="btn btn-primary btn-block" id="pullDone">Nice</button>
         </div>
-      </div>
-      <div class="pd-body">
-        <p class="subtext">Added to your collection. Balance is now
-          ${num(out.balance ?? 0)} solars.</p>
       </div>`)
+    $('#pullDone')?.addEventListener('click', closeModal)
+
+    toast(`Pulled ${c.title ?? `a tier ${shownTier} card`}`, 'ok')
 
     const balance = $('#cardBalance')
     if (balance && out.balance != null) {
       balance.innerHTML = `<div class="shop-wallet"><span><strong>${num(out.balance)}</strong> solars</span></div>`
     }
   } catch (err) {
+    // The waiting frame has to come down on failure too, or a 402/503 leaves
+    // "Opening a pull…" spinning over an error toast.
+    closeModal()
     reportError(err)
+  } finally {
+    done()
   }
 }
 
@@ -1717,8 +1955,22 @@ async function loadPremium() {
   const out = await api.premium()
   const prefix = state.meta?.prefix ?? (await ensureMeta())?.prefix ?? '.'
 
+  // Prices are quoted in dollars, because plenty of players don't read naira
+  // as money. The CHARGE is still naira: the bot prices every plan and package
+  // in naira and `.premium buy` asks for naira, so each card carries the naira
+  // amount under the dollar one and a Nigerian buyer pays exactly as before.
+  //
+  // The rate comes from the API, so the owner retunes it in .env without a
+  // frontend deploy. No rate (older bot, or deliberately cleared) falls all the
+  // way back to naira-only labels rather than showing a made-up dollar figure.
+  const rate = out.nairaPerUsd ?? null
+  const price = (n) => usd(n, rate) ?? naira(n)
+  const inNaira = (n) => (rate ? `<div class="price-naira">${esc(naira(n))} charged in naira</div>` : '')
+
   // Best value = lowest cost per day. Computed from the API's own numbers so
-  // it can never contradict what the bot actually charges.
+  // it can never contradict what the bot actually charges. Ranked on the naira
+  // figure, which is the one being charged, though dividing every plan by one
+  // rate cannot reorder them anyway.
   const cheapest = (out.plans ?? []).reduce(
     (best, p) => (best === null || p.perDayNaira < best.perDayNaira ? p : best), null)
 
@@ -1729,8 +1981,9 @@ async function loadPremium() {
       <div class="plan-card${best ? ' featured' : ''} reveal">
         ${best ? '<span class="plan-ribbon">Best value</span>' : ''}
         <div class="plan-name">${esc(p.label ?? titleCase(p.id))}</div>
-        <div class="plan-price">${esc(naira(p.priceNaira))}<span> / ${num(p.durationDays)}d</span></div>
-        <div class="plan-desc">${esc(naira(p.perDayNaira))} per day</div>
+        <div class="plan-price">${esc(price(p.priceNaira))}<span> / ${num(p.durationDays)}d</span></div>
+        ${inNaira(p.priceNaira)}
+        <div class="plan-desc">${esc(price(p.perDayNaira))} per day</div>
         <ul class="plan-features">
           <li>${CHECK} Premium badge on your profile and the boards</li>
           <li>${CHECK} Boosted rewards on dungeon runs</li>
@@ -1765,7 +2018,8 @@ async function loadPremium() {
       <div class="perk-card reveal">
         ${perkIcon('gem')}
         <h4>${num(g.gems)} gems</h4>
-        <p>${esc(naira(g.priceNaira))} · ${esc(naira(g.perGemNaira))} per gem</p>
+        <p>${esc(price(g.priceNaira))} · ${esc(price(g.perGemNaira))} per gem</p>
+        ${inNaira(g.priceNaira)}
         <a class="btn btn-ghost btn-sm btn-block" href="${attr(whatsappCommandUrl(g.command))}" target="_blank" rel="noopener" style="margin-top:11px">
           <svg class="icon" viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1.1-5.3A8.5 8.5 0 1 1 21 11.5z"/><path d="M8.5 8.5c.4 2.4 2.1 4.6 4.7 5.5l1.5-1.1 1.8.8c-.2 1-1 1.6-2 1.5-3.7-.4-6.8-3.5-7.2-7.2-.1-1 .5-1.8 1.5-2l.8 1.8-1.1 1.5z"/></svg>
           Buy gems in WhatsApp
@@ -1785,6 +2039,8 @@ async function loadPremium() {
           <p>Run the command in WhatsApp — the bot replies with the payment details and confirms once an admin approves it.</p>
         </div>
       </div>
+      ${rate ? `<p class="subtext" style="margin-top:14px">Prices are shown in US dollars, converted at ₦${num(rate)} to $1.
+        The charge itself is in naira, so the naira line on each card is what you actually send.</p>` : ''}
       ${out.botNumber ? `<p class="subtext" style="margin-top:14px">Send proof of payment to the bot on
         +${esc(String(out.botNumber).replace(/\D/g, ''))}.</p>` : ''}
       <p class="subtext">The bot is the only place the account details come from. Never send money to anyone else claiming to be staff.</p>`
@@ -2461,7 +2717,17 @@ function wireGlobalClicks() {
     const pullBtn = t.closest('[data-buytier]')
     if (pullBtn) {
       e.preventDefault()
-      buyCardPull(pullBtn.dataset.buytier, pullBtn.dataset.price)
+      // The button goes through so buyCardPull can spin it for the second or
+      // two the upstream vault fetch takes, instead of looking inert.
+      buyCardPull(pullBtn.dataset.buytier, pullBtn.dataset.price, pullBtn)
+      return
+    }
+
+    // Character spin banners on the season page.
+    const spinBtn = t.closest('[data-spin]')
+    if (spinBtn) {
+      e.preventDefault()
+      spinBannerPull(spinBtn.dataset.spin, Number(spinBtn.dataset.count) || 1, spinBtn)
       return
     }
 
