@@ -1,0 +1,1464 @@
+:root{
+  color-scheme: dark;
+  --bg:#000000;
+  --bg-2:#0a0a0a;
+  --bg-3:#121110;
+  --bg-4:#1c1a17;
+  --border:#2a2620;
+  --border-soft:#1a1814;
+  --text:#f5f3ee;
+  --text-muted:#a8a49a;
+  --text-subtle:#635e54;
+  --accent:#d4af37;
+  --accent-2:#d4af37;
+  --accent-3:#d4af37;
+  --gold:#d4af37;
+  --success:#e8e3d6;
+  --danger:#e8e3d6;
+  --grad-1: linear-gradient(135deg,#e8c86a 0%,#a97e1f 100%);
+  --grad-2: linear-gradient(135deg,#d4af37 0%,#8c6d1f 100%);
+  --grad-gold: linear-gradient(135deg,#f0d585 0%,#b8892a 100%);
+  --r:10px;
+  --r-lg:16px;
+  --r-xl:22px;
+  --r-full:999px;
+  --shadow: 0 10px 30px rgb(0 0 0 / 60%);
+  --transition: .18s cubic-bezier(.4,0,.2,1);
+}
+/* ===== REVEAL ON SCROLL =====
+   Elements start hidden and animate in when they actually enter the viewport
+   (ui.js's observeReveals wires the IntersectionObserver and sets --rv to the
+   element's index within its group, which drives the stagger).
+
+   The `html.js` guard is load-bearing: the hidden state only applies once JS
+   has confirmed it's running. Scripting off → `.js` never gets set and every
+   .reveal stays fully visible.
+
+   Scripting on but broken is the case that actually bit us - the inline
+   <head> script sets `.js` before it knows whether app.js will survive, and
+   app.js once shipped with an unbalanced brace, which left the whole page at
+   opacity 0. That inline script now also runs a 3s watchdog that strips `.js`
+   again unless initMotion() has set `.js-motion`. So the guarantee holds in
+   both directions: a module that never runs cannot leave the page blank. */
+.reveal{opacity:1;transform:none;}
+html.js .reveal{
+  opacity:0;
+  transform:translateY(18px);
+  transition:opacity .62s cubic-bezier(.2,.7,.2,1),transform .62s cubic-bezier(.2,.7,.2,1);
+  transition-delay:calc(var(--rv,0) * 70ms);
+  will-change:opacity,transform;
+}
+html.js .reveal.is-in{opacity:1;transform:none;}
+ /* Once it has played, drop the compositor hint - keeping will-change on every
+   revealed node permanently is what makes long pages start to feel heavy. */
+html.js .reveal.is-done{will-change:auto;transition-delay:0ms;}
+
+.icon{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;display:inline-block;vertical-align:-2px;}
+.check-icon{width:14px;height:14px;flex-shrink:0;margin-top:2px;}
+*{box-sizing:border-box;}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;}
+h1,h2,h3,h4{font-family:'Space Grotesk',sans-serif;letter-spacing:-.02em;margin:0;}
+a{color:inherit;text-decoration:none;}
+button{font-family:inherit;}
+::-webkit-scrollbar{width:8px;height:8px;}
+::-webkit-scrollbar-track{background:var(--bg-2);}
+::-webkit-scrollbar-thumb{background:var(--bg-4);border-radius:4px;}
+
+ /* ===== NAV - fully floating, no bar background ===== */
+.nav-shell{position:sticky;top:0;z-index:50;padding:18px 20px 0;background:transparent;pointer-events:none;}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;gap:16px;max-width:1180px;margin:0 auto;pointer-events:none;}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:16px;flex-shrink:0;cursor:pointer;pointer-events:auto;}
+.brand-mark{width:40px;height:40px;border-radius:10px;background:transparent;display:flex;align-items:center;justify-content:center;color:var(--gold);}
+.brand-mark .icon{width:26px;height:26px;}
+.brand span{color:var(--gold);}
+.nav-bar{position:relative;display:flex;align-items:center;gap:2px;margin:0 auto;padding:4px;border:1px solid var(--border);border-radius:999px;background:rgba(10,10,10,.55);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);flex:1;max-width:520px;pointer-events:auto;box-shadow:0 8px 24px rgb(0 0 0 / 35%);}
+.nav-slot{flex:1;text-align:center;padding:8px 10px;border-radius:999px;color:var(--text-muted);font-size:13px;font-weight:600;cursor:pointer;transition:var(--transition);border:none;background:none;white-space:nowrap;}
+.nav-slot:hover{color:var(--text);}
+.nav-slot.is-active{background:var(--bg-4);color:var(--gold);box-shadow:inset 0 1px 0 rgb(255 255 255 / 6%),inset 0 0 0 1px rgb(212 175 55 / 25%);}
+.nav-right{display:flex;align-items:center;gap:8px;flex-shrink:0;pointer-events:auto;}
+.icon-btn{width:36px;height:36px;border-radius:999px;border:1px solid var(--border);background:rgba(10,10,10,.55);backdrop-filter:blur(18px);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);transition:var(--transition);}
+.icon-btn:hover{color:var(--gold);border-color:var(--gold);}
+.avatar-btn{width:36px;height:36px;border-radius:999px;background:var(--bg-3);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--gold);color:var(--gold);}
+.menu-toggle{display:none;}
+
+@media (max-width:760px){
+  .nav-bar{display:none;}
+  .menu-toggle{display:flex;}
+}
+
+/* mobile drawer */
+.drawer-backdrop{position:fixed;inset:0;background:rgb(0 0 0 / 45%);z-index:90;opacity:0;pointer-events:none;transition:opacity .2s;}
+.drawer-backdrop.open{opacity:1;pointer-events:auto;}
+ /* A short dropdown hanging from the hamburger button - top-right anchored,
+    sized to its content - not a full-height slide-in panel. Scales up from
+   its top-right corner like the notification panel does. */
+.drawer{position:fixed;top:70px;right:20px;left:auto;bottom:auto;width:min(230px,calc(100vw - 32px));max-height:min(70svh,calc(100dvh - 86px));overflow-y:auto;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow);z-index:91;opacity:0;transform:translateY(-6px) scale(.94);transform-origin:top right;pointer-events:none;transition:opacity .18s ease,transform .22s cubic-bezier(.2,.9,.25,1.1);padding:8px;display:flex;flex-direction:column;gap:2px;}
+.drawer.open{opacity:1;transform:none;pointer-events:auto;}
+.drawer-link{padding:11px 13px;border-radius:var(--r);color:var(--text-muted);font-weight:600;font-size:14px;cursor:pointer;}
+.drawer-link.is-active{background:var(--bg-4);color:#fff;}
+
+/* ===== PAGE / VIEWS ===== */
+.page{width:min(100%,1180px);margin:0 auto;padding:0 20px 60px;}
+.view{display:none;animation:fadeIn .25s ease;}
+.view.active{display:block;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+/* ===== HERO ===== */
+.hero{position:relative;width:100vw;margin-left:calc(50% - 50vw);margin-top:-64px;min-height:64svh;overflow:hidden;background-image:
+  linear-gradient(180deg, rgb(0 0 0 / 55%) 0%, rgb(0 0 0 / 72%) 55%, rgb(0 0 0 / 92%) 100%),
+  url('../img/hero.jpg');
+  background-size:cover;background-position:center 30%;background-repeat:no-repeat;
+  display:flex;align-items:center;justify-content:center;text-align:center;padding:124px 20px 40px;isolation:isolate;}
+.hero::before{content:"";position:absolute;inset:0;background-image:radial-gradient(circle,rgb(255 255 255 / 4%) 1px,transparent 1px);background-size:26px 26px;z-index:-1;}
+.hero-inner{max-width:640px;}
+.hero-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:999px;background:var(--bg-3);border:1px solid var(--gold);font-size:12px;font-weight:700;color:var(--gold);margin-bottom:18px;}
+.hero-badge .icon{width:13px;height:13px;}
+.hero h1{font-size:clamp(30px,6vw,52px);font-weight:800;line-height:1.05;margin-bottom:14px;}
+.hero h1 .grad{background:var(--grad-1);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.hero p{color:var(--text-muted);font-size:15px;line-height:1.6;max-width:480px;margin:0 auto 26px;}
+.hero-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+
+ /* Platform switch - a small sliding tab group, not a full nav. Sits between
+   the headline and the subtitle so picking Discord/Telegram swaps both the
+   gradient word in the h1 and the subtitle/CTA beneath it. */
+.platform-switch{display:inline-flex;gap:3px;padding:4px;border-radius:999px;background:var(--bg-3);border:1px solid var(--border);margin:0 auto 16px;position:relative;}
+.platform-tab{padding:7px 15px;border-radius:999px;border:none;background:none;color:var(--text-muted);font-size:12.5px;font-weight:700;cursor:pointer;transition:var(--transition);position:relative;z-index:1;}
+.platform-tab:hover{color:var(--text);}
+.platform-tab.is-active{background:var(--grad-1);color:#0a0805;}
+.platform-tab.is-soon{opacity:.85;}
+
+/* ===== SEASON HERO (full-bleed art) =====
+    The art IS the background - no still image behind it, nothing letterboxed
+   in a frame, just the picture bleeding edge to edge with a flat dark scrim
+   over it so the heading stays readable.
+
+   Two things this has to beat, both of which broke it before:
+   - `section.hero.season-hero` (0,2,1) outranks `.hero` (0,1,0), so the
+     hero.jpg background-image is actually cleared instead of showing through.
+   - POSITIVE z-index on the art, not negative. `.hero` sets isolation:isolate,
+     and a negative-z child inside that stacking context paints in a way that
+     let the media end up laid out as a flex item beside the copy. Explicit
+     0 / 1 / 2 layering removes the ambiguity.
+
+    The scrim is deliberately a flat black ramp - no colour gradients, no
+   radial tint. Tinting fought the artwork's own palette instead of just
+   darkening it. If the copy needs more separation, raise the black stops;
+   don't reintroduce a hue. */
+section.hero.season-hero{background-image:none;background-color:#000;padding:124px 20px 40px;}
+section.hero.season-hero::before{content:none;}
+.season-hero>.season-hero-art{position:absolute;top:0;left:0;width:100%;height:100%;
+  object-fit:cover;object-position:center 28%;z-index:0;pointer-events:none;border:0;
+  display:block;user-select:none;}
+.season-hero>.season-hero-veil{position:absolute;inset:0;z-index:1;pointer-events:none;
+  background:linear-gradient(180deg,rgb(0 0 0 / 30%) 0%,rgb(0 0 0 / 34%) 45%,rgb(0 0 0 / 86%) 100%);}
+.season-hero>.hero-inner{position:relative;z-index:2;}
+.season-hero .hero-inner h1,.season-hero .hero-inner p{text-shadow:0 2px 22px rgb(0 0 0 / 92%);}
+
+/* ===== TIER TRACK ===== */
+.tier-track{display:flex;gap:14px;overflow-x:auto;padding:6px 2px 14px;scroll-snap-type:x proximity;}
+.tier-node{flex:0 0 auto;width:112px;scroll-snap-align:start;border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bg-2);padding:14px 10px;text-align:center;transition:var(--transition);}
+.tier-node:hover{border-color:var(--gold);transform:translateY(-2px);}
+.tier-node .tier-num{font-size:11px;font-weight:800;color:var(--text-subtle);margin-bottom:8px;}
+.tier-node .tier-icon{width:36px;height:36px;margin:0 auto 8px;border-radius:999px;background:var(--bg-3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-muted);}
+.tier-node .tier-label{font-size:11px;font-weight:700;color:var(--text-muted);}
+.tier-node.unlocked{border-color:rgb(212 175 55 / 30%);}
+.tier-node.unlocked .tier-icon{color:var(--gold);border-color:rgb(212 175 55 / 40%);}
+.tier-node.unlocked .tier-num{color:var(--gold);}
+.tier-node.current{border-color:var(--gold);box-shadow:0 0 0 1px rgb(212 175 55 / 30%),var(--shadow);}
+.tier-node.current .tier-icon{background:var(--grad-1);color:#0a0805;border-color:transparent;}
+.tier-node.current .tier-num{color:var(--gold);}
+.tier-node.premium{background:linear-gradient(180deg,rgb(212 175 55 / 6%),var(--bg-2));}
+.tier-node.premium .tier-icon{color:var(--text-subtle);}
+.tier-node.locked-final{width:126px;}
+
+/* ===== BUTTONS ===== */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 20px;border-radius:var(--r);font-size:13.5px;font-weight:700;cursor:pointer;border:1px solid transparent;transition:var(--transition);white-space:nowrap;}
+.btn .icon{width:15px;height:15px;}
+.btn-primary{background:var(--grad-1);color:#0a0805;}
+.btn-primary:hover{filter:brightness(1.08);}
+.btn-secondary{background:var(--bg-3);color:var(--text);border-color:var(--border);}
+.btn-secondary:hover{background:var(--bg-4);border-color:var(--gold);}
+.btn-ghost{background:transparent;color:var(--text-muted);}
+.btn-ghost:hover{color:var(--gold);background:var(--bg-3);}
+.btn-gold{background:var(--grad-gold);color:#1a1200;}
+.btn-gold:hover{filter:brightness(1.06);}
+.btn-danger{background:rgb(245 243 238 / 6%);color:var(--text);border-color:var(--border);}
+.btn-danger:hover{background:rgb(245 243 238 / 10%);border-color:var(--text-muted);}
+.btn-block{width:100%;}
+.btn-sm{padding:7px 13px;font-size:12px;}
+.btn-icon-only{width:38px;height:38px;padding:0;border-radius:999px;}
+
+/* ===== SECTION HEADERS ===== */
+.section{padding:44px 0;}
+.section-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap;}
+.section-head h2{font-size:22px;font-weight:800;}
+.section-head p{color:var(--text-subtle);font-size:13px;margin-top:4px;}
+.section-head .btn{flex-shrink:0;}
+
+/* ===== GRID / CARDS ===== */
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;}
+@media (max-width:900px){.grid-4{grid-template-columns:repeat(2,1fr);}.grid-3{grid-template-columns:repeat(2,1fr);}}
+@media (max-width:560px){.grid-4,.grid-3,.grid-2{grid-template-columns:1fr;}}
+
+.card{border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bg-2);padding:18px;transition:var(--transition);position:relative;overflow:hidden;}
+.card:hover{border-color:var(--gold);transform:translateY(-2px);box-shadow:var(--shadow);}
+.card-glow::before{content:"";position:absolute;inset:0;background:var(--grad-1);opacity:0;transition:var(--transition);z-index:-1;}
+
+ /* feature card w/ art - monochrome gold-on-black, no rainbow fills */
+.feature-card{position:relative;min-height:200px;border-radius:var(--r-xl);overflow:hidden;border:1px solid var(--border);display:flex;align-items:flex-end;cursor:pointer;background:var(--bg-3);transition:var(--transition);}
+.feature-card::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 30% 20%, rgb(212 175 55 / 16%), transparent 60%),var(--bg-3);}
+.feature-card::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgb(0 0 0 / 10%) 0%,rgb(0 0 0 / 40%) 45%,rgb(0 0 0 / 94%) 100%);}
+.feature-card:hover{border-color:var(--gold);transform:translateY(-3px);box-shadow:var(--shadow);}
+/* `.art` swaps the flat gradient panel for the card's own artwork, passed in
+   as --art on the element. Lightly desaturated so four different paintings
+   still read as one gold-on-black set; the ::after scrim keeps the label
+   legible without burying the painting.
+
+   Two things here are deliberate:
+
+   1. The full `background` shorthand, not a lone `background-image` longhand.
+      The base rule (.feature-card::before) also uses the shorthand, so it sets
+      background-color/size/position/repeat as a unit. Overriding only
+      background-image here left the art layered over that rule's leftovers
+      instead of replacing them cleanly. One complete layer, no interaction.
+
+   2. `var(--art, none)` - with no fallback, an --art that fails to resolve
+      makes the whole declaration invalid at computed-value time, which is
+      indistinguishable from the art simply not loading. The fallback degrades
+      to the plain panel instead.
+
+   The filter used to be saturate(.35) brightness(.62), which on top of the
+   ::after scrim below multiplied out to roughly 3% of source luminance at the
+   bottom of the card and ~46% at the top - dark source art crushed to a flat
+   black panel. Keep any future adjustments multiplied against that scrim. */
+.feature-card.art::before{background:var(--art, none) center/cover no-repeat;filter:saturate(.72) contrast(1.04) brightness(.92);transition:var(--transition);}
+.feature-card.art::after{background:linear-gradient(180deg,rgb(0 0 0 / 8%) 0%,rgb(0 0 0 / 32%) 45%,rgb(0 0 0 / 88%) 100%);}
+.feature-card.art:hover::before{filter:saturate(.9) contrast(1.06) brightness(1.04);transform:scale(1.04);}
+/* Hardcoded backstop. --art above is the mechanism of record, but it routes the
+   URL through a custom property, and when the art failed to appear there was no
+   way to tell "custom property didn't reach the pseudo-element" apart from
+   "image didn't load" - both render an empty ::before. These four rules name the
+   files directly, so the art paints even if the var() path breaks. Same URLs, so
+   when --art works these are redundant, not additive. Keep both in sync. */
+.feature-card.mode-dungeon::before{background:url('/assets/img/modes/dungeon.jpg') center/cover no-repeat;}
+.feature-card.mode-characters::before{background:url('/assets/img/modes/characters.jpg') center/cover no-repeat;}
+.feature-card.mode-arena::before{background:url('/assets/img/modes/arena.jpg') center/cover no-repeat;}
+.feature-card.mode-battlepass::before{background:url('/assets/img/modes/battlepass.jpg') center/cover no-repeat;}
+ /* The Characters card is a plain div now that the page is gone - it shouldn't
+   pretend to be clickable. */
+.feature-card:not(a){cursor:default;}
+.feature-card:not(a):hover{border-color:var(--border);transform:none;box-shadow:none;}
+.feature-content{position:relative;z-index:1;padding:18px;}
+.feature-content h3{font-size:16px;font-weight:800;margin-bottom:5px;color:var(--text);}
+.feature-content p{font-size:12.5px;color:rgb(245 243 238 / 72%);line-height:1.4;max-width:200px;}
+.feature-icon{position:absolute;top:14px;right:14px;z-index:1;width:32px;height:32px;border-radius:999px;background:rgb(0 0 0 / 45%);border:1px solid rgb(212 175 55 / 30%);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;color:var(--gold);}
+.feature-icon .icon{width:15px;height:15px;}
+
+/* stat pill row */
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;}
+.stat-pill{flex:1;min-width:130px;border:1px solid var(--border);background:var(--bg-2);border-radius:var(--r-lg);padding:14px 16px;}
+.stat-pill .label{font-size:11px;color:var(--text-subtle);font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+.stat-pill .value{font-size:22px;font-weight:800;margin-top:4px;font-family:'Space Grotesk',sans-serif;}
+.stat-pill .value.gold{color:var(--gold);}
+.stat-pill .value.acc{color:var(--text);}
+
+/* ===== PROFILE ===== */
+ /* ===== PROFILE - Discord style banner + pfp ===== */
+.profile-banner{position:relative;width:100%;height:200px;margin-top:8px;border-radius:var(--r-lg);background:
+  radial-gradient(circle at 20% 30%, rgb(212 175 55 / 22%), transparent 55%),
+  radial-gradient(circle at 80% 70%, rgb(212 175 55 / 12%), transparent 50%),
+  var(--bg-3);
+  border:1px solid var(--border);overflow:hidden;}
+.profile-banner::before{content:"";position:absolute;inset:0;background-image:radial-gradient(circle,rgb(255 255 255 / 5%) 1px,transparent 1px);background-size:22px 22px;}
+.profile-banner-edit{position:absolute;right:20px;bottom:14px;display:flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;background:rgb(0 0 0 / 55%);border:1px solid var(--border);backdrop-filter:blur(8px);font-size:12px;font-weight:700;color:var(--text-muted);cursor:pointer;transition:var(--transition);}
+.profile-banner-edit:hover{color:var(--gold);border-color:var(--gold);}
+.profile-banner-edit .icon{width:14px;height:14px;}
+
+.profile-head-row{display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;}
+.profile-pfp-wrap{position:relative;flex-shrink:0;margin-top:-52px;}
+.profile-pfp{width:104px;height:104px;border-radius:999px;background:var(--grad-1);display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:800;color:#0a0805;border:5px solid var(--bg);box-shadow:0 8px 24px rgb(0 0 0 / 50%);}
+.profile-status{position:absolute;right:6px;bottom:6px;width:20px;height:20px;border-radius:999px;background:var(--gold);border:4px solid var(--bg);}
+.profile-info-row{flex:1;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding-bottom:6px;}
+.profile-info{min-width:180px;}
+.profile-info h2{font-size:22px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;color:var(--text);}
+.profile-name-text{min-width:0;overflow-wrap:break-word;}
+.profile-info .handle{color:var(--text-subtle);font-size:13px;margin-top:2px;}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:999px;font-size:10.5px;font-weight:800;flex-shrink:0;white-space:nowrap;}
+.badge-gold{background:rgb(212 175 55 / 15%);color:var(--gold);border:1px solid rgb(212 175 55 / 30%);}
+.badge-lvl{background:rgb(245 243 238 / 8%);color:var(--text);border:1px solid var(--border);}
+.profile-actions{display:flex;gap:8px;flex-wrap:wrap;}
+
+.xp-track{margin-top:10px;height:8px;border-radius:999px;background:var(--bg-4);overflow:hidden;}
+.xp-fill{height:100%;background:var(--grad-1);border-radius:999px;}
+
+.tab-row{display:flex;gap:6px;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-x:auto;}
+.tab-btn{padding:10px 16px;font-size:13px;font-weight:700;color:var(--text-muted);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;white-space:nowrap;transition:var(--transition);}
+.tab-btn:hover{color:var(--text);}
+.tab-btn.active{color:var(--text);border-color:var(--gold);}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;animation:fadeIn .2s ease;}
+
+.inv-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;}
+@media (max-width:700px){.inv-grid{grid-template-columns:repeat(4,1fr);}}
+.inv-slot{aspect-ratio:1;border:1px solid var(--border);border-radius:var(--r);background:var(--bg-2);display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;transition:var(--transition);position:relative;}
+.inv-slot:hover{border-color:var(--gold);background:var(--bg-3);}
+/* Slots are <button>s now (keyboard-reachable, announced as controls), so the
+   UA's own button chrome has to be cleared or it fights the tile styling. */
+.inv-slot{padding:0;font-family:inherit;color:inherit;-webkit-appearance:none;appearance:none;overflow:hidden;}
+.inv-img{width:76%;height:76%;object-fit:contain;transition:transform var(--dur) var(--ease-out);}
+.inv-slot:hover .inv-img{transform:scale(1.08);}
+.inv-slot.rare{border-color:rgb(245 243 238 / 35%);box-shadow:inset 0 0 0 1px rgb(245 243 238 / 12%);}
+.inv-slot.epic{border-color:rgb(212 175 55 / 55%);box-shadow:inset 0 0 0 1px rgb(212 175 55 / 25%);}
+.inv-slot .qty{position:absolute;bottom:2px;right:4px;font-size:9px;font-weight:800;color:var(--text-muted);}
+
+/* ===== PRICING / PREMIUM ===== */
+.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:stretch;}
+@media (max-width:820px){.pricing-grid{grid-template-columns:1fr;}}
+.plan-card{border:1px solid var(--border);border-radius:var(--r-xl);background:var(--bg-2);padding:26px;display:flex;flex-direction:column;position:relative;transition:var(--transition);}
+.plan-card:hover{border-color:var(--gold);transform:translateY(-3px);box-shadow:var(--shadow);}
+.plan-card.featured{border:1px solid var(--gold);box-shadow:0 0 0 1px rgb(212 175 55 / 20%),var(--shadow);}
+.plan-ribbon{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--grad-1);color:#0a0805;font-size:10.5px;font-weight:800;padding:4px 14px;border-radius:999px;box-shadow:0 4px 12px rgb(212 175 55 / 40%);}
+.plan-name{font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;}
+.plan-price{font-size:36px;font-weight:800;margin:10px 0 2px;font-family:'Space Grotesk',sans-serif;}
+.plan-price span{font-size:14px;color:var(--text-subtle);font-weight:600;}
+.plan-desc{font-size:12.5px;color:var(--text-subtle);margin-bottom:18px;}
+/* The naira amount under a converted dollar price. Louder than .plan-desc on
+   purpose: it is the figure a Nigerian buyer actually transfers. */
+.price-naira{font-size:12.5px;font-weight:600;color:var(--text-muted);margin-bottom:4px;}
+.plan-features{list-style:none;padding:0;margin:0 0 22px;display:flex;flex-direction:column;gap:11px;}
+.plan-features li{display:flex;align-items:flex-start;gap:9px;font-size:13px;color:var(--text-muted);}
+.plan-features li .check{color:var(--success);flex-shrink:0;margin-top:1px;}
+.plan-features li.locked{color:var(--text-subtle);}
+.plan-features li.locked .check{color:var(--text-subtle);}
+
+/* toggle */
+.billing-toggle{display:inline-flex;align-items:center;gap:0;padding:4px;border:1px solid var(--border);border-radius:999px;background:var(--bg-3);margin:0 auto 30px;}
+.billing-opt{padding:8px 18px;border-radius:999px;font-size:12.5px;font-weight:700;color:var(--text-muted);cursor:pointer;border:none;background:none;}
+.billing-opt.active{background:var(--bg-4);color:#fff;}
+.save-tag{background:rgb(212 175 55 / 15%);color:var(--gold);font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:999px;margin-left:6px;}
+
+/* perk grid */
+.perk-card{border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bg-2);padding:18px;}
+.perk-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:12px;}
+.perk-card h4{font-size:14px;font-weight:700;margin-bottom:5px;}
+.perk-card p{font-size:12px;color:var(--text-subtle);line-height:1.5;}
+
+/* Roster/shop tiles are real <button>s so they're keyboard-reachable and
+   announced as controls. A button brings its own centred text, its own font
+   and a shrink-to-fit width, none of which belong on a grid tile. */
+button.perk-card{width:100%;text-align:left;font:inherit;color:inherit;-webkit-appearance:none;appearance:none;}
+
+ /* Only a tile that actually does something gets the hand - same reasoning as
+   `.feature-card:not(a){cursor:default}` above. A hover lift on a tile that
+   ignores the click is a promise the page doesn't keep. */
+.perk-card[data-char],.perk-card[data-item],a.perk-card,button.perk-card{cursor:pointer;}
+.perk-card:not([data-char]):not([data-item]):not(a):not(button){cursor:default;}
+.perk-card:not([data-char]):not([data-item]):not(a):not(button):hover{
+  transform:none;border-color:var(--border);box-shadow:none;}
+.perk-card:focus-visible,.inv-slot:focus-visible,.tier-node:focus-visible{
+  outline:2px solid var(--gold);outline-offset:2px;}
+
+/* Rarity / display-tag badge. `tag` is a marketing label (legendary, special)
+   and `rarity` is the mechanical grade - they share this pill because they
+   occupy the same slot on a tile, never both at once. */
+.rarity-pill{display:inline-block;padding:2px 8px;margin-bottom:7px;border-radius:999px;
+  font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
+  background:var(--bg-4);color:var(--text-muted);border:1px solid var(--border);}
+.rarity-pill.r-legendary,.rarity-pill.r-mythic{background:rgb(212 175 55 / 15%);color:var(--gold);border-color:rgb(212 175 55 / 45%);}
+.rarity-pill.r-special{background:rgb(168 85 247 / 15%);color:#c99bff;border-color:rgb(168 85 247 / 45%);}
+.rarity-pill.r-epic{background:rgb(168 85 247 / 12%);color:#bd8dfa;border-color:rgb(168 85 247 / 35%);}
+.rarity-pill.r-rare{background:rgb(96 165 250 / 12%);color:#8ec2ff;border-color:rgb(96 165 250 / 35%);}
+.rarity-pill.r-uncommon{background:rgb(74 222 128 / 12%);color:#86e2a6;border-color:rgb(74 222 128 / 32%);}
+
+/* Season lore */
+.lore-card{border-left:2px solid var(--gold);}.lore-lead{font-size:15px;line-height:1.7;color:var(--text);margin:0;}
+.lore-card .subtext{margin-top:11px;}
+.link-btn{background:none;border:none;padding:0;font:inherit;color:var(--gold);
+  font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:2px;}
+.link-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:3px;}
+
+/* ── shop ─────────────────────────────────────────────────────────────── */
+.shop-wallet{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px;}
+.shop-wallet strong{color:var(--gold);font-size:15px;}
+.shop-group{margin-bottom:30px;}
+.shop-group-head{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-subtle);margin-bottom:13px;padding-bottom:7px;border-bottom:1px solid var(--border-soft);}
+.shop-card{display:flex;flex-direction:column;}
+.shop-img{width:100%;aspect-ratio:1;object-fit:contain;background:var(--bg-3);
+  border-radius:var(--r);margin-bottom:11px;padding:10px;
+  transition:transform var(--dur-slow) var(--ease-out);}
+.shop-card:hover img{transform:scale(1.05);}
+.shop-price{display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+  margin:11px 0;font-size:13px;font-weight:700;}
+.shop-price .gold{color:var(--gold);}
+.shop-price s{font-weight:400;margin-left:5px;}
+/* Pushes the Buy button to a common baseline so a row of cards with unequal
+   description lengths still has its actions aligned. */
+.shop-card .btn{margin-top:auto;}
+
+/* ── cards ────────────────────────────────────────────────────────────── */
+.card-tier{display:flex;flex-direction:column;text-align:center;}
+.card-tier-stars{font-size:17px;color:var(--gold);margin-bottom:7px;letter-spacing:.08em;}
+.card-tier .shop-price{justify-content:center;}
+.card-tier .btn{margin-top:auto;}
+ /* Catalog tiles are display-only - the card you get is a random pull of the
+   tier, so nothing here should read as clickable. */
+.card-tile{cursor:default;}
+.card-img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:var(--r);margin-bottom:11px;
+  transition:transform var(--dur-slow) var(--ease-out);}
+/* Animated cards render as <video>, so the hover rule has to name both. */
+.card-tile:hover img,.card-tile:hover video{transform:scale(1.04);}
+/* The pull-result banner is a background-image for still cards and a real
+   <video> for animated ones; this makes the video fill the banner identically. */
+.pd-banner-media{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+.rarity-pill.r-ts{background:rgb(212 175 55 / 18%);color:var(--gold);border-color:rgb(212 175 55 / 50%);}
+.rarity-pill.r-t6,.rarity-pill.r-t5{background:rgb(168 85 247 / 14%);color:#c99bff;border-color:rgb(168 85 247 / 40%);}
+.rarity-pill.r-t4,.rarity-pill.r-t3{background:rgb(96 165 250 / 12%);color:#8ec2ff;border-color:rgb(96 165 250 / 35%);}
+
+/* ── card pull reveal ──────────────────────────────────────────────────
+   The popup after buying a guaranteed-tier pull.
+
+   Pointedly not .pd-banner: that is a 118px strip filled with
+   background-size:cover, and card art is portrait, so it cropped every
+   card down to an unreadable band across its middle. The frame here is
+   tall and the art is contained inside it, letterboxed against the vault
+   glow, so the whole card is visible whatever its aspect ratio. Going
+   through a real <img>/<video> (cardArt()) also sidesteps a live bug in
+   the old markup: attr() escapes ' to &#39;, the HTML parser turns that
+   back into a bare quote, and inside style="…url('…')" it closed the
+   url() early and the art silently disappeared. */
+.pull-reveal{display:flex;flex-direction:column;}
+.pull-art{position:relative;display:flex;align-items:center;justify-content:center;
+  height:min(46svh,340px);padding:18px 18px 0;overflow:hidden;
+  border-radius:var(--r-xl) var(--r-xl) 0 0;
+  background:radial-gradient(circle at 50% 0%, rgb(212 175 55 / 18%), transparent 62%), var(--bg-3);}
+.pull-art-media{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;
+  border-radius:var(--r-lg);box-shadow:0 14px 34px rgb(0 0 0 / 55%);
+  animation:pullIn .42s var(--ease-out) both;}
+/* cardArt() falls back to an inline perk icon for a card with no art. */
+.pull-art .perk-icon{opacity:.55;}
+@keyframes pullIn{from{opacity:0;transform:scale(.92) translateY(10px);}to{opacity:1;transform:none;}}
+.pull-info{padding:18px 22px 22px;text-align:center;}
+.pull-info .rarity-pill{margin-bottom:9px;}
+.pull-info h3{margin:0 0 3px;font-size:19px;}
+.pull-info .pd-sub{margin:0;}
+.pull-stars{margin:7px 0 10px;color:var(--gold);font-size:13px;letter-spacing:.14em;}
+.pull-info .subtext{margin:0 0 16px;}
+
+/* The wait between confirming and revealing. /cards/buy-tier pulls from
+   the upstream vault before it debits, and confirmAction() has already
+   dismissed its own dialog by then, so this holds the screen instead of
+   leaving a second or two of nothing. */
+.pull-wait{padding:44px 26px;text-align:center;}
+.pull-wait-orb{width:46px;height:46px;margin:0 auto 18px;border-radius:var(--r-full);
+  border:2px solid var(--border);border-top-color:var(--gold);animation:spin .8s linear infinite;}
+.pull-wait h3{margin:0 0 6px;font-size:17px;}
+.pull-wait .subtext{margin:0;}
+
+/* spin banner
+   ─────────────────────────────────────────────────────────────────────────
+   The character spin banner on the season page.
+
+   Landscape, unlike .pull-art above: this one sits in the page rather than
+   in a modal, so the art is a side panel and the copy runs beside it. Gacha
+   art is portrait, so the panel is given a fixed width and the image is
+   contained inside it, letterboxed the same way the pull reveal is, instead
+   of being cropped by background-size:cover. Stacks on narrow screens. */
+.spin-banner{display:flex;gap:0;padding:0;overflow:hidden;}
+.spin-art{position:relative;flex:0 0 232px;display:flex;align-items:center;justify-content:center;
+  min-height:236px;padding:18px;overflow:hidden;
+  background:radial-gradient(circle at 50% 0%, rgb(212 175 55 / 16%), transparent 64%), var(--bg-3);}
+.spin-art img{max-width:100%;max-height:280px;width:auto;height:auto;object-fit:contain;
+  border-radius:var(--r-lg);box-shadow:0 12px 30px rgb(0 0 0 / 50%);}
+.spin-art .perk-icon{opacity:.5;}
+.spin-info{flex:1;min-width:0;padding:20px 22px;}
+.spin-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.spin-head h3{margin:0;font-size:19px;}
+.spin-head .rarity-pill{margin-bottom:0;}
+.spin-stars{margin:6px 0 0;color:var(--gold);font-size:13px;letter-spacing:.14em;}
+.spin-desc{margin:10px 0 14px;font-size:13.5px;color:var(--text-muted);line-height:1.6;}
+.spin-info .shop-wallet{margin-top:12px;}
+/* Every non-spinnable state (yours, claimed, frozen, spent) renders as this
+   one line with a badge, so the card never changes height as it changes
+   state. */
+.spin-note{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  margin:14px 0 0;font-size:13px;color:var(--text-muted);}
+.spin-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+/* The miss reel in the reveal modal: one glyph per spin, monospaced so the
+   marks line up in a row rather than drifting with the body font. */
+.spin-reel{margin:2px 0 14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:15px;line-height:1.9;color:var(--text-subtle);word-break:break-all;}
+@media (max-width:640px){
+  .spin-banner{flex-direction:column;}
+  .spin-art{flex:0 0 auto;min-height:0;height:min(38svh,272px);}
+}
+
+/* faq */
+.faq-item{border-bottom:1px solid var(--border-soft);}
+.faq-q{display:flex;align-items:center;justify-content:space-between;padding:16px 4px;cursor:pointer;font-weight:700;font-size:13.5px;}
+.faq-q .arrow{transition:transform .2s;color:var(--text-subtle);}
+.faq-item.open .arrow{transform:rotate(45deg);}
+.faq-a{max-height:0;overflow:hidden;transition:max-height .25s ease;font-size:13px;color:var(--text-muted);line-height:1.6;}
+.faq-item.open .faq-a{max-height:200px;padding-bottom:16px;}
+
+/* leaderboard */
+.lb-row{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:var(--r);border:1px solid transparent;}
+.lb-row:hover{background:var(--bg-3);border-color:var(--border);}
+.lb-rank{width:26px;text-align:center;font-weight:800;font-size:13px;color:var(--text-subtle);}
+.lb-rank.top1{color:var(--gold);}
+.lb-rank.top2{color:var(--text-muted);}
+.lb-rank.top3{color:var(--text-subtle);}
+.lb-avatar{width:34px;height:34px;border-radius:999px;background:var(--bg-4);border:1px solid var(--border);color:var(--gold);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;}
+.lb-name{flex:1;min-width:0;font-size:13px;font-weight:700;overflow-wrap:anywhere;}
+.lb-name .sub{display:block;font-size:11px;color:var(--text-subtle);font-weight:500;}
+.lb-score{font-size:13px;font-weight:800;color:var(--gold);}
+
+/* toast */
+.toast-wrap{position:fixed;bottom:20px;right:20px;z-index:200;display:flex;flex-direction:column;gap:8px;}
+.toast{display:flex;align-items:center;gap:10px;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;font-size:13px;font-weight:600;box-shadow:var(--shadow);min-width:220px;animation:slideIn .25s ease;}
+@keyframes slideIn{from{transform:translateX(30px);opacity:0;}to{transform:translateX(0);opacity:1;}}
+.toast .dot{width:8px;height:8px;border-radius:999px;background:var(--gold);flex-shrink:0;}
+
+/* footer */
+.footer{border-top:1px solid var(--border-soft);padding:34px 20px;text-align:center;color:var(--text-subtle);font-size:12px;}
+.footer .links{display:flex;gap:16px;justify-content:center;margin-bottom:12px;flex-wrap:wrap;}
+.footer .links a{color:var(--text-muted);font-weight:600;font-size:12.5px;}
+.footer .links a:hover{color:#fff;}
+
+.site-footer{border-top:1px solid var(--border-soft);background:var(--bg-2);padding:52px 20px 26px;margin-top:40px;}
+.site-footer-inner{width:min(100%,1180px);margin:0 auto;}
+.site-footer-top{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:32px;padding-bottom:32px;}
+.site-footer-brand{display:flex;flex-direction:column;align-items:flex-start;gap:14px;}
+.site-footer-tag{color:var(--text-subtle);font-size:13px;line-height:1.6;margin:0;max-width:280px;}
+.site-footer-col{display:flex;flex-direction:column;gap:11px;}
+.site-footer-heading{color:var(--text);font-weight:700;font-size:13px;margin-bottom:2px;}
+.site-footer-col a{color:var(--text-muted);font-size:13px;font-weight:500;cursor:pointer;transition:var(--transition);width:fit-content;}
+.site-footer-col a:hover{color:var(--gold);}
+.site-footer-bottom{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-top:22px;border-top:1px solid var(--border-soft);flex-wrap:wrap;}
+.site-footer-social{display:flex;gap:8px;}
+ /* Attribution line - quieter than the rest of the footer, but must stay legible: it's a licence requirement, not decoration. */
+.site-footer-credit{margin:14px 0 0;font-size:12px;line-height:1.7;color:var(--text-subtle);}
+.site-footer-credit a{color:var(--text-muted);text-decoration:underline;text-underline-offset:2px;transition:var(--transition);}
+.site-footer-credit a:hover{color:var(--gold);}
+
+@media (max-width:820px){
+  .site-footer-top{grid-template-columns:1fr 1fr;row-gap:28px;}
+  .site-footer-brand{grid-column:1 / -1;}
+}
+@media (max-width:480px){
+  .site-footer-top{grid-template-columns:1fr;}
+  .site-footer-bottom{justify-content:center;text-align:center;}
+}
+
+/* switches */
+.switch{position:relative;width:40px;height:22px;flex-shrink:0;}
+.switch input{opacity:0;width:0;height:0;}
+.switch-track{position:absolute;inset:0;background:var(--bg-4);border-radius:999px;cursor:pointer;transition:var(--transition);}
+.switch-track::before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:999px;transition:var(--transition);}
+.switch input:checked + .switch-track{background:var(--grad-1);}
+.switch input:checked + .switch-track::before{transform:translateX(18px);}
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border-soft);}
+.setting-row:last-child{border-bottom:none;}
+.setting-row .label{font-size:13.5px;font-weight:700;}
+.setting-row .desc{font-size:11.5px;color:var(--text-subtle);margin-top:2px;}
+
+.copy-box{display:flex;align-items:center;gap:8px;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;font-family:monospace;font-size:12.5px;color:var(--accent-3);}
+.copy-box button{margin-left:auto;flex-shrink:0;}
+
+.chip-row{display:flex;gap:8px;flex-wrap:wrap;}
+.chip{padding:6px 13px;border-radius:999px;background:var(--bg-3);border:1px solid var(--border);font-size:12px;font-weight:600;color:var(--text-muted);cursor:pointer;transition:var(--transition);}
+.chip:hover{color:#fff;border-color:var(--bg-4);}
+.chip.active{background:var(--grad-1);color:#0a0805;border-color:transparent;}
+
+.subtext{color:var(--text-subtle);font-size:12.5px;}
+.muted{color:var(--text-muted);}
+
+/* ══════════════════════════════════════════════════════════════════════
+   ADDITIONS - everything above this line is astral.html's stylesheet,
+   unchanged. Below are only the components the mockup never had: the
+   notification box, the player-detail modal, the OTP inputs, the
+   sign-in/sign-up pages, loading skeletons, the offline banner and the
+   leaderboard toolbar. Same variables, same idiom, no new colours.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ===== images inside the round avatars astral defines ===== */
+.avatar-btn img,.lb-avatar img,.pd-avatar img,.profile-pfp img{width:100%;height:100%;border-radius:999px;object-fit:cover;display:block;}
+.avatar-btn.is-premium{box-shadow:0 0 0 2px rgb(212 175 55 / 25%);}
+
+/* ===== NOTIFICATION BOX ===== */
+.bell-wrap{position:relative;}
+.bell-dot{position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:999px;background:var(--grad-1);border:2px solid var(--bg);display:none;}
+.bell-dot.is-on{display:block;}
+ /* A dim scrim behind the panel, same idea as the drawer's - without it the
+   page underneath stays fully visible and interactive-looking, so an open
+   panel just reads as "floating in the wrong place" instead of a focused
+   overlay anchored to the bell. */
+.panel-backdrop{position:fixed;inset:0;background:rgb(0 0 0 / 45%);z-index:79;opacity:0;pointer-events:none;transition:opacity .2s;}
+.panel-backdrop.open{opacity:1;pointer-events:auto;}
+/* The panel is pinned 70px below the top of the viewport, so its ceiling has
+   to be measured from there - `min(70svh,520px)` ignored the offset and on a
+   short viewport the box ran off the bottom of the screen. calc(100dvh - 86px)
+   keeps 16px of breathing room below it at any height, and dvh (not vh) so
+   mobile browser chrome collapsing doesn't leave it overhanging.
+   It's a short dropdown, not a full-height drawer: it hangs from the bell
+   icon (top-right, right:20px matches the header's edge padding) and its
+   height is capped by content via max-height, never forced to fill the
+   viewport. Opening scales up from that top-right corner - transform-origin
+   is set below - rather than just sliding down, so it reads as "popping out
+   of the bell" instead of a generic panel appearing from nowhere. */
+.panel{position:fixed;top:70px;right:20px;width:min(360px,calc(100vw - 32px));max-height:min(70svh,520px,calc(100dvh - 86px));z-index:80;border:1px solid var(--border);border-radius:var(--r-lg);background:rgba(10,10,10,.96);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:var(--shadow);display:flex;flex-direction:column;opacity:0;transform:translateY(-6px) scale(.94);pointer-events:none;transition:opacity .18s ease,transform .22s cubic-bezier(.2,.9,.25,1.1);transform-origin:top right;overflow:hidden;}
+.panel.open{opacity:1;transform:none;pointer-events:auto;}
+.panel-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border-soft);flex-shrink:0;}
+.panel-head strong{font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:800;flex:1;min-width:0;}
+/* min-height:0 is the load-bearing bit. A flex item defaults to
+   min-height:auto, which refuses to shrink below its content - so the body
+   grew to fit every notification, pushed past the panel's max-height and
+   spilled out of the box instead of scrolling inside it. overscroll-behavior
+   stops a scroll that hits the end of the list from chaining to the page. */
+.panel-body{overflow-y:auto;min-height:0;flex:1;overscroll-behavior:contain;padding:6px;}
+.note{display:flex;gap:11px;padding:11px 10px;border-radius:var(--r);cursor:pointer;transition:var(--transition);}
+.note:hover{background:var(--bg-3);}
+.note-i{width:30px;height:30px;flex-shrink:0;border-radius:999px;background:var(--bg-3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:14px;}
+.note.is-unread .note-i{border-color:rgb(212 175 55 / 40%);}
+.note.sev-urgent .note-i{background:rgb(212 175 55 / 12%);border-color:rgb(212 175 55 / 45%);}
+.note-main{min-width:0;flex:1;}
+/* A pasted URL or any long unbroken token has no break opportunity, so it
+   sets the row's min-content width and forces the whole panel wider than its
+   own max-width. anywhere lets it break mid-token rather than overflow. */
+.note-t,.note-b{overflow-wrap:anywhere;}
+.note-t{font-size:13px;font-weight:700;}
+.note.is-unread .note-t{color:var(--gold);}
+.note-b{font-size:12px;color:var(--text-muted);line-height:1.45;margin-top:2px;}
+.note-time{font-size:10.5px;color:var(--text-subtle);margin-top:4px;font-weight:600;}
+.note-x{flex-shrink:0;width:22px;height:22px;border-radius:999px;border:none;background:none;color:var(--text-subtle);font-size:16px;line-height:1;cursor:pointer;opacity:0;transition:var(--transition);}
+.note:hover .note-x{opacity:1;}
+.note-x:hover{color:var(--text);background:var(--bg-4);}
+
+ /* ===== MODAL - player / character detail ===== */
+.modal{position:fixed;inset:0;z-index:120;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .2s;}
+.modal.open{opacity:1;pointer-events:auto;}
+.modal-scrim{position:absolute;inset:0;background:rgb(0 0 0 / 72%);backdrop-filter:blur(4px);}
+.modal-card{position:relative;width:min(560px,100%);max-height:86svh;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r-xl);background:var(--bg-2);box-shadow:var(--shadow);transform:translateY(12px) scale(.97);transition:transform .22s cubic-bezier(.2,.7,.2,1);}
+.modal.open .modal-card{transform:none;}
+.modal-x{position:absolute;top:14px;right:14px;z-index:2;width:32px;height:32px;border-radius:999px;border:1px solid var(--border);background:rgb(0 0 0 / 55%);backdrop-filter:blur(8px);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:var(--transition);}
+.modal-x:hover{color:var(--gold);border-color:var(--gold);}
+.pd-banner{height:118px;background:
+  radial-gradient(circle at 20% 30%, rgb(212 175 55 / 22%), transparent 55%),
+  radial-gradient(circle at 80% 70%, rgb(212 175 55 / 12%), transparent 50%),
+  var(--bg-3);background-size:cover;background-position:center;position:relative;z-index:0;}
+/* align-items is flex-start, not flex-end: with flex-end the text column's
+   height set the row height, so every extra line (epithet, class/race, bio)
+   dragged the avatar down out of the banner and squeezed the name. Starting
+   both at the top pins the avatar's -38px overlap regardless of how much
+   text sits beside it, and the column below is free to grow. */
+.pd-head{position:relative;z-index:1;display:flex;align-items:flex-start;gap:14px;padding:0 22px 6px;}
+.pd-avatar{position:relative;z-index:1;width:80px;height:80px;margin-top:-38px;border-radius:999px;background:var(--grad-1);color:#0a0805;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;border:5px solid var(--bg-2);flex-shrink:0;overflow:hidden;}
+/* The identity column. min-width:0 lets it shrink below its longest word so a
+   long name wraps instead of overflowing - .modal-card sets overflow-y:auto,
+   which computes overflow-x to auto too, so an overflowing name was clipped
+   rather than visibly spilling. */
+.pd-id{min-width:0;flex:1;padding-top:6px;}
+/* Block, not flex: as a flex row the name text was an anonymous item stuck at
+   min-content, so it could never wrap. Inline-flex badges flow after it. */
+.pd-name-row{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;min-width:0;}
+.pd-head h3{min-width:0;font-size:19px;font-weight:800;line-height:1.3;overflow-wrap:anywhere;word-break:break-word;}
+.pd-badges{display:flex;align-items:center;gap:5px;flex-wrap:wrap;padding-top:2px;}
+.pd-sub{font-size:12.5px;color:var(--text-muted);margin:4px 0 0;line-height:1.45;overflow-wrap:anywhere;}
+.pd-id .subtext{overflow-wrap:anywhere;}
+.pd-body{padding:18px 22px 24px;}
+.pd-sec-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text-subtle);margin:20px 0 10px;}
+.pd-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+@media (max-width:520px){.pd-stats{grid-template-columns:repeat(2,1fr);}}
+.pd-stat{border:1px solid var(--border);border-radius:var(--r);background:var(--bg-3);padding:10px 8px;text-align:center;}
+.pd-stat-k{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-subtle);}
+.pd-stat-v{font-size:17px;font-weight:800;font-family:'Space Grotesk',sans-serif;margin-top:3px;}
+
+ /* alert list - inside the modal */
+.alert-item{display:flex;gap:11px;padding:11px 12px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg-3);margin-bottom:8px;}
+.alert-item.sev-urgent{border-color:rgb(212 175 55 / 45%);}
+.alert-t{font-size:12.5px;font-weight:700;}
+.alert-b{font-size:12px;color:var(--text-muted);line-height:1.45;margin-top:2px;}
+
+ /* ===== AUTH - sign in / sign up ===== */
+.auth-wrap{display:flex;align-items:center;justify-content:center;min-height:70svh;padding:70px 20px 60px;}
+.auth-card{width:min(430px,100%);border:1px solid var(--border);border-radius:var(--r-xl);background:var(--bg-2);padding:30px 26px;box-shadow:var(--shadow);}
+.auth-card h2{font-size:23px;font-weight:800;margin-bottom:6px;}
+.auth-step{display:none;}
+.auth-step.active{display:block;animation:fadeIn .2s ease;}
+.auth-alt{margin-top:20px;padding-top:18px;border-top:1px solid var(--border-soft);text-align:center;font-size:12.5px;color:var(--text-subtle);display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;}
+.auth-alt a{color:var(--gold);font-weight:700;cursor:pointer;}
+.auth-alt a:hover{text-decoration:underline;}
+
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text-subtle);margin-bottom:6px;}
+.field input,.field select{width:100%;padding:11px 13px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg-3);color:var(--text);font-family:inherit;font-size:14px;transition:var(--transition);}
+.field input:focus,.field select:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgb(212 175 55 / 12%);}
+.field-hint{font-size:11.5px;color:var(--text-subtle);margin:6px 0 0;line-height:1.5;}
+.field-err{font-size:12px;color:var(--gold);margin:6px 0 0;}
+.field.has-err input{border-color:var(--gold);}
+
+.otp-row{display:flex;gap:8px;}
+.otp-row input{width:100%;aspect-ratio:1/1.15;padding:0;text-align:center;font-size:22px;font-weight:800;font-family:'Space Grotesk',sans-serif;border-radius:var(--r);border:1px solid var(--border);background:var(--bg-3);color:var(--text);transition:var(--transition);}
+.otp-row input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgb(212 175 55 / 12%);}
+.otp-row input.is-filled{border-color:rgb(212 175 55 / 45%);color:var(--gold);}
+
+ /* busy button - the spinner replaces the label so a double-tap can't fire twice */
+.btn.is-busy{pointer-events:none;opacity:.75;position:relative;color:transparent;}
+.btn.is-busy::after{content:"";position:absolute;width:15px;height:15px;border-radius:999px;border:2px solid rgb(0 0 0 / 25%);border-top-color:#0a0805;animation:spin .6s linear infinite;}
+.btn-secondary.is-busy::after,.btn-ghost.is-busy::after,.btn-danger.is-busy::after{border-color:rgb(245 243 238 / 25%);border-top-color:var(--text);}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ===== LEADERBOARD PAGE ===== */
+.lb-toolbar{display:flex;align-items:center;gap:14px;margin-bottom:16px;flex-wrap:wrap;}
+.lb-toolbar .tab-row{flex:1;margin-bottom:0;border-bottom:none;}
+.lb-search{min-width:200px;padding:10px 15px;border-radius:999px;border:1px solid var(--border);background:var(--bg-2);color:var(--text);font-family:inherit;font-size:13px;transition:var(--transition);}
+.lb-search:focus{outline:none;border-color:var(--gold);}
+.lb-list{border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bg-2);padding:6px;}
+.lb-row{width:100%;text-align:left;background:none;cursor:pointer;transition:var(--transition);}
+.lb-row.is-you{background:rgb(212 175 55 / 7%);border-color:rgb(212 175 55 / 30%);}
+
+/* ===== SKELETONS / EMPTY ===== */
+.skel{background:linear-gradient(90deg,var(--bg-3) 0%,var(--bg-4) 50%,var(--bg-3) 100%);background-size:200% 100%;animation:shimmer 1.3s ease-in-out infinite;border-radius:var(--r);}
+@keyframes shimmer{to{background-position:-200% 0;}}
+.skel-line{height:12px;}
+.skel-row{display:flex;align-items:center;gap:12px;padding:14px;}
+
+.empty{text-align:center;padding:40px 20px;}
+.empty-i{width:46px;height:46px;margin:0 auto 12px;border-radius:999px;border:1px solid var(--border);background:var(--bg-3);display:flex;align-items:center;justify-content:center;}
+.empty-icon{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;color:var(--gold);}
+.inline-icon{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-2px;}
+.note-icon,.lb-medal,.tier-icon-svg,.inventory-icon,.character-placeholder{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+.tier-icon-svg{width:21px;height:21px;}
+.character-placeholder{width:30px;height:30px;color:var(--gold);}
+.inventory-icon{width:22px;height:22px;color:var(--gold);}
+.empty h3{font-size:15px;font-weight:800;margin-bottom:5px;}
+.empty p{font-size:13px;color:var(--text-subtle);margin:0;line-height:1.55;max-width:320px;margin-inline:auto;}
+
+/* ===== OFFLINE BANNER ===== */
+.offline{position:fixed;top:14px;left:50%;z-index:210;transform:translate(-50%,-160%);padding:9px 16px;border-radius:999px;background:var(--bg-3);border:1px solid var(--gold);color:var(--gold);font-size:12.5px;font-weight:700;box-shadow:var(--shadow);transition:transform .25s cubic-bezier(.2,.7,.2,1);}
+.offline.is-on{transform:translate(-50%,0);}
+
+/* ===== TOAST KINDS ===== */
+.toast.ok{border-color:rgb(212 175 55 / 45%);}
+.toast.ok .dot{background:var(--gold);}
+.toast.err{border-color:var(--text-muted);}
+.toast.err .dot{background:var(--text-muted);}
+.toast.is-out{animation:toastOut .25s ease forwards;}
+@keyframes toastOut{to{transform:translateX(30px);opacity:0;}}
+
+/* ===== MISC ===== */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
+.copy-box span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;}
+.section-head .badge{flex-shrink:0;}
+code{font-family:monospace;font-size:.92em;color:var(--gold);}
+
+/* =======================================================================
+   MOTION
+   =======================================================================
+   One shared vocabulary so the whole site moves the same way:
+
+     • gold sweeps across a surface on hover (buttons, cards, art)
+     • surfaces lift toward the viewer, they never scale up in place
+     • entrances rise 12–18px, never slide sideways or bounce
+
+   Everything here animates only `transform`, `opacity` and `filter` - the
+   three the compositor can handle without relayout - so it stays smooth on
+   the mid-range Android most players are on. Anything that would animate
+   width/height/box-shadow directly is done with a pseudo-element instead.
+
+   The whole section is disabled wholesale by the prefers-reduced-motion
+   block at the very bottom of this file. Add new motion above that block,
+   and add its off-switch to it. */
+
+:root{
+  --ease-out: cubic-bezier(.2,.7,.2,1);
+  --dur-fast: .22s;
+  --dur: .42s;
+  --dur-slow: .7s;
+}
+
+/* ── entrance: hero ────────────────────────────────────────────────────
+   The hero is the one thing above the fold on first paint, so it animates
+   on load rather than on scroll. Children rise in sequence; the heading
+   gets a touch longer to land so it reads as the anchor of the group. */
+.hero-inner > *{animation:riseIn .8s var(--ease-out) both;}
+.hero-inner > .hero-badge{animation-delay:.05s;}
+.hero-inner > h1{animation-delay:.13s;animation-duration:.9s;}
+.hero-inner > p{animation-delay:.22s;}
+.hero-inner > .hero-actions{animation-delay:.3s;}
+.hero-inner > .chip-row{animation-delay:.38s;}
+@keyframes riseIn{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:none;}}
+
+/* A slow gold bloom behind the hero copy. 22s and opacity-only, so it reads
+   as the page breathing rather than as an animation playing. Scoped away
+   from .season-hero, which has video behind it already. */
+.hero:not(.season-hero)::after{
+  content:"";position:absolute;z-index:-1;
+  left:50%;top:42%;width:min(680px,110%);aspect-ratio:1;
+  transform:translate(-50%,-50%);
+  background:radial-gradient(circle,rgb(212 175 55 / 15%) 0%,transparent 62%);
+  animation:bloom 22s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes bloom{
+  0%,100%{opacity:.5;transform:translate(-50%,-50%) scale(.92);}
+  50%    {opacity:1; transform:translate(-50%,-50%) scale(1.08);}
+}
+
+/* The gradient word in the hero heading gets a slow shine travelling
+   through it - the one piece of pure decoration on the page. */
+.hero h1 .grad{
+  background:linear-gradient(100deg,#a97e1f 0%,#e8c86a 42%,#fff3cf 50%,#e8c86a 58%,#a97e1f 100%);
+  background-size:220% 100%;
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:shine 7s ease-in-out infinite;
+}
+@keyframes shine{0%,100%{background-position:120% 0;}50%{background-position:-20% 0;}}
+
+/* ── nav: condense on scroll ───────────────────────────────────────────
+   ui.js toggles .is-stuck past ~30px. The bar starts invisible over the
+   hero and materialises into a solid surface as you leave it, instead of
+   sitting there as a permanent box. */
+.nav-shell{transition:padding var(--dur) var(--ease-out);}
+.nav-shell::before{
+  content:"";position:absolute;inset:0;z-index:-1;
+  background:rgb(7 7 10 / 72%);
+  backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border-soft);
+  opacity:0;transition:opacity var(--dur) var(--ease-out);
+}
+.nav-shell.is-stuck{padding-top:10px;}
+.nav-shell.is-stuck::before{opacity:1;}
+
+/* ── buttons ───────────────────────────────────────────────────────────
+   A single sheen sweep on hover. ::before, not ::after - .btn.is-busy
+   already owns ::after for its spinner. */
+.btn{position:relative;overflow:hidden;transition:transform var(--dur-fast) var(--ease-out),filter var(--dur-fast) var(--ease-out),background var(--dur-fast) var(--ease-out),border-color var(--dur-fast) var(--ease-out),color var(--dur-fast) var(--ease-out);}
+.btn::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(100deg,transparent 20%,rgb(255 255 255 / 28%) 50%,transparent 80%);
+  transform:translateX(-110%);
+  transition:transform .6s var(--ease-out);
+}
+.btn:hover::before{transform:translateX(110%);}
+.btn-secondary::before,.btn-ghost::before,.btn-danger::before{
+  background:linear-gradient(100deg,transparent 20%,rgb(212 175 55 / 20%) 50%,transparent 80%);
+}
+.btn:hover{transform:translateY(-1px);}
+/* Press feedback. :active must win over :hover, so it comes after. */
+.btn:active{transform:translateY(0) scale(.978);transition-duration:.08s;}
+.btn.is-busy::before{display:none;}
+
+/* ── cards ─────────────────────────────────────────────────────────────
+   .card-glow's gradient wash was declared with opacity:0 and a transition
+   but nothing ever raised it, so the rule never did anything. Wired to
+   hover here. */
+.card{transition:transform var(--dur) var(--ease-out),border-color var(--dur) var(--ease-out),box-shadow var(--dur) var(--ease-out);}
+.card-glow::before{opacity:0;transition:opacity var(--dur) var(--ease-out);}
+.card-glow:hover::before{opacity:.09;}
+
+ /* perk-card had no hover state at all - it's a grid tile like the others,
+   so it should answer the cursor like the others. */
+.perk-card{transition:transform var(--dur) var(--ease-out),border-color var(--dur) var(--ease-out),box-shadow var(--dur) var(--ease-out);}
+.perk-card:hover{transform:translateY(-3px);border-color:rgb(212 175 55 / 45%);box-shadow:var(--shadow);}
+.perk-card img{transition:transform var(--dur-slow) var(--ease-out);}
+.perk-card:hover img{transform:scale(1.05);}
+
+/* ── feature cards (the game-mode art) ────────────────────────────────
+   The art zoom was on --transition (.18s), which is button-speed and made
+   a full-card image jolt. A photograph wants to drift. */
+.feature-card{transition:transform var(--dur) var(--ease-out),border-color var(--dur) var(--ease-out),box-shadow var(--dur) var(--ease-out);}
+.feature-card.art::before{transition:transform var(--dur-slow) var(--ease-out),filter var(--dur-slow) var(--ease-out);}
+.feature-card.art:hover::before{transform:scale(1.07);}
+.feature-content{transition:transform var(--dur) var(--ease-out);}
+.feature-card:hover .feature-content{transform:translateY(-3px);}
+.feature-icon{transition:transform var(--dur) var(--ease-out),color var(--dur) var(--ease-out),border-color var(--dur) var(--ease-out);}
+.feature-card:hover .feature-icon{transform:scale(1.1) rotate(-6deg);border-color:var(--gold);}
+
+/* ── list rows / tiers ─────────────────────────────────────────────────
+   Rows nudge toward the reader on hover - enough to show the row is live
+   without shifting the column's rhythm. */
+.lb-row{transition:transform var(--dur-fast) var(--ease-out),background var(--dur-fast) var(--ease-out);}
+.lb-row:hover{transform:translateX(4px);background:rgb(212 175 55 / 6%);}
+.tier-node{transition:transform var(--dur) var(--ease-out),border-color var(--dur) var(--ease-out);}
+.tier-node:hover{transform:translateY(-4px);}
+
+/* ── progress bars ─────────────────────────────────────────────────────
+   Width is set inline by the renderer, so transitioning width here means
+   every bar grows into place on first paint for free. */
+.xp-fill{transition:width 1.1s var(--ease-out);position:relative;overflow:hidden;}
+.xp-fill::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgb(255 255 255 / 45%),transparent);
+  transform:translateX(-100%);
+  animation:xpSheen 2.6s ease-in-out infinite;
+}
+@keyframes xpSheen{0%{transform:translateX(-100%);}55%,100%{transform:translateX(100%);}}
+
+/* ── modal / drawer ───────────────────────────────────────────────────*/
+.modal-scrim{opacity:0;transition:opacity var(--dur) var(--ease-out);}
+.modal.open .modal-scrim{opacity:1;}
+.modal-card{transition:transform .34s var(--ease-out),opacity .34s var(--ease-out);opacity:0;}
+.modal.open .modal-card{opacity:1;}
+
+/* ── route transitions ────────────────────────────────────────────────
+   Replaces the old 6px fadeIn with something that matches the reveal
+   easing, so arriving on a page and scrolling it feel like one system. */
+.view{animation:viewIn .42s var(--ease-out);}
+@keyframes viewIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+
+/* ── focus ────────────────────────────────────────────────────────────
+   Keyboard users get a real gold ring. :focus-visible only, so clicking a
+   button doesn't leave a ring behind. */
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,
+textarea:focus-visible,[tabindex]:focus-visible{
+  outline:2px solid var(--gold);
+  outline-offset:2px;
+  border-radius:var(--r);
+}
+
+/* ── toasts ───────────────────────────────────────────────────────────*/
+.toast{animation:slideIn .3s var(--ease-out);}
+
+@media (prefers-reduced-motion:reduce){
+  .skel{animation:none;}
+  .reveal,html.js .reveal{opacity:1;transform:none;animation:none;transition:none;}
+  /* Kill every looping/decorative animation added in the MOTION section.
+      Hover feedback stays - it's a response to the user's own input, not
+      unrequested motion - but it stops moving things around. */
+  .hero-inner > *,
+  .hero:not(.season-hero)::after,
+  .hero h1 .grad,
+  .xp-fill::after,
+  .view,
+  .toast{animation:none;}
+  .hero h1 .grad{background:var(--grad-1);-webkit-background-clip:text;background-clip:text;}
+  .btn::before{display:none;}
+  .btn:hover,.btn:active,
+  .card:hover,.perk-card:hover,.feature-card:hover,
+  .lb-row:hover,.tier-node:hover,
+  .feature-card:hover .feature-content,
+  .feature-card:hover .feature-icon,
+  .feature-card.art:hover::before,
+  .perk-card:hover img,
+  .inv-slot:hover .inv-img,
+  .shop-card:hover img,
+  .card-tile:hover img,
+  .card-tile:hover video{transform:none;}
+  .xp-fill{transition:none;}
+  .modal-card,.modal-scrim{transition:opacity .01s;}
+}
+
+/* Settings → "Reduce motion". The media query above is the OS-level switch;
+   this is the in-app one, set on <html> from localStorage before initMotion()
+   runs (see applyLocalPrefs in app.js). Kept as a blanket override rather than
+   a copy of the list above so a new animation can't quietly escape it - the
+   list above is the tuned version for people whose OS already asked. */
+html.no-motion *,
+html.no-motion *::before,
+html.no-motion *::after{
+  animation-duration:.001ms!important;
+  animation-iteration-count:1!important;
+  transition-duration:.001ms!important;
+}
+html.no-motion{scroll-behavior:auto!important;}
+html.no-motion .reveal,
+html.no-motion.js .reveal{opacity:1!important;transform:none!important;}
+html.no-motion .btn::before{display:none;}
+html.no-motion .hero h1 .grad{background:var(--grad-1);-webkit-background-clip:text;background-clip:text;}
+
+/* ── settings page ────────────────────────────────────────────────────── */
+.settings-group{margin-top:30px;}
+.settings-group:first-of-type{margin-top:0;}
+.settings-group > h3{font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--text-subtle);font-weight:800;margin-bottom:4px;}
+.settings-group > .group-hint{font-size:12px;color:var(--text-subtle);margin-bottom:10px;}
+
+/* ── pfp / banner upload ──────────────────────────────────────────────── */
+/* The file input is hidden but must stay focusable and in the a11y tree, so
+   it's clipped rather than display:none - the latter drops it from tab order
+   and from the label's for= association. */
+.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0;}
+
+.img-upload{display:flex;align-items:flex-start;gap:14px;padding:14px 0;
+  border-bottom:1px solid var(--border-soft);}
+.img-upload.busy{opacity:.55;pointer-events:none;}
+.img-upload-preview{flex-shrink:0;background:var(--bg-3) center/cover no-repeat;
+  border:1px solid var(--border);display:grid;place-items:center;
+  font-size:11px;font-weight:700;color:var(--text-subtle);text-align:center;}
+.img-upload-preview.banner{width:150px;height:auto;aspect-ratio:2.4 / 1;border-radius:var(--r);background-size:cover;background-position:center;}
+.img-upload-preview.avatar{width:68px;height:auto;aspect-ratio:1;border-radius:50%;font-size:18px;
+  font-family:'Space Grotesk',sans-serif;color:var(--gold);}
+.img-upload-preview.is-empty{border-style:dashed;}
+.img-upload-preview.banner.is-empty span{padding:0 8px;line-height:1.3;}
+
+/* min-width:0 so a long error message wraps instead of pushing the preview
+   out of the row. */
+.img-upload-meta{min-width:0;flex:1;}
+.img-upload-meta label{display:block;font-size:11.5px;font-weight:800;
+  text-transform:uppercase;letter-spacing:.5px;color:var(--text-subtle);margin-bottom:4px;}
+.img-upload-meta .field-hint{margin-top:0;}
+.img-upload-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px;}
+.img-upload-meta .field-err:empty{display:none;}
+
+@media (max-width:520px){
+  .img-upload{flex-wrap:wrap;}
+  .img-upload-preview.banner{width:100%;height:auto;aspect-ratio:2.4 / 1;}
+  .pd-head{gap:10px;padding-inline:16px;}
+  .pd-avatar{width:68px;height:68px;margin-top:-32px;}
+  .pd-name-row{display:block;}
+  .pd-badges{padding-top:6px;}
+  .pd-body{padding-inline:16px;}
+  .profile-info{min-width:0;flex:1 1 100%;}
+  .profile-info h2{font-size:19px;}
+}
+.setting-row .setting-label{min-width:0;padding-right:14px;}
+.settings-divider{height:1px;background:var(--border-soft);margin:30px 0 0;}
+.kind-chips{display:flex;gap:8px;flex-wrap:wrap;padding:12px 0 2px;}
+/* A muted kind reads as "off", so the ACTIVE (gold) state is "you get these"
+   - inverted from .chip's usual "selected" meaning, hence the explicit class
+   rather than reusing .chip.active alone. */
+.kind-chip.is-muted{opacity:.5;text-decoration:line-through;}
+.rename-locked{display:flex;gap:8px;align-items:flex-start;background:var(--bg-3);
+  border:1px solid var(--border);border-radius:var(--r);padding:11px 13px;
+  font-size:12px;color:var(--text-muted);margin-top:8px;}
+
+/* ===== HOME POLISH ===== */
+body{
+  background:
+    radial-gradient(circle at 50% -10%,rgb(212 175 55 / 7%),transparent 34rem),
+    var(--bg);
+}
+
+#view-home .hero{
+  min-height:min(760px,78svh);
+  padding:132px 20px 72px;
+  background-position:center 38%;
+}
+#view-home .hero::before{
+  z-index:0;
+  background:
+    linear-gradient(90deg,rgb(0 0 0 / 76%) 0%,rgb(0 0 0 / 38%) 58%,rgb(0 0 0 / 70%) 100%),
+    linear-gradient(180deg,rgb(0 0 0 / 40%) 0%,transparent 42%,rgb(0 0 0 / 88%) 100%);
+}
+#view-home .hero-inner{
+  position:relative;
+  z-index:1;
+  width:min(100%,740px);
+  max-width:740px;
+  padding:34px 28px 26px;
+  border:1px solid rgb(245 243 238 / 15%);
+  border-radius:28px;
+  background:linear-gradient(145deg,rgb(8 8 8 / 78%),rgb(8 8 8 / 38%));
+  box-shadow:0 24px 80px rgb(0 0 0 / 42%),inset 0 1px 0 rgb(255 255 255 / 8%);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+#view-home .hero-inner::before{
+  content:"";
+  position:absolute;
+  inset:12px;
+  border:1px solid rgb(212 175 55 / 12%);
+  border-radius:20px;
+  pointer-events:none;
+}
+.hero-kicker{
+  position:relative;
+  z-index:1;
+  margin-bottom:14px;
+  color:var(--gold);
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+}
+#view-home .hero-badge{
+  position:relative;
+  z-index:1;
+  margin-bottom:16px;
+  background:rgb(212 175 55 / 12%);
+}
+#view-home .hero h1,
+#view-home .hero p,
+#view-home .hero-actions,
+#view-home .platform-switch,
+#view-home .hero-trust,
+#view-home .hero-chips{
+  position:relative;
+  z-index:1;
+}
+#view-home .hero h1{
+  max-width:620px;
+  margin-inline:auto;
+  font-size:clamp(38px,6vw,64px);
+  line-height:1;
+  letter-spacing:-.045em;
+  text-wrap:balance;
+}
+#view-home .hero p{
+  max-width:510px;
+  margin-bottom:22px;
+  color:rgb(245 243 238 / 78%);
+}
+#view-home .platform-switch{
+  margin-bottom:14px;
+  background:rgb(0 0 0 / 45%);
+  box-shadow:inset 0 1px 0 rgb(255 255 255 / 5%);
+}
+.hero-trust{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:16px;
+  flex-wrap:wrap;
+  margin-top:18px;
+  color:rgb(245 243 238 / 60%);
+  font-size:11px;
+  font-weight:700;
+}
+.hero-trust span{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+}
+.trust-dot{
+  display:inline-block;
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:var(--gold);
+  box-shadow:0 0 0 3px rgb(212 175 55 / 14%);
+}
+.section-kicker{
+  margin-bottom:8px;
+  color:var(--gold);
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+}
+#view-home .home-stats-section{
+  padding-top:32px;
+  padding-bottom:24px;
+}
+#view-home .home-stats-section .stat-row{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;
+}
+#view-home .stat-pill{
+  min-width:0;
+  background:linear-gradient(145deg,rgb(18 17 16 / 96%),rgb(10 10 10 / 96%));
+  box-shadow:inset 0 1px 0 rgb(255 255 255 / 4%);
+}
+#view-home .stat-pill .value{
+  font-size:24px;
+}
+#view-home .stat-pill .subtext{
+  line-height:1.4;
+}
+#view-home .feature-card{
+  min-height:224px;
+}
+#view-home .section{
+  scroll-margin-top:80px;
+}
+#view-home #homeSteps .perk-card{
+  min-height:168px;
+  padding:20px;
+  background:linear-gradient(145deg,var(--bg-2),rgb(15 14 12));
+}
+#view-home #homeSteps .perk-card h4{
+  margin-top:14px;
+  font-size:15px;
+}
+#view-home #homeSteps .perk-card p{
+  line-height:1.55;
+}
+#view-home #homeFaq{
+  padding:8px 20px;
+  background:linear-gradient(145deg,var(--bg-2),rgb(12 11 10));
+}
+#view-home > .page > .section:last-child .card{
+  border-radius:24px;
+  box-shadow:0 18px 50px rgb(0 0 0 / 28%),inset 0 1px 0 rgb(255 255 255 / 7%);
+}
+
+@media (max-width:760px){
+  .nav-shell{padding:10px 12px 0;}
+  .nav-inner{gap:8px;}
+  .brand-mark{width:36px;height:36px;}
+  .brand-mark .icon{width:24px;height:24px;}
+  .nav-right{gap:6px;}
+  .nav-right > a.icon-btn[href="#/settings"]{display:none;}
+  .icon-btn,.avatar-btn{width:35px;height:35px;}
+  .drawer{top:58px;right:12px;width:calc(100vw - 24px);max-width:320px;}
+
+  #view-home .hero{
+    width:100%;
+    margin-left:0;
+    margin-top:-52px;
+    min-height:min(760px,88svh);
+    padding:92px 14px 38px;
+    background-position:62% center;
+  }
+  #view-home .hero::before{
+    background:
+      linear-gradient(180deg,rgb(0 0 0 / 64%) 0%,rgb(0 0 0 / 34%) 34%,rgb(0 0 0 / 91%) 100%),
+      linear-gradient(90deg,rgb(0 0 0 / 34%),transparent 65%);
+  }
+  #view-home .hero-inner{
+    padding:28px 16px 22px;
+    border-radius:24px;
+  }
+  #view-home .hero-inner::before{inset:9px;border-radius:17px;}
+  .hero-kicker{font-size:9.5px;letter-spacing:.12em;margin-bottom:12px;}
+  #view-home .hero-badge{font-size:11px;padding:6px 11px;margin-bottom:14px;}
+  #view-home .hero h1{
+    font-size:clamp(34px,10.5vw,46px);
+    line-height:1.02;
+  }
+  #view-home .hero p{
+    font-size:14px;
+    line-height:1.55;
+    margin-bottom:18px;
+  }
+  #view-home .platform-switch{
+    display:flex;
+    width:100%;
+    gap:2px;
+    padding:3px;
+  }
+  #view-home .platform-tab{
+    flex:1;
+    min-height:40px;
+    padding:7px 5px;
+    font-size:11.5px;
+  }
+  #view-home .hero-actions{
+    flex-direction:column;
+    gap:8px;
+  }
+  #view-home .hero-actions .btn{width:100%;min-height:44px;}
+  .hero-trust{
+    gap:9px 13px;
+    margin-top:16px;
+    font-size:10px;
+  }
+  #view-home #heroChips{margin-top:18px!important;}
+  #view-home .page{
+    padding-inline:14px;
+    padding-bottom:34px;
+  }
+  #view-home .section{padding:32px 0;}
+  #view-home .home-stats-section{padding-top:26px;padding-bottom:16px;}
+  #view-home .home-stats-section .stat-row{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:10px;
+  }
+  #view-home .stat-pill{
+    padding:13px 12px;
+    border-radius:15px;
+  }
+  #view-home .stat-pill .value{font-size:20px;}
+  #view-home .stat-pill .subtext{font-size:11px;}
+  #view-home .section-head{
+    align-items:flex-start;
+    gap:14px;
+    margin-bottom:15px;
+  }
+  #view-home .section-head h2{font-size:21px;}
+  #view-home .section-head p{font-size:12px;line-height:1.4;}
+  #view-home .section-head > .btn{
+    width:100%;
+    min-height:40px;
+  }
+  #view-home .grid-4{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:10px;
+  }
+  #view-home .feature-card{
+    min-height:190px;
+    border-radius:17px;
+  }
+  #view-home .feature-content{padding:14px;}
+  #view-home .feature-content h3{font-size:14px;}
+  #view-home .feature-content p{font-size:11px;line-height:1.42;}
+  #view-home .feature-icon{top:10px;right:10px;width:29px;height:29px;}
+  #view-home #homeSteps{
+    grid-template-columns:1fr;
+    gap:10px;
+  }
+  #view-home #homeSteps .perk-card{
+    min-height:0;
+    padding:16px;
+  }
+  #view-home #homeSteps .perk-card h4{margin-top:10px;}
+  #view-home #homeFaq{padding:6px 14px;}
+  #view-home .faq-q{padding:15px 0;font-size:13px;line-height:1.4;}
+  #view-home > .page > .section:last-child .card{padding:24px 16px!important;}
+}
+
+@media (max-width:380px){
+  #view-home .hero-inner{padding-inline:13px;}
+  #view-home .hero h1{font-size:32px;}
+  #view-home .feature-card{min-height:176px;}
+  #view-home .feature-content p{font-size:10.5px;}
+  .hero-trust{font-size:9.5px;gap:8px 10px;}
+}
+
+/* ===== POKÉMON SHOWCASE ===== */
+.home-pokemon-section{
+  position:relative;
+}
+.home-pokemon-section .section-head{
+  align-items:center;
+}
+.api-live-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  padding:7px 11px;
+  border:1px solid rgb(212 175 55 / 28%);
+  border-radius:999px;
+  background:rgb(212 175 55 / 8%);
+  color:var(--gold);
+  font-size:11px;
+  font-weight:800;
+  white-space:nowrap;
+}
+.pokemon-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;
+}
+.pokemon-card{
+  min-width:0;
+  overflow:hidden;
+  border:1px solid var(--border);
+  border-radius:var(--r-xl);
+  background:linear-gradient(160deg,var(--bg-2),rgb(15 14 12));
+  transition:transform var(--dur) var(--ease-out),border-color var(--dur) var(--ease-out),box-shadow var(--dur) var(--ease-out);
+}
+.pokemon-card:hover{
+  border-color:rgb(212 175 55 / 70%);
+  transform:translateY(-4px);
+  box-shadow:var(--shadow);
+}
+.pokemon-card-art{
+  position:relative;
+  display:grid;
+  place-items:center;
+  aspect-ratio:1.12;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 50% 60%,rgb(212 175 55 / 22%),transparent 55%),
+    linear-gradient(145deg,rgb(212 175 55 / 8%),rgb(0 0 0 / 18%));
+}
+.pokemon-card-art::after{
+  content:"";
+  position:absolute;
+  inset:auto 14% 9%;
+  height:15%;
+  border-radius:50%;
+  background:rgb(0 0 0 / 42%);
+  filter:blur(9px);
+}
+.pokemon-card-art img{
+  position:relative;
+  z-index:1;
+  width:86%;
+  height:86%;
+  object-fit:contain;
+  filter:drop-shadow(0 12px 10px rgb(0 0 0 / 36%));
+  transition:transform var(--dur-slow) var(--ease-out);
+}
+.pokemon-card:hover .pokemon-card-art img{
+  transform:translateY(-5px) scale(1.06);
+}
+.pokemon-number{
+  position:absolute;
+  top:10px;
+  left:11px;
+  z-index:2;
+  color:rgb(245 243 238 / 48%);
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.06em;
+}
+.pokemon-card-body{
+  padding:13px 14px 15px;
+}
+.pokemon-card-body h3{
+  margin:0 0 9px;
+  font-size:15px;
+  font-weight:800;
+  text-transform:capitalize;
+}
+.pokemon-types{
+  display:flex;
+  gap:5px;
+  flex-wrap:wrap;
+}
+.pokemon-type{
+  padding:3px 7px;
+  border:1px solid rgb(245 243 238 / 13%);
+  border-radius:999px;
+  background:rgb(245 243 238 / 8%);
+  color:var(--text-muted);
+  font-size:9.5px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+.pokemon-type.type-fire{color:#ffb06f;background:rgb(239 68 68 / 12%);}
+.pokemon-type.type-grass{color:#9ee6a9;background:rgb(34 197 94 / 12%);}
+.pokemon-type.type-water{color:#9bc7ff;background:rgb(59 130 246 / 12%);}
+.pokemon-type.type-electric{color:#ffe28a;background:rgb(234 179 8 / 14%);}
+.pokemon-type.type-ghost,.pokemon-type.type-dark{color:#cfb7ff;background:rgb(124 58 237 / 13%);}
+.pokemon-type.type-psychic,.pokemon-type.type-fairy{color:#ffb9df;background:rgb(236 72 153 / 12%);}
+.pokemon-type.type-rock,.pokemon-type.type-ground{color:#e4c18c;background:rgb(161 98 7 / 13%);}
+.pokemon-type.type-steel,.pokemon-type.type-ice{color:#b9d8e5;background:rgb(100 160 180 / 12%);}
+.pokemon-type.type-fighting,.pokemon-type.type-poison{color:#f2a0a0;background:rgb(185 28 28 / 12%);}
+.pokemon-type.type-flying,.pokemon-type.type-bug{color:#c9d6ad;background:rgb(101 130 50 / 12%);}
+.pokemon-loading,.pokemon-empty{
+  grid-column:1 / -1;
+  padding:28px 20px;
+  border:1px dashed var(--border);
+  border-radius:var(--r-lg);
+  color:var(--text-subtle);
+  font-size:13px;
+  text-align:center;
+}
+.pokemon-credit{
+  margin:12px 0 0;
+  color:var(--text-subtle);
+  font-size:10.5px;
+  line-height:1.5;
+}
+
+@media (max-width:900px){
+  .pokemon-grid{grid-template-columns:repeat(3,minmax(0,1fr));}
+}
+
+@media (max-width:760px){
+  #view-home .home-pokemon-section .section-head{
+    align-items:flex-start;
+  }
+  #view-home .home-pokemon-section .api-live-badge{
+    margin-top:2px;
+  }
+  #view-home .pokemon-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:10px;
+  }
+  #view-home .pokemon-card{border-radius:17px;}
+  #view-home .pokemon-card-body{padding:11px 11px 12px;}
+  #view-home .pokemon-card-body h3{font-size:13px;margin-bottom:8px;}
+  #view-home .pokemon-type{font-size:8.5px;padding:3px 6px;}
+  #view-home .pokemon-number{top:8px;left:9px;font-size:9px;}
+}
+

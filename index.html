@@ -6,13 +6,13 @@
 <!-- Sets html.js before the stylesheet is applied, so scroll-reveal elements
      start hidden on the very first paint instead of flashing in and then
      being hidden once the module boots. If scripting is off this never runs
-     and every .reveal simply stays visible — see the .reveal rules.
+     and every .reveal simply stays visible - see the .reveal rules.
 
      The timer is the fail-safe for the other way this can break. `.js` is
      what hides every .reveal until it scrolls in, and ONLY initMotion()
      (assets/js/ui.js, called from boot()) ever un-hides them. If that module
-     doesn't run — syntax error, blocked script, dead network, an exception
-     earlier in boot() — nothing would ever remove the hidden state and the
+     doesn't run - syntax error, blocked script, dead network, an exception
+     earlier in boot() - nothing would ever remove the hidden state and the
      entire page would sit at opacity 0. app.js shipped with an unbalanced
      brace once already, so this is not hypothetical. If nothing has claimed
      the motion layer a few seconds in, fall back to the scripting-off
@@ -29,10 +29,10 @@
   })()
 </script>
 <title>Home</title>
-<meta name="description" content="Dungeons, cards, and companions — built for WhatsApp. Climb the floors, top the boards, forge a legend.">
+<meta name="description" content="Dungeons, cards, and companions - built for WhatsApp. Climb the floors, top the boards, forge a legend.">
 <meta name="theme-color" content="#000000">
 <meta property="og:title" content="Astral">
-<meta property="og:description" content="Dungeons, cards, and companions — built for WhatsApp.">
+<meta property="og:description" content="Dungeons, cards, and companions - built for WhatsApp.">
 <meta property="og:type" content="website">
 <!-- Sun favicon, PNG uploaded by the user. -->
 <link rel="icon" type="image/png" href="assets/img/favicon.png">
@@ -45,7 +45,7 @@
 <body>
 
 <div class="offline" id="offline" role="status" aria-live="polite">
-  Can't reach the server — showing what we last loaded.
+  Can't reach the server - showing what we last loaded.
 </div>
 
 <!-- ===== NAV ===== -->
@@ -110,8 +110,9 @@
 <main class="view active" id="view-home">
   <section class="hero">
     <div class="hero-inner">
+      <div class="hero-kicker">A living dungeon crawler for your group chat</div>
       <div class="hero-badge"><svg class="icon" viewBox="0 0 24 24"><path d="m12 3 2.1 5.9L20 10l-4.5 4.2L16.8 20 12 16.7 7.2 20l1.3-5.8L4 10l5.9-1.1L12 3z"/></svg> Season is live</div>
-      <h1>Level up on <span class="grad" id="heroPlatformName">WhatsApp</span> with Astral</h1>
+      <h1>Build your legend on <span class="grad" id="heroPlatformName">WhatsApp</span></h1>
       <div class="platform-switch" id="platformSwitch" role="tablist" aria-label="Choose a platform">
         <button class="platform-tab is-active" type="button" data-platform="whatsapp" role="tab" aria-selected="true">WhatsApp</button>
         <button class="platform-tab" type="button" data-platform="discord" role="tab" aria-selected="false">Discord</button>
@@ -126,18 +127,25 @@
           <svg class="icon" viewBox="0 0 24 24"><path d="M4 20h16M7 20v-7M12 20V6M17 20v-11"/></svg> See the boards
         </a>
       </div>
+      <div class="hero-trust" aria-label="Why players can start quickly">
+        <span><i class="trust-dot"></i>Free to start</span>
+        <span><i class="trust-dot"></i>No download</span>
+        <span><i class="trust-dot"></i>New season live</span>
+      </div>
       <div class="chip-row" id="heroChips" style="justify-content:center;margin-top:22px;"></div>
     </div>
   </section>
 
   <div class="page">
-    <section class="section">
+    <section class="section home-stats-section">
+      <div class="section-kicker">The world is already moving</div>
       <div class="stat-row" id="homeStats"></div>
     </section>
 
     <section class="section">
       <div class="section-head">
         <div>
+          <div class="section-kicker">Choose your way to play</div>
           <h2>Game modes</h2>
           <p>Everything currently live in the bot</p>
         </div>
@@ -146,7 +154,7 @@
       <div class="grid-4">
         <!-- The --art paths are ROOT-ABSOLUTE on purpose. A relative url() inside
              a custom property is resolved against the stylesheet that consumes
-             it (assets/css/style.css), not this document — so 'assets/img/...'
+             it (assets/css/style.css), not this document - so 'assets/img/...'
              here silently became '/assets/css/assets/img/...' and 404'd. Leading
              slash removes the base entirely. Don't "tidy" these back to relative. -->
         <a class="feature-card art mode-dungeon reveal" href="#/season" data-route="season" style="--art:url('/assets/img/modes/dungeon.jpg')">
@@ -166,6 +174,21 @@
           <div class="feature-content"><h3>Battle Pass</h3><p>Seasonal tiers of gold, gear and exclusive rewards.</p></div>
         </a>
       </div>
+    </section>
+
+    <section class="section home-pokemon-section">
+      <div class="section-head">
+        <div>
+          <div class="section-kicker">Sun &amp; Moon bots</div>
+          <h2>Meet the Alola roster</h2>
+          <p>Live Pokémon data for the world our bots are building.</p>
+        </div>
+        <span class="api-live-badge"><i class="trust-dot"></i>Live API</span>
+      </div>
+      <div class="pokemon-grid" id="homePokemon">
+        <div class="pokemon-loading" aria-live="polite">Loading the Alola roster...</div>
+      </div>
+      <p class="pokemon-credit">Powered by PokéAPI. Pokémon data and artwork belong to their respective owners.</p>
     </section>
 
     <section class="section">
@@ -242,7 +265,7 @@
 <!-- ===================================================== -->
 <main class="view" id="view-season">
   <section class="hero season-hero">
-    <!-- The art IS the background — no still frame in a box, nothing letterboxed,
+    <!-- The art IS the background - no still frame in a box, nothing letterboxed,
          just the image bleeding edge to edge. aria-hidden because it carries no
          information; the heading does. Was a looping <video> pointing at
          assets/video/mei-finalform.mp4, which was never in the repo, so the
@@ -295,7 +318,7 @@
       <div class="section-head" id="seasonRosterHead" style="display:none;">
         <div>
           <h2>Season roster</h2>
-          <p>The characters this season revolves around — tap one for their kit</p>
+          <p>The characters this season revolves around - tap one for their kit</p>
         </div>
       </div>
       <div class="grid-4" id="seasonRoster"></div>
@@ -358,7 +381,7 @@
       <div class="section-head">
         <div>
           <h2>Shop</h2>
-          <p>The same stock the bot sells in chat — buy it here instead</p>
+          <p>The same stock the bot sells in chat - buy it here instead</p>
         </div>
         <div id="shopBalance"></div>
       </div>
@@ -377,7 +400,7 @@
       <div class="section-head">
         <div>
           <h2>Card vault</h2>
-          <p>Buy a guaranteed tier — the card itself is a random pull</p>
+          <p>Buy a guaranteed tier - the card itself is a random pull</p>
         </div>
         <div id="cardBalance"></div>
       </div>
@@ -388,7 +411,7 @@
       <div class="section-head">
         <div>
           <h2>Browse the collection</h2>
-          <p>Every card in the vault. Display only — pulls are random.</p>
+         <p>Every card in the vault. Display only - pulls are random.</p>
         </div>
       </div>
       <div class="tab-row" id="cardFilters" role="tablist"></div>
@@ -572,69 +595,6 @@
     </div>
   </div>
 </main>
-
-<!-- ===================================================== -->
-<!-- FOOTER -->
-<!-- ===================================================== -->
-<footer class="site-footer">
-  <div class="site-footer-inner">
-    <div class="site-footer-top">
-      <div class="site-footer-brand">
-        <div class="brand" style="cursor:default;">
-          <div class="brand-mark"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></div>
-        </div>
-        <p class="site-footer-tag" id="footerNote">Play it on WhatsApp.</p>
-        <p class="site-footer-tag" style="opacity:.65;font-size:12px;margin-top:2px;">Discord &amp; Telegram — coming soon.</p>
-        <a class="btn btn-gold btn-sm" id="footerCta" href="#/signup" data-route="signup">Start playing</a>
-      </div>
-
-      <div class="site-footer-col">
-        <div class="site-footer-heading">Game</div>
-        <a href="#/" data-route="home">Home</a>
-        <a href="#/leaderboard" data-route="leaderboard">Leaderboard</a>
-        <a href="#/season" data-route="season">Season</a>
-        <a href="#/shop" data-route="shop">Shop</a>
-        <a href="#/cards" data-route="cards">Cards</a>
-        <a href="#/premium" data-route="premium">Premium</a>
-      </div>
-
-      <div class="site-footer-col">
-        <div class="site-footer-heading">Account</div>
-        <a href="#/profile" data-route="profile">Profile</a>
-        <a href="#/premium" data-route="premium">Premium</a>
-        <a href="#/settings" data-route="settings">Settings</a>
-        <a id="footerAuth" href="#/login" data-route="login">Sign in</a>
-      </div>
-
-      <div class="site-footer-col">
-        <div class="site-footer-heading">Support</div>
-        <a id="footerSupport" hidden>Support group</a>
-        <a href="#/">Command list</a>
-      </div>
-    </div>
-
-    <div class="site-footer-bottom">
-      <span class="subtext">Astral · Not affiliated with WhatsApp Inc.</span>
-      <div class="site-footer-social">
-        <span class="subtext">Everything real happens in chat.</span>
-      </div>
-    </div>
-
-    <!--
-      Item artwork attribution. Required by CC BY 3.0 wherever the icons appear,
-      and they appear here — every item plate on this site is composited from a
-      game-icons.net icon. Full artist list lives in the bot repo's
-      NOTICE-game-icons.md; keep the two in sync if the icon set grows.
-    -->
-    <p class="site-footer-credit subtext">
-      Item icons by Lorc, Delapouite, Skoll, Sbed, Caro Asercion, Faithtoken,
-      Lucas, Willdabeast and Carl Olsen, from
-      <a href="https://game-icons.net/" target="_blank" rel="noopener noreferrer">game-icons.net</a>
-      —
-      <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener noreferrer">CC BY 3.0</a>.
-    </p>
-  </div>
-</footer>
 
 <!-- ===== PLAYER / CHARACTER DETAIL ===== -->
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-label="Details">
