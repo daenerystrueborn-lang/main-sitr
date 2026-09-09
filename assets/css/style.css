@@ -1050,20 +1050,6 @@ body{
   width:min(100%,740px);
   max-width:740px;
   padding:34px 28px 26px;
-  border:1px solid rgb(245 243 238 / 15%);
-  border-radius:28px;
-  background:linear-gradient(145deg,rgb(8 8 8 / 78%),rgb(8 8 8 / 38%));
-  box-shadow:0 24px 80px rgb(0 0 0 / 42%),inset 0 1px 0 rgb(255 255 255 / 8%);
-  backdrop-filter:blur(8px);
-  -webkit-backdrop-filter:blur(8px);
-}
-#view-home .hero-inner::before{
-  content:"";
-  position:absolute;
-  inset:12px;
-  border:1px solid rgb(212 175 55 / 12%);
-  border-radius:20px;
-  pointer-events:none;
 }
 .hero-kicker{
   position:relative;
@@ -1212,9 +1198,7 @@ body{
   }
   #view-home .hero-inner{
     padding:28px 16px 22px;
-    border-radius:24px;
   }
-  #view-home .hero-inner::before{inset:9px;border-radius:17px;}
   .hero-kicker{font-size:9.5px;letter-spacing:.12em;margin-bottom:12px;}
   #view-home .hero-badge{font-size:11px;padding:6px 11px;margin-bottom:14px;}
   #view-home .hero h1{
@@ -1316,19 +1300,6 @@ body{
 }
 .home-pokemon-section .section-head{
   align-items:center;
-}
-.api-live-badge{
-  display:inline-flex;
-  align-items:center;
-  gap:7px;
-  padding:7px 11px;
-  border:1px solid rgb(212 175 55 / 28%);
-  border-radius:999px;
-  background:rgb(212 175 55 / 8%);
-  color:var(--gold);
-  font-size:11px;
-  font-weight:800;
-  white-space:nowrap;
 }
 .pokemon-grid{
   display:grid;
@@ -1445,12 +1416,6 @@ body{
 }
 
 @media (max-width:760px){
-  #view-home .home-pokemon-section .section-head{
-    align-items:flex-start;
-  }
-  #view-home .home-pokemon-section .api-live-badge{
-    margin-top:2px;
-  }
   #view-home .pokemon-grid{
     grid-template-columns:repeat(2,minmax(0,1fr));
     gap:10px;
