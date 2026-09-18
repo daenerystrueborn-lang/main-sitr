@@ -86,8 +86,33 @@ export async function uploadToImgbb(dataUrl, name) {
 /* ─────────────────────── Pokémon home-page showcase ────────────────────── */
 
 const POKEMON_API_BASE = 'https://pokeapi.co/api/v2'
-const POKEMON_CACHE_KEY = 'astral:sun-moon-pokemon'
-const SUN_MOON_POKEMON_IDS = [722, 725, 728, 778, 785, 789, 800]
+const POKEMON_CACHE_KEY = 'astral:sun-moon-pokemon:v2'
+// The Gen VII roster the two bots are themed on: the three Alola starters and
+// their finals, the island guardians, the Ultra Beast the Sun bot uses as its
+// raid boss, and the pair of box legendaries. Kept as one flat list so the
+// grid fills evenly at 2, 3, 4 and 6 columns - eighteen divides by all of them.
+const SUN_MOON_POKEMON_IDS = [
+  722, 724,        // Rowlet -> Decidueye
+  725, 727,        // Litten -> Incineroar
+  728, 730,        // Popplio -> Primarina
+  738, 745, 748,   // Vikavolt, Lycanroc, Toxapex
+  778, 784, 785,   // Mimikyu, Kommo-o, Tapu Koko
+  786, 787, 788,   // Tapu Lele, Tapu Bulu, Tapu Fini
+  789, 791, 792,   // Cosmog, Solgaleo, Lunala
+]
+
+/**
+ * PokéAPI slugs are hyphenated, and blanket-replacing the hyphen with a space
+ * is right for `tapu-koko` but wrong for `kommo-o`, which really is hyphenated.
+ * Only the exceptions need listing.
+ */
+const POKEMON_NAME_OVERRIDES = { 'kommo-o': 'Kommo-o', 'type-null': 'Type: Null' }
+
+function pokemonName(slug) {
+  const key = String(slug ?? '').toLowerCase()
+  if (POKEMON_NAME_OVERRIDES[key]) return POKEMON_NAME_OVERRIDES[key]
+  return key.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
 
 /**
  * Loads a small Alola roster for the home page. These are the Gen VII
@@ -106,9 +131,12 @@ export async function fetchSunMoonPokemon() {
   } catch {}
 
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 8_000)
+  const timer = setTimeout(() => controller.abort(), 12_000)
   try {
-    const responses = await Promise.all(SUN_MOON_POKEMON_IDS.map(async id => {
+    // allSettled, not all: one 404 or one slow row used to reject the whole
+    // batch and leave the section on its "taking a short break" message. A
+    // partial roster is better than none, so failures are dropped individually.
+    const settled = await Promise.allSettled(SUN_MOON_POKEMON_IDS.map(async id => {
       const res = await fetch(`${POKEMON_API_BASE}/pokemon/${id}`, {
         headers: { Accept: 'application/json' },
         signal: controller.signal,
@@ -117,14 +145,19 @@ export async function fetchSunMoonPokemon() {
       return res.json()
     }))
 
-    const items = responses.map(pokemon => ({
-      id: pokemon.id,
-      name: pokemon.name,
-      types: pokemon.types.map(entry => entry.type.name),
-      image: pokemon.sprites?.other?.['official-artwork']?.front_default
-        || pokemon.sprites?.front_default
-        || '',
-    }))
+    const items = settled
+      .filter(r => r.status === 'fulfilled' && r.value?.id)
+      .map(({ value: pokemon }) => ({
+        id: pokemon.id,
+        name: pokemonName(pokemon.name),
+        types: (pokemon.types ?? []).map(entry => entry?.type?.name).filter(Boolean),
+        image: pokemon.sprites?.other?.['official-artwork']?.front_default
+          || pokemon.sprites?.other?.home?.front_default
+          || pokemon.sprites?.front_default
+          || '',
+      }))
+
+    if (!items.length) throw new Error('No Pokémon could be loaded.')
 
     try {
       localStorage.setItem(POKEMON_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), items }))

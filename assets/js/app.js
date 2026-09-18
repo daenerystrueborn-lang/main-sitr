@@ -938,19 +938,30 @@ function renderHomePokemon(pokemon) {
     return
   }
 
-  host.innerHTML = pokemon.map(p => `
-    <article class="pokemon-card">
+  // The primary type tints the whole card, so it has to survive onto the
+  // element as a class rather than living only on the little type pills.
+  host.innerHTML = pokemon.map(p => {
+    const types = Array.isArray(p.types) ? p.types.filter(Boolean) : []
+    const primary = types[0] ?? 'normal'
+    // api.js already display-cases this (and keeps the hyphen in "Kommo-o"),
+    // so it goes out verbatim rather than through titleCase() a second time.
+    const name = String(p.name ?? '')
+    return `
+    <article class="pokemon-card tint-${esc(primary)}">
       <div class="pokemon-card-art">
-        <span class="pokemon-number">#${String(p.id).padStart(3, '0')}</span>
-        <img src="${attr(p.image)}" alt="${attr(titleCase(p.name))}" loading="lazy">
+        <span class="pokemon-number">${String(p.id).padStart(3, '0')}</span>
+        ${p.image
+          ? `<img src="${attr(p.image)}" alt="${attr(name)}" loading="lazy" decoding="async">`
+          : `<span class="pokemon-noart" aria-hidden="true">${esc(name.slice(0, 1))}</span>`}
       </div>
       <div class="pokemon-card-body">
-        <h3>${esc(titleCase(p.name))}</h3>
+        <h3>${esc(name)}</h3>
         <div class="pokemon-types">
-          ${p.types.map(type => `<span class="pokemon-type type-${esc(type)}">${esc(titleCase(type))}</span>`).join('')}
+          ${types.map(type => `<span class="pokemon-type type-${esc(type)}">${esc(titleCase(type))}</span>`).join('')}
         </div>
       </div>
-    </article>`).join('')
+    </article>`
+  }).join('')
 }
 
 function paintHomeStatic() {
@@ -1044,8 +1055,14 @@ async function showBoard(key, { force = false } = {}) {
   state.lbRows = data.rows ?? []
   const total = $('#lbTotal')
   if (total) {
+    // `label` is optional in the payload, and when it was missing this line
+    // rendered "18,420 ranked on undefined". Fall back to the tab's own text,
+    // then to the board key itself, so there is always something to name.
+    const boardLabel = data.label
+      || $(`#lbTabs .tab-btn[data-board="${CSS.escape(key)}"]`)?.textContent?.trim()
+      || titleCase(key)
     total.textContent = data.total
-      ? `${num(data.total)} ranked on ${data.label}${data.rows.length < data.total ? ` - showing the top ${data.rows.length}` : ''}`
+      ? `${num(data.total)} ranked on ${boardLabel}${data.rows.length < data.total ? ` - showing the top ${data.rows.length}` : ''}`
       : `Nobody has made the ${data.label} board yet.`
   }
 
@@ -1198,13 +1215,54 @@ function playerDetailHtml({ player: p, rankings, isSelf }) {
  * from any [data-char] element, which today means the equipped-character card
  * on the profile. /api/characters/:id still backs it.
  */
+/**
+ * Normalizes a stat-bonus payload into [label, number] pairs.
+ *
+ * The bot sends this field in three different shapes depending on where the
+ * record came from: a flat map (`{ atk: 5 }`), a map of wrapped values
+ * (`{ atk: { value: 5, label: 'Attack' } }`), or a list of rows
+ * (`[{ stat: 'atk', value: 5 }]`). The character and item panels each assumed
+ * the first, so the other two rendered as "[object Object]" tiles with a "+NaN"
+ * underneath. One reader, used by both.
+ */
+function statEntries(raw) {
+  if (!raw) return []
+
+  const rows = Array.isArray(raw)
+    ? raw.map(row => (row && typeof row === 'object'
+        ? [row.stat ?? row.key ?? row.name ?? row.label, row.value ?? row.amount ?? row.bonus]
+        : [null, null]))
+    : Object.entries(raw).map(([key, val]) => (val && typeof val === 'object' && !Array.isArray(val)
+        ? [val.label ?? val.name ?? key, val.value ?? val.amount ?? val.bonus]
+        : [key, val]))
+
+  return rows
+    .map(([label, value]) => [titleCase(label), Number(value)])
+    .filter(([label, value]) => label && Number.isFinite(value) && value !== 0)
+}
+
+/** Renders statEntries() output as the .pd-stats tile grid. */
+function statTiles(raw) {
+  return statEntries(raw)
+    .map(([label, value]) => `<div class="pd-stat"><div class="pd-stat-k">${esc(label.toUpperCase())}</div><div class="pd-stat-v">${value > 0 ? '+' : '\u2212'}${num(Math.abs(value))}</div></div>`)
+    .join('')
+}
+
 async function openCharacter(id) {
   openModal(`<div style="padding:6px">${skeletonRows(3)}</div>`)
   try {
     const { character: c, owned, equipped, wielders, wielderCount } = await api.character(id)
-    const bonuses = Object.entries(c.statBonuses ?? {})
-      .map(([k, v]) => `<div class="pd-stat"><div class="pd-stat-k">${esc(k.toUpperCase())}</div><div class="pd-stat-v">+${num(v)}</div></div>`)
-      .join('')
+    const bonuses = statTiles(c.statBonuses)
+
+    // `ability` is a string on most characters and `{ name, description }` on
+    // the season roster, so render both halves when they're there instead of
+    // letting esc() pick one and drop the other.
+    const abilityName = c.ability && typeof c.ability === 'object'
+      ? esc(c.ability.name ?? c.ability.title ?? '')
+      : ''
+    const abilityText = esc(c.ability && typeof c.ability === 'object'
+      ? (c.ability.description ?? c.ability.text ?? c.ability.effect ?? '')
+      : c.ability)
 
     openModal(`
       ${c.image ? `<div class="pd-banner" style="background-image:url('${attr(c.image)}')"></div>` : ''}
@@ -1219,7 +1277,9 @@ async function openCharacter(id) {
       </div>
       <div class="pd-body">
         ${c.description ? `<p class="subtext">${esc(c.description)}</p>` : ''}
-        ${c.ability ? `<div class="pd-sec-title">Ability</div><p class="subtext">${esc(c.ability)}</p>` : ''}
+        ${abilityName || abilityText ? `<div class="pd-sec-title">Ability</div>${
+          abilityName ? `<p class="pd-ability-name">${abilityName}</p>` : ''}${
+          abilityText ? `<p class="subtext">${abilityText}</p>` : ''}` : ''}
         ${bonuses ? `<div class="pd-sec-title">Stat bonuses</div><div class="pd-stats">${bonuses}</div>` : ''}
         <div class="pd-sec-title">Wielded by ${num(wielderCount ?? 0)} player${wielderCount === 1 ? '' : 's'}</div>
         ${wielders?.length ? `<div class="lb-list">${wielders.map((w, i) => `
@@ -1245,9 +1305,7 @@ async function openCharacter(id) {
  */
 function openItem(item) {
   if (!item) return
-  const bonuses = Object.entries(item.statBonuses ?? {})
-    .map(([k, v]) => `<div class="pd-stat"><div class="pd-stat-k">${esc(k.toUpperCase())}</div><div class="pd-stat-v">${v > 0 ? '+' : ''}${num(v)}</div></div>`)
-    .join('')
+  const bonuses = statTiles(item.statBonuses)
 
   openModal(`
     <div class="pd-head">
@@ -1270,6 +1328,20 @@ function openItem(item) {
 
 let seasonTimer = null
 
+/**
+ * Shows or hides the two season sections that only have content while a
+ * season is running, along with the countdown badge in the hero - an empty
+ * badge still renders as a bordered pill with a lone star in it.
+ */
+function setSeasonSections(active) {
+  for (const id of ['#seasonMineSection', '#seasonLoreSection']) {
+    const el = $(id)
+    if (el) el.hidden = !active
+  }
+  const badge = $('#seasonBadge')
+  if (badge) badge.hidden = !active
+}
+
 async function loadSeason() {
   const tiersHost = $('#seasonTiers')
   if (tiersHost) tiersHost.innerHTML = skeletonRows(6)
@@ -1286,11 +1358,22 @@ async function loadSeason() {
     $('#seasonName').textContent = 'No active season'
     $('#seasonDesc').textContent = 'The next season has not started yet - check back soon.'
     $('#seasonClock').textContent = ''
-    $('#seasonMine').innerHTML = ''
+
+    // Between seasons there is no pass to track and no story to tell, so both
+    // of those sections get collapsed rather than left as a heading floating
+    // over dead space. #seasonMine used to be blanked to '' - which still
+    // painted an empty .card - and #seasonLore was never touched at all, so
+    // the page showed three headings and one empty state.
+    setSeasonSections(false)
+    // .tier-track is a flex row, so a bare empty state collapses to its own
+    // width and sits hard against the left edge. The wrapper makes it span.
     if (tiersHost) tiersHost.innerHTML = `<div style="flex:1">${emptyState('season', 'Between seasons', 'Rewards and the battle pass return when the next season opens.')}</div>`
     await banner
     return
   }
+
+  // Re-entering the route after a between-seasons visit has to put them back.
+  setSeasonSections(true)
 
   const s = out.season
   $('#seasonName').textContent = `Season ${s.number}: ${s.name}`
@@ -2835,6 +2918,11 @@ function wireGlobalClicks() {
 }
 
 function wireShell() {
+  // Hardcoding the year in the markup means the footer quietly goes stale on
+  // 1 January and nobody notices until a player points it out.
+  const year = $('#footerYear')
+  if (year) year.textContent = String(new Date().getFullYear())
+
   $('#bellBtn')?.addEventListener('click', (e) => { e.stopPropagation(); togglePanel() })
   $('#panelBackdrop')?.addEventListener('click', closePanel)
   $('#menuToggle')?.addEventListener('click', toggleDrawer)

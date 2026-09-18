@@ -49,8 +49,62 @@ export function iconSvg(name = 'spark', className = 'icon') {
  * every interpolation of them below runs through this. Without it a player
  * called `<img onerror=…>` would run script in every visitor's browser.
  */
+/**
+ * Coerces an API value into something a human should read.
+ *
+ * The bot's payloads are not uniformly flat: a field that is a plain string on
+ * one character comes back as `{ name, description }` on another, and stat
+ * bonuses are sometimes `{ value, label }` instead of a number. `String(obj)`
+ * turns every one of those into the literal text "[object Object]", which is
+ * what the character and item panels were printing. Rather than patch each
+ * call site - and miss the next one - every interpolation already funnels
+ * through esc(), so the unwrapping happens here, once.
+ *
+ * Arrays join, because a list of abilities should read as a list. Objects give
+ * up their most name-like field. Anything genuinely unprintable becomes an
+ * empty string, which the callers already treat as "hide this row".
+ */
+const TEXTUAL_KEYS = ['name', 'label', 'title', 'text', 'description', 'value', 'id']
+
+export function toText(value, depth = 0) {
+  if (value == null) return ''
+  const t = typeof value
+  if (t === 'string') return value
+  if (t === 'number') return Number.isFinite(value) ? String(value) : ''
+  if (t === 'boolean') return value ? 'Yes' : 'No'
+  if (t === 'bigint') return String(value)
+  if (t === 'function' || t === 'symbol') return ''
+  if (depth > 2) return ''
+
+  if (Array.isArray(value)) {
+    return value.map(v => toText(v, depth + 1)).filter(Boolean).join(', ')
+  }
+  if (value instanceof Date) return Number.isNaN(+value) ? '' : value.toLocaleDateString()
+
+  // A class instance with a real toString() knows better than we do.
+  const own = Object.getPrototypeOf(value)
+  if (own && own !== Object.prototype && typeof value.toString === 'function'
+      && value.toString !== Object.prototype.toString) {
+    return String(value)
+  }
+
+  for (const key of TEXTUAL_KEYS) {
+    if (key in value) {
+      const inner = toText(value[key], depth + 1)
+      if (inner) return inner
+    }
+  }
+  // No name-like field: fall back to the first printable value rather than
+  // rendering nothing at all, so a `{ hp: 12 }` still shows "12".
+  for (const v of Object.values(value)) {
+    const inner = toText(v, depth + 1)
+    if (inner) return inner
+  }
+  return ''
+}
+
 export function esc(value) {
-  return String(value ?? '')
+  return toText(value)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -61,7 +115,17 @@ export function esc(value) {
 /** Escapes for use inside a double-quoted HTML attribute. */
 export const attr = esc
 
-export const num = (n) => Number(n ?? 0).toLocaleString()
+/**
+ * Formats a count for display. Guards the same shape problem esc() does: a
+ * stat that arrives as `{ value: 12 }` (or as a numeric string with a stray
+ * space) used to render "NaN" here.
+ */
+export const num = (n) => {
+  const v = typeof n === 'object' && n !== null && !Array.isArray(n)
+    ? Number(n.value ?? n.amount ?? n.total ?? NaN)
+    : Number(n ?? 0)
+  return Number.isFinite(v) ? v.toLocaleString() : '0'
+}
 
 /** 1240 → "1.2K". Mirrors how the bot abbreviates big numbers in chat. */
 export function compact(n) {
@@ -134,7 +198,7 @@ export function duration(ms) {
 }
 
 export const titleCase = (s) =>
-  String(s ?? '').replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  toText(s).replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 
 /* ───────────────────────────────── toast ───────────────────────────────── */
 
