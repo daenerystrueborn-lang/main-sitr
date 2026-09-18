@@ -938,21 +938,20 @@ function renderHomePokemon(pokemon) {
     return
   }
 
-  // The primary type tints the whole card, so it has to survive onto the
-  // element as a class rather than living only on the little type pills.
+  // Defensive rendering: types may be missing/malformed on a given entry,
+  // and the name is already display-cased by api.js (with the "Kommo-o"
+  // exception preserved), so it goes out verbatim instead of through
+  // titleCase() a second time, which would re-split the hyphen it protected.
   host.innerHTML = pokemon.map(p => {
     const types = Array.isArray(p.types) ? p.types.filter(Boolean) : []
-    const primary = types[0] ?? 'normal'
-    // api.js already display-cases this (and keeps the hyphen in "Kommo-o"),
-    // so it goes out verbatim rather than through titleCase() a second time.
     const name = String(p.name ?? '')
     return `
-    <article class="pokemon-card tint-${esc(primary)}">
+    <article class="pokemon-card">
       <div class="pokemon-card-art">
-        <span class="pokemon-number">${String(p.id).padStart(3, '0')}</span>
+        <span class="pokemon-number">#${String(p.id).padStart(3, '0')}</span>
         ${p.image
           ? `<img src="${attr(p.image)}" alt="${attr(name)}" loading="lazy" decoding="async">`
-          : `<span class="pokemon-noart" aria-hidden="true">${esc(name.slice(0, 1))}</span>`}
+          : ''}
       </div>
       <div class="pokemon-card-body">
         <h3>${esc(name)}</h3>

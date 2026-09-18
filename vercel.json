@@ -3,6 +3,8 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
+    { "source": "/api/:path*", "destination": "https://astral-bot-production-afb0.up.railway.app/api/:path*" },
+    { "source": "/assets/items/:path*", "destination": "https://astral-bot-production-afb0.up.railway.app/assets/items/:path*" },
     { "source": "/((?!assets/|favicon|.*\\.[a-zA-Z0-9]+$).*)", "destination": "/index.html" }
   ],
   "headers": [
@@ -16,6 +18,12 @@
       "source": "/assets/(css|js)/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" }
       ]
     },
     {

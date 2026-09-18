@@ -1,69 +1,29 @@
-/* ===== TOKENS =====
-   Palette is taken from the app mark (assets/img/logo.png): a crimson chevron
-   over a near-black plate with a pale star in the negative space. Those three
-   values are the whole system.
-
-   --bg really is #000. The surfaces above it step up in near-neutral greys
-   with only a trace of blue so they read as shadow rather than as the warm
-   brown the old tokens had - against true black, a warm grey looks like a
-   print artefact.
-
-   --gold survives on purpose. It is no longer the interface accent, it is the
-   *premium* signal: plan ribbons, legendary rarity, battle-pass tiers. Keeping
-   it means "gold" still means something when a player sees it, instead of
-   being the colour every border happens to be. */
 :root{
   color-scheme: dark;
-
   --bg:#000000;
-  --bg-2:#07070a;
-  --bg-3:#0d0d12;
-  --bg-4:#17171e;
-  --bg-5:#20202a;
-  --border:#22222c;
-  --border-soft:#15151c;
-
-  --text:#f6f4f4;
-  --text-muted:#a6a2ab;
-  --text-subtle:#67636e;
-
-  /* the mark's crimson, and the rgb triplet for every translucent tint */
-  --accent:#ff3b52;
-  --accent-rgb:255 59 82;
-  --accent-soft:#ff8593;
-  --accent-deep:#c81f37;
-  --accent-2:#ff3b52;
-  --accent-3:#ff8593;
-
-  /* the star in the mark */
-  --star:#fff1f1;
-
-  /* premium only */
+  --bg-2:#0a0a0a;
+  --bg-3:#121110;
+  --bg-4:#1c1a17;
+  --border:#2a2620;
+  --border-soft:#1a1814;
+  --text:#f5f3ee;
+  --text-muted:#a8a49a;
+  --text-subtle:#635e54;
+  --accent:#d4af37;
+  --accent-2:#d4af37;
+  --accent-3:#d4af37;
   --gold:#d4af37;
-  --gold-rgb:212 175 55;
-
-  --success:#5ddb9a;
-  --danger:#ff5a5a;
-
-  --grad-1: linear-gradient(135deg,#ff5468 0%,#c81f37 100%);
-  --grad-2: linear-gradient(135deg,#ff3b52 0%,#8f1226 100%);
+  --success:#e8e3d6;
+  --danger:#e8e3d6;
+  --grad-1: linear-gradient(135deg,#e8c86a 0%,#a97e1f 100%);
+  --grad-2: linear-gradient(135deg,#d4af37 0%,#8c6d1f 100%);
   --grad-gold: linear-gradient(135deg,#f0d585 0%,#b8892a 100%);
-
   --r:10px;
   --r-lg:16px;
   --r-xl:22px;
   --r-full:999px;
-
-  --shadow: 0 18px 44px rgb(0 0 0 / 68%);
-  --shadow-sm: 0 6px 18px rgb(0 0 0 / 50%);
-  --glow: 0 0 0 1px rgb(var(--accent-rgb) / 28%), 0 14px 38px rgb(var(--accent-rgb) / 14%);
+  --shadow: 0 10px 30px rgb(0 0 0 / 60%);
   --transition: .18s cubic-bezier(.4,0,.2,1);
-
-  /* vertical rhythm - one scale, used by every page so sections stop
-     inventing their own padding */
-  --gap:16px;
-  --pad-section:72px;
-  --pad-section-sm:44px;
 }
 /* ===== REVEAL ON SCROLL =====
    Elements start hidden and animate in when they actually enter the viewport
@@ -114,11 +74,11 @@ button{font-family:inherit;}
 .nav-bar{position:relative;display:flex;align-items:center;gap:2px;margin:0 auto;padding:4px;border:1px solid var(--border);border-radius:999px;background:rgba(10,10,10,.55);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);flex:1;max-width:520px;pointer-events:auto;box-shadow:0 8px 24px rgb(0 0 0 / 35%);}
 .nav-slot{flex:1;text-align:center;padding:8px 10px;border-radius:999px;color:var(--text-muted);font-size:13px;font-weight:600;cursor:pointer;transition:var(--transition);border:none;background:none;white-space:nowrap;}
 .nav-slot:hover{color:var(--text);}
-.nav-slot.is-active{background:var(--bg-4);color:var(--text);box-shadow:inset 0 1px 0 rgb(255 255 255 / 7%),inset 0 0 0 1px rgb(var(--accent-rgb) / 34%);}
+.nav-slot.is-active{background:var(--bg-4);color:var(--gold);box-shadow:inset 0 1px 0 rgb(255 255 255 / 6%),inset 0 0 0 1px rgb(212 175 55 / 25%);}
 .nav-right{display:flex;align-items:center;gap:8px;flex-shrink:0;pointer-events:auto;}
 .icon-btn{width:36px;height:36px;border-radius:999px;border:1px solid var(--border);background:rgba(10,10,10,.55);backdrop-filter:blur(18px);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);transition:var(--transition);}
-.icon-btn:hover{color:var(--accent-soft);border-color:rgb(var(--accent-rgb) / 55%);}
-.avatar-btn{width:36px;height:36px;border-radius:999px;background:var(--bg-3);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;cursor:pointer;border:1px solid rgb(var(--accent-rgb) / 60%);color:var(--accent-soft);}
+.icon-btn:hover{color:var(--gold);border-color:var(--gold);}
+.avatar-btn{width:36px;height:36px;border-radius:999px;background:var(--bg-3);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--gold);color:var(--gold);}
 .menu-toggle{display:none;}
 
 @media (max-width:760px){
@@ -201,13 +161,13 @@ section.hero.season-hero::before{content:none;}
 .tier-node .tier-num{font-size:11px;font-weight:800;color:var(--text-subtle);margin-bottom:8px;}
 .tier-node .tier-icon{width:36px;height:36px;margin:0 auto 8px;border-radius:999px;background:var(--bg-3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-muted);}
 .tier-node .tier-label{font-size:11px;font-weight:700;color:var(--text-muted);}
-.tier-node.unlocked{border-color:rgb(var(--gold-rgb) / 30%);}
-.tier-node.unlocked .tier-icon{color:var(--gold);border-color:rgb(var(--gold-rgb) / 40%);}
+.tier-node.unlocked{border-color:rgb(212 175 55 / 30%);}
+.tier-node.unlocked .tier-icon{color:var(--gold);border-color:rgb(212 175 55 / 40%);}
 .tier-node.unlocked .tier-num{color:var(--gold);}
-.tier-node.current{border-color:var(--gold);box-shadow:0 0 0 1px rgb(var(--gold-rgb) / 30%),var(--shadow);}
+.tier-node.current{border-color:var(--gold);box-shadow:0 0 0 1px rgb(212 175 55 / 30%),var(--shadow);}
 .tier-node.current .tier-icon{background:var(--grad-1);color:#0a0805;border-color:transparent;}
 .tier-node.current .tier-num{color:var(--gold);}
-.tier-node.premium{background:linear-gradient(180deg,rgb(var(--gold-rgb) / 6%),var(--bg-2));}
+.tier-node.premium{background:linear-gradient(180deg,rgb(212 175 55 / 6%),var(--bg-2));}
 .tier-node.premium .tier-icon{color:var(--text-subtle);}
 .tier-node.locked-final{width:126px;}
 
@@ -248,9 +208,9 @@ section.hero.season-hero::before{content:none;}
 
  /* feature card w/ art - monochrome gold-on-black, no rainbow fills */
 .feature-card{position:relative;min-height:200px;border-radius:var(--r-xl);overflow:hidden;border:1px solid var(--border);display:flex;align-items:flex-end;cursor:pointer;background:var(--bg-3);transition:var(--transition);}
-.feature-card::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 30% 20%, rgb(var(--accent-rgb) / 14%), transparent 62%),var(--bg-3);}
+.feature-card::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 30% 20%, rgb(212 175 55 / 16%), transparent 60%),var(--bg-3);}
 .feature-card::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgb(0 0 0 / 10%) 0%,rgb(0 0 0 / 40%) 45%,rgb(0 0 0 / 94%) 100%);}
-.feature-card:hover{border-color:rgb(var(--accent-rgb) / 55%);transform:translateY(-4px);box-shadow:var(--shadow);}
+.feature-card:hover{border-color:var(--gold);transform:translateY(-3px);box-shadow:var(--shadow);}
 /* `.art` swaps the flat gradient panel for the card's own artwork, passed in
    as --art on the element. Lightly desaturated so four different paintings
    still read as one gold-on-black set; the ::after scrim keeps the label
@@ -293,7 +253,7 @@ section.hero.season-hero::before{content:none;}
 .feature-content{position:relative;z-index:1;padding:18px;}
 .feature-content h3{font-size:16px;font-weight:800;margin-bottom:5px;color:var(--text);}
 .feature-content p{font-size:12.5px;color:rgb(245 243 238 / 72%);line-height:1.4;max-width:200px;}
-.feature-icon{position:absolute;top:14px;right:14px;z-index:2;width:34px;height:34px;border-radius:12px;background:rgb(0 0 0 / 52%);border:1px solid rgb(var(--accent-rgb) / 32%);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;color:var(--accent-soft);}
+.feature-icon{position:absolute;top:14px;right:14px;z-index:1;width:32px;height:32px;border-radius:999px;background:rgb(0 0 0 / 45%);border:1px solid rgb(212 175 55 / 30%);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;color:var(--gold);}
 .feature-icon .icon{width:15px;height:15px;}
 
 /* stat pill row */
@@ -307,8 +267,8 @@ section.hero.season-hero::before{content:none;}
 /* ===== PROFILE ===== */
  /* ===== PROFILE - Discord style banner + pfp ===== */
 .profile-banner{position:relative;width:100%;height:200px;margin-top:8px;border-radius:var(--r-lg);background:
-  radial-gradient(circle at 20% 30%, rgb(var(--gold-rgb) / 22%), transparent 55%),
-  radial-gradient(circle at 80% 70%, rgb(var(--gold-rgb) / 12%), transparent 50%),
+  radial-gradient(circle at 20% 30%, rgb(212 175 55 / 22%), transparent 55%),
+  radial-gradient(circle at 80% 70%, rgb(212 175 55 / 12%), transparent 50%),
   var(--bg-3);
   border:1px solid var(--border);overflow:hidden;}
 .profile-banner::before{content:"";position:absolute;inset:0;background-image:radial-gradient(circle,rgb(255 255 255 / 5%) 1px,transparent 1px);background-size:22px 22px;}
@@ -326,7 +286,7 @@ section.hero.season-hero::before{content:none;}
 .profile-name-text{min-width:0;overflow-wrap:break-word;}
 .profile-info .handle{color:var(--text-subtle);font-size:13px;margin-top:2px;}
 .badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:999px;font-size:10.5px;font-weight:800;flex-shrink:0;white-space:nowrap;}
-.badge-gold{background:rgb(var(--gold-rgb) / 15%);color:var(--gold);border:1px solid rgb(var(--gold-rgb) / 30%);}
+.badge-gold{background:rgb(212 175 55 / 15%);color:var(--gold);border:1px solid rgb(212 175 55 / 30%);}
 .badge-lvl{background:rgb(245 243 238 / 8%);color:var(--text);border:1px solid var(--border);}
 .profile-actions{display:flex;gap:8px;flex-wrap:wrap;}
 
@@ -336,7 +296,7 @@ section.hero.season-hero::before{content:none;}
 .tab-row{display:flex;gap:6px;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-x:auto;}
 .tab-btn{padding:10px 16px;font-size:13px;font-weight:700;color:var(--text-muted);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;white-space:nowrap;transition:var(--transition);}
 .tab-btn:hover{color:var(--text);}
-.tab-btn.active{color:var(--text);border-color:var(--accent);}
+.tab-btn.active{color:var(--text);border-color:var(--gold);}
 .tab-panel{display:none;}
 .tab-panel.active{display:block;animation:fadeIn .2s ease;}
 
@@ -350,7 +310,7 @@ section.hero.season-hero::before{content:none;}
 .inv-img{width:76%;height:76%;object-fit:contain;transition:transform var(--dur) var(--ease-out);}
 .inv-slot:hover .inv-img{transform:scale(1.08);}
 .inv-slot.rare{border-color:rgb(245 243 238 / 35%);box-shadow:inset 0 0 0 1px rgb(245 243 238 / 12%);}
-.inv-slot.epic{border-color:rgb(var(--gold-rgb) / 55%);box-shadow:inset 0 0 0 1px rgb(var(--gold-rgb) / 25%);}
+.inv-slot.epic{border-color:rgb(212 175 55 / 55%);box-shadow:inset 0 0 0 1px rgb(212 175 55 / 25%);}
 .inv-slot .qty{position:absolute;bottom:2px;right:4px;font-size:9px;font-weight:800;color:var(--text-muted);}
 
 /* ===== PRICING / PREMIUM ===== */
@@ -358,8 +318,8 @@ section.hero.season-hero::before{content:none;}
 @media (max-width:820px){.pricing-grid{grid-template-columns:1fr;}}
 .plan-card{border:1px solid var(--border);border-radius:var(--r-xl);background:var(--bg-2);padding:26px;display:flex;flex-direction:column;position:relative;transition:var(--transition);}
 .plan-card:hover{border-color:var(--gold);transform:translateY(-3px);box-shadow:var(--shadow);}
-.plan-card.featured{border:1px solid var(--gold);box-shadow:0 0 0 1px rgb(var(--gold-rgb) / 20%),var(--shadow);}
-.plan-ribbon{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--grad-1);color:#0a0805;font-size:10.5px;font-weight:800;padding:4px 14px;border-radius:999px;box-shadow:0 4px 12px rgb(var(--gold-rgb) / 40%);}
+.plan-card.featured{border:1px solid var(--gold);box-shadow:0 0 0 1px rgb(212 175 55 / 20%),var(--shadow);}
+.plan-ribbon{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--grad-1);color:#0a0805;font-size:10.5px;font-weight:800;padding:4px 14px;border-radius:999px;box-shadow:0 4px 12px rgb(212 175 55 / 40%);}
 .plan-name{font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;}
 .plan-price{font-size:36px;font-weight:800;margin:10px 0 2px;font-family:'Space Grotesk',sans-serif;}
 .plan-price span{font-size:14px;color:var(--text-subtle);font-weight:600;}
@@ -377,7 +337,7 @@ section.hero.season-hero::before{content:none;}
 .billing-toggle{display:inline-flex;align-items:center;gap:0;padding:4px;border:1px solid var(--border);border-radius:999px;background:var(--bg-3);margin:0 auto 30px;}
 .billing-opt{padding:8px 18px;border-radius:999px;font-size:12.5px;font-weight:700;color:var(--text-muted);cursor:pointer;border:none;background:none;}
 .billing-opt.active{background:var(--bg-4);color:#fff;}
-.save-tag{background:rgb(var(--gold-rgb) / 15%);color:var(--gold);font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:999px;margin-left:6px;}
+.save-tag{background:rgb(212 175 55 / 15%);color:var(--gold);font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:999px;margin-left:6px;}
 
 /* perk grid */
 .perk-card{border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bg-2);padding:18px;}
@@ -406,7 +366,7 @@ button.perk-card{width:100%;text-align:left;font:inherit;color:inherit;-webkit-a
 .rarity-pill{display:inline-block;padding:2px 8px;margin-bottom:7px;border-radius:999px;
   font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
   background:var(--bg-4);color:var(--text-muted);border:1px solid var(--border);}
-.rarity-pill.r-legendary,.rarity-pill.r-mythic{background:rgb(var(--gold-rgb) / 15%);color:var(--gold);border-color:rgb(var(--gold-rgb) / 45%);}
+.rarity-pill.r-legendary,.rarity-pill.r-mythic{background:rgb(212 175 55 / 15%);color:var(--gold);border-color:rgb(212 175 55 / 45%);}
 .rarity-pill.r-special{background:rgb(168 85 247 / 15%);color:#c99bff;border-color:rgb(168 85 247 / 45%);}
 .rarity-pill.r-epic{background:rgb(168 85 247 / 12%);color:#bd8dfa;border-color:rgb(168 85 247 / 35%);}
 .rarity-pill.r-rare{background:rgb(96 165 250 / 12%);color:#8ec2ff;border-color:rgb(96 165 250 / 35%);}
@@ -453,7 +413,7 @@ button.perk-card{width:100%;text-align:left;font:inherit;color:inherit;-webkit-a
 /* The pull-result banner is a background-image for still cards and a real
    <video> for animated ones; this makes the video fill the banner identically. */
 .pd-banner-media{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
-.rarity-pill.r-ts{background:rgb(var(--gold-rgb) / 18%);color:var(--gold);border-color:rgb(var(--gold-rgb) / 50%);}
+.rarity-pill.r-ts{background:rgb(212 175 55 / 18%);color:var(--gold);border-color:rgb(212 175 55 / 50%);}
 .rarity-pill.r-t6,.rarity-pill.r-t5{background:rgb(168 85 247 / 14%);color:#c99bff;border-color:rgb(168 85 247 / 40%);}
 .rarity-pill.r-t4,.rarity-pill.r-t3{background:rgb(96 165 250 / 12%);color:#8ec2ff;border-color:rgb(96 165 250 / 35%);}
 
@@ -473,7 +433,7 @@ button.perk-card{width:100%;text-align:left;font:inherit;color:inherit;-webkit-a
 .pull-art{position:relative;display:flex;align-items:center;justify-content:center;
   height:min(46svh,340px);padding:18px 18px 0;overflow:hidden;
   border-radius:var(--r-xl) var(--r-xl) 0 0;
-  background:radial-gradient(circle at 50% 0%, rgb(var(--gold-rgb) / 18%), transparent 62%), var(--bg-3);}
+  background:radial-gradient(circle at 50% 0%, rgb(212 175 55 / 18%), transparent 62%), var(--bg-3);}
 .pull-art-media{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;
   border-radius:var(--r-lg);box-shadow:0 14px 34px rgb(0 0 0 / 55%);
   animation:pullIn .42s var(--ease-out) both;}
@@ -509,7 +469,7 @@ button.perk-card{width:100%;text-align:left;font:inherit;color:inherit;-webkit-a
 .spin-banner{display:flex;gap:0;padding:0;overflow:hidden;}
 .spin-art{position:relative;flex:0 0 232px;display:flex;align-items:center;justify-content:center;
   min-height:236px;padding:18px;overflow:hidden;
-  background:radial-gradient(circle at 50% 0%, rgb(var(--gold-rgb) / 16%), transparent 64%), var(--bg-3);}
+  background:radial-gradient(circle at 50% 0%, rgb(212 175 55 / 16%), transparent 64%), var(--bg-3);}
 .spin-art img{max-width:100%;max-height:280px;width:auto;height:auto;object-fit:contain;
   border-radius:var(--r-lg);box-shadow:0 12px 30px rgb(0 0 0 / 50%);}
 .spin-art .perk-icon{opacity:.5;}
@@ -575,13 +535,13 @@ button.perk-card{width:100%;text-align:left;font:inherit;color:inherit;-webkit-a
 .site-footer-col{display:flex;flex-direction:column;gap:11px;}
 .site-footer-heading{color:var(--text);font-weight:700;font-size:13px;margin-bottom:2px;}
 .site-footer-col a{color:var(--text-muted);font-size:13px;font-weight:500;cursor:pointer;transition:var(--transition);width:fit-content;}
-.site-footer-col a:hover{color:var(--accent-soft);}
+.site-footer-col a:hover{color:var(--gold);}
 .site-footer-bottom{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-top:22px;border-top:1px solid var(--border-soft);flex-wrap:wrap;}
 .site-footer-social{display:flex;gap:8px;}
  /* Attribution line - quieter than the rest of the footer, but must stay legible: it's a licence requirement, not decoration. */
 .site-footer-credit{margin:14px 0 0;font-size:12px;line-height:1.7;color:var(--text-subtle);}
 .site-footer-credit a{color:var(--text-muted);text-decoration:underline;text-underline-offset:2px;transition:var(--transition);}
-.site-footer-credit a:hover{color:var(--accent-soft);}
+.site-footer-credit a:hover{color:var(--gold);}
 
 @media (max-width:820px){
   .site-footer-top{grid-template-columns:1fr 1fr;row-gap:28px;}
@@ -625,7 +585,7 @@ button.perk-card{width:100%;text-align:left;font:inherit;color:inherit;-webkit-a
 
 /* ===== images inside the round avatars astral defines ===== */
 .avatar-btn img,.lb-avatar img,.pd-avatar img,.profile-pfp img{width:100%;height:100%;border-radius:999px;object-fit:cover;display:block;}
-.avatar-btn.is-premium{box-shadow:0 0 0 2px rgb(var(--gold-rgb) / 25%);}
+.avatar-btn.is-premium{box-shadow:0 0 0 2px rgb(212 175 55 / 25%);}
 
 /* ===== NOTIFICATION BOX ===== */
 .bell-wrap{position:relative;}
@@ -661,8 +621,8 @@ button.perk-card{width:100%;text-align:left;font:inherit;color:inherit;-webkit-a
 .note{display:flex;gap:11px;padding:11px 10px;border-radius:var(--r);cursor:pointer;transition:var(--transition);}
 .note:hover{background:var(--bg-3);}
 .note-i{width:30px;height:30px;flex-shrink:0;border-radius:999px;background:var(--bg-3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:14px;}
-.note.is-unread .note-i{border-color:rgb(var(--gold-rgb) / 40%);}
-.note.sev-urgent .note-i{background:rgb(var(--gold-rgb) / 12%);border-color:rgb(var(--gold-rgb) / 45%);}
+.note.is-unread .note-i{border-color:rgb(212 175 55 / 40%);}
+.note.sev-urgent .note-i{background:rgb(212 175 55 / 12%);border-color:rgb(212 175 55 / 45%);}
 .note-main{min-width:0;flex:1;}
 /* A pasted URL or any long unbroken token has no break opportunity, so it
    sets the row's min-content width and forces the whole panel wider than its
@@ -685,8 +645,8 @@ button.perk-card{width:100%;text-align:left;font:inherit;color:inherit;-webkit-a
 .modal-x{position:absolute;top:14px;right:14px;z-index:2;width:32px;height:32px;border-radius:999px;border:1px solid var(--border);background:rgb(0 0 0 / 55%);backdrop-filter:blur(8px);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:var(--transition);}
 .modal-x:hover{color:var(--gold);border-color:var(--gold);}
 .pd-banner{height:118px;background:
-  radial-gradient(circle at 20% 30%, rgb(var(--gold-rgb) / 22%), transparent 55%),
-  radial-gradient(circle at 80% 70%, rgb(var(--gold-rgb) / 12%), transparent 50%),
+  radial-gradient(circle at 20% 30%, rgb(212 175 55 / 22%), transparent 55%),
+  radial-gradient(circle at 80% 70%, rgb(212 175 55 / 12%), transparent 50%),
   var(--bg-3);background-size:cover;background-position:center;position:relative;z-index:0;}
 /* align-items is flex-start, not flex-end: with flex-end the text column's
    height set the row height, so every extra line (epithet, class/race, bio)
@@ -709,6 +669,10 @@ button.perk-card{width:100%;text-align:left;font:inherit;color:inherit;-webkit-a
 .pd-id .subtext{overflow-wrap:anywhere;}
 .pd-body{padding:18px 22px 24px;}
 .pd-sec-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text-subtle);margin:20px 0 10px;}
+/* Was the "[object Object]" fix's only new visual hook: an ability's name,
+   shown above its description when the API sends both instead of just one
+   or the other winning. */
+.pd-ability-name{margin:0 0 4px;font-weight:700;color:var(--gold);}
 .pd-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
 @media (max-width:520px){.pd-stats{grid-template-columns:repeat(2,1fr);}}
 .pd-stat{border:1px solid var(--border);border-radius:var(--r);background:var(--bg-3);padding:10px 8px;text-align:center;}
@@ -717,7 +681,7 @@ button.perk-card{width:100%;text-align:left;font:inherit;color:inherit;-webkit-a
 
  /* alert list - inside the modal */
 .alert-item{display:flex;gap:11px;padding:11px 12px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg-3);margin-bottom:8px;}
-.alert-item.sev-urgent{border-color:rgb(var(--gold-rgb) / 45%);}
+.alert-item.sev-urgent{border-color:rgb(212 175 55 / 45%);}
 .alert-t{font-size:12.5px;font-weight:700;}
 .alert-b{font-size:12px;color:var(--text-muted);line-height:1.45;margin-top:2px;}
 
@@ -734,15 +698,15 @@ button.perk-card{width:100%;text-align:left;font:inherit;color:inherit;-webkit-a
 .field{margin-bottom:14px;}
 .field label{display:block;font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text-subtle);margin-bottom:6px;}
 .field input,.field select{width:100%;padding:11px 13px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg-3);color:var(--text);font-family:inherit;font-size:14px;transition:var(--transition);}
-.field input:focus,.field select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgb(var(--accent-rgb) / 16%);}
+.field input:focus,.field select:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgb(212 175 55 / 12%);}
 .field-hint{font-size:11.5px;color:var(--text-subtle);margin:6px 0 0;line-height:1.5;}
 .field-err{font-size:12px;color:var(--gold);margin:6px 0 0;}
 .field.has-err input{border-color:var(--gold);}
 
 .otp-row{display:flex;gap:8px;}
 .otp-row input{width:100%;aspect-ratio:1/1.15;padding:0;text-align:center;font-size:22px;font-weight:800;font-family:'Space Grotesk',sans-serif;border-radius:var(--r);border:1px solid var(--border);background:var(--bg-3);color:var(--text);transition:var(--transition);}
-.otp-row input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgb(var(--accent-rgb) / 16%);}
-.otp-row input.is-filled{border-color:rgb(var(--accent-rgb) / 50%);color:var(--accent-soft);}
+.otp-row input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgb(212 175 55 / 12%);}
+.otp-row input.is-filled{border-color:rgb(212 175 55 / 45%);color:var(--gold);}
 
  /* busy button - the spinner replaces the label so a double-tap can't fire twice */
 .btn.is-busy{pointer-events:none;opacity:.75;position:relative;color:transparent;}
@@ -757,7 +721,7 @@ button.perk-card{width:100%;text-align:left;font:inherit;color:inherit;-webkit-a
 .lb-search:focus{outline:none;border-color:var(--gold);}
 .lb-list{border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bg-2);padding:6px;}
 .lb-row{width:100%;text-align:left;background:none;cursor:pointer;transition:var(--transition);}
-.lb-row.is-you{background:rgb(var(--gold-rgb) / 7%);border-color:rgb(var(--gold-rgb) / 30%);}
+.lb-row.is-you{background:rgb(212 175 55 / 7%);border-color:rgb(212 175 55 / 30%);}
 
 /* ===== SKELETONS / EMPTY ===== */
 .skel{background:linear-gradient(90deg,var(--bg-3) 0%,var(--bg-4) 50%,var(--bg-3) 100%);background-size:200% 100%;animation:shimmer 1.3s ease-in-out infinite;border-radius:var(--r);}
@@ -781,7 +745,7 @@ button.perk-card{width:100%;text-align:left;font:inherit;color:inherit;-webkit-a
 .offline.is-on{transform:translate(-50%,0);}
 
 /* ===== TOAST KINDS ===== */
-.toast.ok{border-color:rgb(var(--gold-rgb) / 45%);}
+.toast.ok{border-color:rgb(212 175 55 / 45%);}
 .toast.ok .dot{background:var(--gold);}
 .toast.err{border-color:var(--text-muted);}
 .toast.err .dot{background:var(--text-muted);}
@@ -838,7 +802,7 @@ code{font-family:monospace;font-size:.92em;color:var(--gold);}
   content:"";position:absolute;z-index:-1;
   left:50%;top:42%;width:min(680px,110%);aspect-ratio:1;
   transform:translate(-50%,-50%);
-  background:radial-gradient(circle,rgb(var(--gold-rgb) / 15%) 0%,transparent 62%);
+  background:radial-gradient(circle,rgb(212 175 55 / 15%) 0%,transparent 62%);
   animation:bloom 22s ease-in-out infinite;
   pointer-events:none;
 }
@@ -884,7 +848,7 @@ code{font-family:monospace;font-size:.92em;color:var(--gold);}
 }
 .btn:hover::before{transform:translateX(110%);}
 .btn-secondary::before,.btn-ghost::before,.btn-danger::before{
-  background:linear-gradient(100deg,transparent 20%,rgb(var(--gold-rgb) / 20%) 50%,transparent 80%);
+  background:linear-gradient(100deg,transparent 20%,rgb(212 175 55 / 20%) 50%,transparent 80%);
 }
 .btn:hover{transform:translateY(-1px);}
 /* Press feedback. :active must win over :hover, so it comes after. */
@@ -902,7 +866,7 @@ code{font-family:monospace;font-size:.92em;color:var(--gold);}
  /* perk-card had no hover state at all - it's a grid tile like the others,
    so it should answer the cursor like the others. */
 .perk-card{transition:transform var(--dur) var(--ease-out),border-color var(--dur) var(--ease-out),box-shadow var(--dur) var(--ease-out);}
-.perk-card:hover{transform:translateY(-3px);border-color:rgb(var(--accent-rgb) / 42%);box-shadow:var(--shadow-sm);}
+.perk-card:hover{transform:translateY(-3px);border-color:rgb(212 175 55 / 45%);box-shadow:var(--shadow);}
 .perk-card img{transition:transform var(--dur-slow) var(--ease-out);}
 .perk-card:hover img{transform:scale(1.05);}
 
@@ -915,13 +879,13 @@ code{font-family:monospace;font-size:.92em;color:var(--gold);}
 .feature-content{transition:transform var(--dur) var(--ease-out);}
 .feature-card:hover .feature-content{transform:translateY(-3px);}
 .feature-icon{transition:transform var(--dur) var(--ease-out),color var(--dur) var(--ease-out),border-color var(--dur) var(--ease-out);}
-.feature-card:hover .feature-icon{transform:scale(1.08);border-color:rgb(var(--accent-rgb) / 70%);}
+.feature-card:hover .feature-icon{transform:scale(1.1) rotate(-6deg);border-color:var(--gold);}
 
 /* ── list rows / tiers ─────────────────────────────────────────────────
    Rows nudge toward the reader on hover - enough to show the row is live
    without shifting the column's rhythm. */
 .lb-row{transition:transform var(--dur-fast) var(--ease-out),background var(--dur-fast) var(--ease-out);}
-.lb-row:hover{transform:translateX(4px);background:rgb(var(--gold-rgb) / 6%);}
+.lb-row:hover{transform:translateX(4px);background:rgb(212 175 55 / 6%);}
 .tier-node{transition:transform var(--dur) var(--ease-out),border-color var(--dur) var(--ease-out);}
 .tier-node:hover{transform:translateY(-4px);}
 
@@ -1069,7 +1033,7 @@ html.no-motion .hero h1 .grad{background:var(--grad-1);-webkit-background-clip:t
 /* ===== HOME POLISH ===== */
 body{
   background:
-    radial-gradient(circle at 50% -10%,rgb(var(--gold-rgb) / 7%),transparent 34rem),
+    radial-gradient(circle at 50% -10%,rgb(212 175 55 / 7%),transparent 34rem),
     var(--bg);
 }
 
@@ -1090,6 +1054,20 @@ body{
   width:min(100%,740px);
   max-width:740px;
   padding:34px 28px 26px;
+  border:1px solid rgb(245 243 238 / 15%);
+  border-radius:28px;
+  background:linear-gradient(145deg,rgb(8 8 8 / 78%),rgb(8 8 8 / 38%));
+  box-shadow:0 24px 80px rgb(0 0 0 / 42%),inset 0 1px 0 rgb(255 255 255 / 8%);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+#view-home .hero-inner::before{
+  content:"";
+  position:absolute;
+  inset:12px;
+  border:1px solid rgb(212 175 55 / 12%);
+  border-radius:20px;
+  pointer-events:none;
 }
 .hero-kicker{
   position:relative;
@@ -1105,7 +1083,7 @@ body{
   position:relative;
   z-index:1;
   margin-bottom:16px;
-  background:rgb(var(--gold-rgb) / 12%);
+  background:rgb(212 175 55 / 12%);
 }
 #view-home .hero h1,
 #view-home .hero p,
@@ -1155,12 +1133,12 @@ body{
   width:6px;
   height:6px;
   border-radius:50%;
-  background:var(--accent);
-  box-shadow:0 0 0 3px rgb(var(--accent-rgb) / 18%);
+  background:var(--gold);
+  box-shadow:0 0 0 3px rgb(212 175 55 / 14%);
 }
 .section-kicker{
   margin-bottom:8px;
-  color:var(--accent-soft);
+  color:var(--gold);
   font-size:10px;
   font-weight:800;
   letter-spacing:.14em;
@@ -1238,7 +1216,9 @@ body{
   }
   #view-home .hero-inner{
     padding:28px 16px 22px;
+    border-radius:24px;
   }
+  #view-home .hero-inner::before{inset:9px;border-radius:17px;}
   .hero-kicker{font-size:9.5px;letter-spacing:.12em;margin-bottom:12px;}
   #view-home .hero-badge{font-size:11px;padding:6px 11px;margin-bottom:14px;}
   #view-home .hero h1{
@@ -1341,6 +1321,19 @@ body{
 .home-pokemon-section .section-head{
   align-items:center;
 }
+.api-live-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  padding:7px 11px;
+  border:1px solid rgb(212 175 55 / 28%);
+  border-radius:999px;
+  background:rgb(212 175 55 / 8%);
+  color:var(--gold);
+  font-size:11px;
+  font-weight:800;
+  white-space:nowrap;
+}
 .pokemon-grid{
   display:grid;
   grid-template-columns:repeat(4,minmax(0,1fr));
@@ -1355,7 +1348,7 @@ body{
   transition:transform var(--dur) var(--ease-out),border-color var(--dur) var(--ease-out),box-shadow var(--dur) var(--ease-out);
 }
 .pokemon-card:hover{
-  border-color:rgb(var(--accent-rgb) / 55%);
+  border-color:rgb(212 175 55 / 70%);
   transform:translateY(-4px);
   box-shadow:var(--shadow);
 }
@@ -1366,8 +1359,8 @@ body{
   aspect-ratio:1.12;
   overflow:hidden;
   background:
-    radial-gradient(circle at 50% 62%,rgb(var(--tint,var(--accent-rgb)) / 24%),transparent 58%),
-    linear-gradient(145deg,rgb(var(--tint,var(--accent-rgb)) / 9%),rgb(0 0 0 / 26%));
+    radial-gradient(circle at 50% 60%,rgb(212 175 55 / 22%),transparent 55%),
+    linear-gradient(145deg,rgb(212 175 55 / 8%),rgb(0 0 0 / 18%));
 }
 .pokemon-card-art::after{
   content:"";
@@ -1456,6 +1449,12 @@ body{
 }
 
 @media (max-width:760px){
+  #view-home .home-pokemon-section .section-head{
+    align-items:flex-start;
+  }
+  #view-home .home-pokemon-section .api-live-badge{
+    margin-top:2px;
+  }
   #view-home .pokemon-grid{
     grid-template-columns:repeat(2,minmax(0,1fr));
     gap:10px;
@@ -1468,297 +1467,9 @@ body{
 }
 
 
-/* =========================================================================
-   LAYER 2 - LAYOUT AND SURFACE PASS
-   =========================================================================
-   Everything below runs after the base sheet and deliberately overrides it.
-   It is kept as one block, at the end, for one reason: the base sheet is
-   ~1400 lines of interleaved component and media-query rules, and editing
-   spacing in place there meant a `.section` rule and a `#view-home .section`
-   rule cancelling each other out at different breakpoints. One trailing
-   layer, same specificity or higher, is far easier to reason about than
-   thirty scattered edits.
-
-   Three jobs:
-     1. a single vertical rhythm every page obeys
-     2. the eight-tile mode grid (four photo tiles, four glyph tiles)
-     3. the roster grid, which now carries eighteen entries instead of seven
-   ========================================================================= */
-
-/* ── brand ──────────────────────────────────────────────────────────────── */
-
-.brand{gap:11px;}
-.brand-mark{
-  width:40px;height:40px;
-  border-radius:12px;
-  overflow:hidden;
-  background:transparent;
-  flex:0 0 auto;
-  display:block;
-  /* The mark ships with its own black plate, so it needs no container fill -
-     just a hairline so it doesn't dissolve into a true-black page. */
-  box-shadow:0 0 0 1px rgb(255 255 255 / 8%), 0 4px 14px rgb(var(--accent-rgb) / 16%);
-  transition:box-shadow var(--transition), transform var(--transition);
-}
-.brand-mark img{width:100%;height:100%;display:block;object-fit:cover;}
-.brand:hover .brand-mark{
-  transform:translateY(-1px);
-  box-shadow:0 0 0 1px rgb(var(--accent-rgb) / 40%), 0 6px 20px rgb(var(--accent-rgb) / 26%);
-}
-.brand .brand-word{
-  font-family:'Space Grotesk',sans-serif;
-  font-size:17px;font-weight:700;
-  letter-spacing:-.02em;
-  color:var(--text);
-}
-@media (max-width:900px){ .brand-word{display:none;} }
-
-/* ── vertical rhythm ────────────────────────────────────────────────────── */
-
-.page{padding:0 24px 88px;}
-.section{padding:var(--pad-section) 0 0;}
-.section + .section{padding-top:var(--pad-section);}
-.section:first-child{padding-top:var(--pad-section-sm);}
-
-.section-head{
-  align-items:flex-end;
-  margin-bottom:28px;
-  gap:20px;
-}
-.section-head h2{
-  font-size:clamp(23px,2.6vw,30px);
-  line-height:1.12;
-  font-weight:700;
-}
-.section-head p{
-  font-size:14px;
-  line-height:1.55;
-  margin-top:7px;
-  max-width:52ch;
-  color:var(--text-muted);
-}
-
-.grid-4,.grid-3{gap:var(--gap);}
-
-/* ── surfaces ───────────────────────────────────────────────────────────── */
-
-.card{
-  border-radius:18px;
-  background:var(--bg-2);
-  border-color:var(--border-soft);
-  padding:22px;
-}
-.perk-card{
-  border-radius:18px;
-  border-color:var(--border-soft);
-  background:var(--bg-2);
-  padding:22px;
-}
-.stat-pill{
-  border-radius:18px;
-  border-color:var(--border-soft);
-  padding:18px 20px;
-}
-
-/* ── mode grid ──────────────────────────────────────────────────────────── */
-
-.mode-grid{
-  display:grid;
-  grid-template-columns:repeat(4,minmax(0,1fr));
-  gap:var(--gap);
-}
-
-/* The photo row leads and is taller than the glyph row beneath it. That
-   height difference is the hierarchy: four modes that have art carry the
-   section, four that don't sit under them as a quieter second rank rather
-   than pretending to be equals with a stretched-out stock image. */
-.mode-grid .feature-card.is-lead{min-height:276px;}
-.mode-grid .feature-card.is-lead::after{
-  background:linear-gradient(180deg,rgb(0 0 0 / 6%) 0%,rgb(0 0 0 / 30%) 42%,rgb(0 0 0 / 82%) 78%,rgb(0 0 0 / 95%) 100%);
-}
-.mode-grid .feature-card.glyph{min-height:192px;}
-
-.feature-content{padding:20px;}
-.feature-content h3{font-size:17px;margin-bottom:6px;letter-spacing:-.01em;}
-.feature-content p{font-size:13px;line-height:1.5;max-width:26ch;color:rgb(246 244 244 / 66%);}
-
-/* Glyph tiles: no photograph exists for these, so the oversized outline of
-   the mode's own icon becomes the art, bled off the bottom-right corner and
-   cropped by the tile. --tint gives each one its own field colour. */
-.feature-card.glyph{
-  border-color:var(--border-soft);
-  background:var(--bg-2);
-  overflow:hidden;
-}
-.feature-card.glyph::before{
-  background:
-    radial-gradient(115% 95% at 86% 104%, rgb(var(--tint) / 34%), transparent 64%),
-    linear-gradient(158deg, rgb(var(--tint) / 10%), rgb(0 0 0 / 0%) 55%),
-    var(--bg-2);
-}
-.feature-card.glyph::after{
-  background:linear-gradient(180deg,rgb(0 0 0 / 0%) 0%,rgb(0 0 0 / 34%) 68%,rgb(0 0 0 / 74%) 100%);
-}
-.feature-glyph{
-  position:absolute;
-  right:-18px;bottom:-16px;
-  width:132px;height:132px;
-  z-index:0;
-  fill:none;
-  stroke:rgb(var(--tint) / 52%);
-  stroke-width:1;
-  stroke-linecap:round;
-  stroke-linejoin:round;
-  pointer-events:none;
-  transition:transform var(--dur-slow,.5s) var(--ease-out,ease), stroke var(--transition);
-}
-.feature-card.glyph:hover{border-color:rgb(var(--tint) / 55%);}
-.feature-card.glyph:hover .feature-glyph{transform:translate(-6px,-8px) rotate(-4deg);stroke:rgb(var(--tint) / 72%);}
-.feature-card.glyph .feature-icon{border-color:rgb(var(--tint) / 38%);color:rgb(var(--tint) / 95%);}
-.feature-card.glyph:hover .feature-icon{border-color:rgb(var(--tint) / 75%);}
-
-.tone-vault  { --tint:255 59 82;   }
-.tone-party  { --tint:168 124 255; }
-.tone-market { --tint:240 176 84;  }
-.tone-legend { --tint:104 196 226; }
-
-@media (max-width:900px){
-  .mode-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
-}
-@media (max-width:560px){
-  .mode-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
-  .mode-grid .feature-card.is-lead{min-height:200px;}
-  .mode-grid .feature-card.glyph{min-height:164px;}
-  .feature-glyph{width:104px;height:104px;right:-20px;bottom:-24px;}
-  .feature-content{padding:14px;}
-  .feature-content h3{font-size:14px;}
-  .feature-content p{font-size:11.5px;}
-}
-
-/* ── roster grid ────────────────────────────────────────────────────────── */
-
-/* Eighteen entries, not seven. Six across on a wide screen keeps each card
-   small enough that three rows still read as one block rather than a list. */
-.pokemon-grid{
-  grid-template-columns:repeat(6,minmax(0,1fr));
-  gap:12px;
-}
-.pokemon-card{
-  border-color:var(--border-soft);
-  background:linear-gradient(165deg,var(--bg-3),var(--bg-2));
-  border-radius:18px;
-}
-.pokemon-card-art{aspect-ratio:1;}
-.pokemon-number{
-  top:9px;left:10px;
-  font-family:'Space Grotesk',sans-serif;
-  font-size:10px;
-  color:rgb(246 244 244 / 34%);
-}
-.pokemon-number::before{content:"No.";margin-right:3px;opacity:.6;}
-.pokemon-card-body{padding:11px 12px 14px;}
-.pokemon-card-body h3{font-size:13.5px;margin-bottom:7px;letter-spacing:-.01em;}
-.pokemon-type{font-size:9px;padding:3px 7px;}
-.pokemon-noart{
-  position:relative;z-index:1;
-  font-family:'Space Grotesk',sans-serif;
-  font-size:34px;font-weight:700;
-  color:rgb(var(--tint,var(--accent-rgb)) / 40%);
-}
-.pokemon-loading,.pokemon-empty{border-radius:18px;padding:40px 20px;}
-
-/* Per-type field tint. Only the primary type sets it, so a card's glow and
-   its first pill always agree. */
-.pokemon-card.tint-fire     { --tint:255 138 86;  }
-.pokemon-card.tint-grass    { --tint:120 214 138; }
-.pokemon-card.tint-water    { --tint:118 168 255; }
-.pokemon-card.tint-electric { --tint:250 214 96;  }
-.pokemon-card.tint-psychic  { --tint:255 132 196; }
-.pokemon-card.tint-fairy    { --tint:255 158 208; }
-.pokemon-card.tint-ghost    { --tint:176 144 255; }
-.pokemon-card.tint-dark     { --tint:142 128 172; }
-.pokemon-card.tint-rock,
-.pokemon-card.tint-ground   { --tint:216 176 112; }
-.pokemon-card.tint-steel    { --tint:168 194 208; }
-.pokemon-card.tint-ice      { --tint:150 218 236; }
-.pokemon-card.tint-fighting { --tint:236 122 110; }
-.pokemon-card.tint-poison   { --tint:196 122 220; }
-.pokemon-card.tint-flying   { --tint:174 190 240; }
-.pokemon-card.tint-bug      { --tint:178 206 106; }
-.pokemon-card.tint-dragon   { --tint:142 150 246; }
-.pokemon-card.tint-normal   { --tint:186 182 176; }
-
-@media (max-width:1100px){ .pokemon-grid{grid-template-columns:repeat(4,minmax(0,1fr));} }
-@media (max-width:900px) { .pokemon-grid{grid-template-columns:repeat(3,minmax(0,1fr));} }
-@media (max-width:560px) { .pokemon-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;} }
-
-/* ── character / item panel ─────────────────────────────────────────────── */
-
-/* Was the section that printed "[object Object]". The name of an ability now
-   gets its own line above the description instead of the two being collapsed
-   into whichever field esc() happened to reach first. */
-.pd-ability-name{
-  margin:0 0 4px;
-  font-family:'Space Grotesk',sans-serif;
-  font-size:14px;font-weight:700;
-  color:var(--accent-soft);
-}
-
-/* ── footer ─────────────────────────────────────────────────────────────── */
-
-.site-footer{
-  background:linear-gradient(180deg,var(--bg-2),#000);
-  border-top:1px solid var(--border-soft);
-  padding:64px 24px 30px;
-  margin-top:72px;
-}
-.site-footer-top{gap:40px;padding-bottom:40px;}
-.site-footer-brand{gap:16px;}
-.site-footer-brand .brand-word{display:inline;}
-.site-footer-tag{font-size:13.5px;line-height:1.65;max-width:32ch;}
-.site-footer-heading{
-  font-size:11px;font-weight:700;
-  letter-spacing:.06em;
-  color:var(--text-subtle);
-  margin-bottom:6px;
-}
-.site-footer-col a{font-size:13.5px;}
-.site-footer-bottom{font-size:12.5px;color:var(--text-subtle);}
-.site-footer-credit{max-width:70ch;}
-
-/* ── focus and motion floor ─────────────────────────────────────────────── */
-
-a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,
-.feature-card:focus-visible,.pokemon-card:focus-visible{
-  outline:2px solid var(--accent);
-  outline-offset:3px;
-  border-radius:6px;
-}
-
-@media (prefers-reduced-motion:reduce){
-  .feature-card.glyph:hover .feature-glyph,
-  .brand:hover .brand-mark{transform:none;}
-}
-
-@media (max-width:760px){
-  .page{padding:0 16px 56px;}
-  :root{--pad-section:46px;--pad-section-sm:30px;--gap:12px;}
-  .section-head{margin-bottom:20px;}
-  .site-footer{padding:44px 16px 26px;margin-top:48px;}
-}
-
 /* ── hidden ─────────────────────────────────────────────────────────────── */
 
 /* `.hero-badge` sets display:inline-flex, and an author `display` beats the
    UA's `[hidden]{display:none}` - so the season badge stayed visible when JS
    set `hidden`. One guard covers every element the controllers toggle. */
 [hidden]{display:none !important;}
-
-/* The season badge is interface state ("3d 4h left"), not a premium marker,
-   so it follows the accent like the rest of the chrome. */
-.hero-badge{
-  background:rgb(var(--accent-rgb) / 10%);
-  border-color:rgb(var(--accent-rgb) / 38%);
-  color:var(--accent-soft);
-  padding:7px 15px;
-}

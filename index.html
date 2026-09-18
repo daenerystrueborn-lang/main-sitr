@@ -28,18 +28,15 @@
     }, 3000)
   })()
 </script>
-<title>Astral - a dungeon crawler for your group chat</title>
+<title>Home</title>
 <meta name="description" content="Dungeons, cards, and companions - built for WhatsApp. Climb the floors, top the boards, forge a legend.">
 <meta name="theme-color" content="#000000">
-<meta property="og:image" content="assets/img/logo.png">
 <meta property="og:title" content="Astral">
 <meta property="og:description" content="Dungeons, cards, and companions - built for WhatsApp.">
 <meta property="og:type" content="website">
-<!-- Astral mark. favicon.png is the 64px crop of assets/img/logo.png; both are
-     generated from the same source so the nav mark and the tab icon never drift. -->
-<link rel="icon" type="image/png" sizes="64x64" href="assets/img/favicon.png">
-<link rel="icon" type="image/png" sizes="512x512" href="assets/img/logo.png">
-<link rel="apple-touch-icon" sizes="180x180" href="assets/img/apple-touch-icon.png">
+<!-- Sun favicon, PNG uploaded by the user. -->
+<link rel="icon" type="image/png" href="assets/img/favicon.png">
+<link rel="apple-touch-icon" href="assets/img/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
@@ -55,8 +52,7 @@
 <header class="nav-shell">
   <div class="nav-inner">
     <a class="brand" href="#/" aria-label="Astral home">
-      <span class="brand-mark"><img src="assets/img/logo.png" alt="" width="40" height="40" decoding="async"></span>
-      <span class="brand-word">Astral</span>
+      <div class="brand-mark"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></div>
     </a>
 
     <nav class="nav-bar" aria-label="Primary">
@@ -155,55 +151,27 @@
         </div>
         <a class="btn btn-ghost btn-sm" href="#/season" data-route="season">See the season →</a>
       </div>
-      <div class="mode-grid">
+      <div class="grid-4">
         <!-- The --art paths are ROOT-ABSOLUTE on purpose. A relative url() inside
              a custom property is resolved against the stylesheet that consumes
              it (assets/css/style.css), not this document - so 'assets/img/...'
              here silently became '/assets/css/assets/img/...' and 404'd. Leading
-             slash removes the base entirely. Don't "tidy" these back to relative.
-
-             Two kinds of tile share this grid. The first four have photography
-             and lead the section; the last four are glyph tiles - no photo
-             exists for them, so rather than stretch one of the four jpgs to
-             cover eight slots they get a tinted field and an oversized mark.
-             Both kinds use identical geometry, so the grid still reads as one
-             set rather than two half-finished ones. -->
-        <a class="feature-card art mode-dungeon reveal is-lead" href="#/season" data-route="season" style="--art:url('/assets/img/modes/dungeon.jpg')">
+             slash removes the base entirely. Don't "tidy" these back to relative. -->
+        <a class="feature-card art mode-dungeon reveal" href="#/season" data-route="season" style="--art:url('/assets/img/modes/dungeon.jpg')">
           <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M14.5 3.5l6 6-8 8-6-6 8-8z"/><path d="M3 21l4-1 8.5-8.5"/></svg></div>
           <div class="feature-content"><h3>Dungeon</h3><p>Solo or party raids with loot, bosses and deeper floors.</p></div>
         </a>
-        <a class="feature-card art mode-characters reveal is-lead" href="#/cards" data-route="cards" style="--art:url('/assets/img/modes/characters.jpg')">
+        <div class="feature-card art mode-characters reveal" style="--art:url('/assets/img/modes/characters.jpg')">
           <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></div>
           <div class="feature-content"><h3>Characters</h3><p>Collect and equip companions that buff your stats.</p></div>
-        </a>
-        <a class="feature-card art mode-arena reveal is-lead" href="#/leaderboard" data-route="leaderboard" style="--art:url('/assets/img/modes/arena.jpg')">
+        </div>
+        <a class="feature-card art mode-arena reveal" href="#/leaderboard" data-route="leaderboard" style="--art:url('/assets/img/modes/arena.jpg')">
           <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/><circle cx="12" cy="12" r="9"/></svg></div>
           <div class="feature-content"><h3>PvP Arena</h3><p>Challenge other players and climb the ranked ladder.</p></div>
         </a>
-        <a class="feature-card art mode-battlepass reveal is-lead" href="#/season" data-route="season" style="--art:url('/assets/img/modes/battlepass.jpg')">
+        <a class="feature-card art mode-battlepass reveal" href="#/season" data-route="season" style="--art:url('/assets/img/modes/battlepass.jpg')">
           <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M12 2l2.4 6.9L21 9l-5 4.6L17.4 21 12 17.3 6.6 21 8 13.6 3 9l6.6-.1L12 2z"/></svg></div>
           <div class="feature-content"><h3>Battle Pass</h3><p>Seasonal tiers of gold, gear and exclusive rewards.</p></div>
-        </a>
-
-        <a class="feature-card glyph tone-vault reveal" href="#/cards" data-route="cards">
-          <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="5" width="13" height="16" rx="2"/><path d="M8 3h11a2 2 0 0 1 2 2v13"/></svg></div>
-          <svg class="feature-glyph" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="13" height="16" rx="2"/><path d="M8 3h11a2 2 0 0 1 2 2v13"/></svg>
-          <div class="feature-content"><h3>Card vault</h3><p>Pay for a guaranteed tier, then find out which card you pulled.</p></div>
-        </a>
-        <a class="feature-card glyph tone-party reveal" href="#/season" data-route="season">
-          <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M2 20a7 7 0 0 1 14 0"/><path d="M17 5.5a3 3 0 0 1 0 5.8M18 14.5a6 6 0 0 1 4 5.5"/></svg></div>
-          <svg class="feature-glyph" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M2 20a7 7 0 0 1 14 0"/><path d="M17 5.5a3 3 0 0 1 0 5.8M18 14.5a6 6 0 0 1 4 5.5"/></svg>
-          <div class="feature-content"><h3>Party raids</h3><p>Bring the group chat. Shared loot, shared damage, deeper floors.</p></div>
-        </a>
-        <a class="feature-card glyph tone-market reveal" href="#/shop" data-route="shop">
-          <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M4 7h16v14H4zM4 7l2-4h12l2 4M9 11h6"/></svg></div>
-          <svg class="feature-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v14H4zM4 7l2-4h12l2 4M9 11h6"/></svg>
-          <div class="feature-content"><h3>Market</h3><p>The same stock the bot sells in chat - potions, gear and keys.</p></div>
-        </a>
-        <a class="feature-card glyph tone-legend reveal" href="#/leaderboard" data-route="leaderboard">
-          <div class="feature-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M6 20V9M12 20V4M18 20v-7M3 20h18"/></svg></div>
-          <svg class="feature-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 20V9M12 20V4M18 20v-7M3 20h18"/></svg>
-          <div class="feature-content"><h3>Ranked ladder</h3><p>Level, floor depth and arena rating, tracked on separate boards.</p></div>
         </a>
       </div>
     </section>
@@ -211,13 +179,16 @@
     <section class="section home-pokemon-section">
       <div class="section-head">
         <div>
-          <h2>The Alola roster</h2>
-          <p>Companions the Sun and Moon bots can hand you, pulled live from PokéAPI.</p>
+          <div class="section-kicker">Sun &amp; Moon bots</div>
+          <h2>Meet the Alola roster</h2>
+          <p>Live Pokémon data for the world our bots are building.</p>
         </div>
+        <span class="api-live-badge"><i class="trust-dot"></i>Live API</span>
       </div>
       <div class="pokemon-grid" id="homePokemon">
         <div class="pokemon-loading" aria-live="polite">Loading the Alola roster...</div>
       </div>
+      <p class="pokemon-credit">Powered by PokéAPI. Pokémon data and artwork belong to their respective owners.</p>
     </section>
 
     <section class="section">
@@ -634,8 +605,8 @@
     <div class="site-footer-top">
       <div class="site-footer-brand">
         <a class="brand" href="#/" data-route="home" aria-label="Astral home">
-          <span class="brand-mark"><img src="assets/img/logo.png" alt="" width="40" height="40" loading="lazy" decoding="async"></span>
-          <span class="brand-word">Astral</span>
+          <div class="brand-mark"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></div>
+          <span>Astral</span>
         </a>
         <p class="site-footer-tag">A dungeon crawler that lives in your group chat. Clear floors, collect companions, climb the boards.</p>
         <a class="btn btn-primary btn-sm" id="footerCta" href="#/signup" data-route="signup">Start playing</a>

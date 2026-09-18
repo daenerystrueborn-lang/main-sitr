@@ -1,23 +1,39 @@
 /**
  * api.js - the only place in the frontend that talks to the bot's API.
  *
- * Deployment shape: this bundle is static and lives on Vercel, while the API
- * runs inside the bot process on the VPS behind Cloudflare, so every call is
- * cross-origin.
+ * ── Deployment shape (Vercel -> Railway, no Cloudflare) ──────────────────
  *
- * Auth is bearer-token-first by design: the API sets a session cookie too, but
- * it's SameSite=None on a third-party origin, which browsers increasingly drop
- * (see the note at lib/api-server.js issueSession). So we keep the token from
- * verify-otp in localStorage and send it as `Authorization: Bearer` - the
- * cookie is the fallback, not the other way round.
+ * This bundle is static and lives on Vercel. The API runs inside the bot
+ * process on Railway. They are connected by ONE line in vercel.json:
  *
- * Override the target without editing this file by setting
- * `window.ASTRAL_API_BASE` before this script loads, or by adding
- * `?api=https://host` to the URL once (it's remembered) - handy for pointing a
- * preview deploy at a local bot.
+ *   { "source": "/api/:path*", "destination": "https://<bot>.up.railway.app/api/:path*" }
+ *
+ * So the browser only ever calls its OWN origin - /api/me, /api/stats - and
+ * Vercel forwards it to Railway. That matters for three reasons:
+ *
+ *   1. No CORS. Same-origin requests never preflight, so no allow-list can
+ *      break the site when a domain changes.
+ *   2. The session cookie becomes first-party (SameSite=Lax), instead of a
+ *      third-party SameSite=None cookie that Chrome is busy killing.
+ *   3. Nothing in the shipped JS names the backend, so moving the bot is a
+ *      vercel.json edit, not a rebuild.
+ *
+ * DEFAULT_BASE is therefore empty. It is NOT a missing value - leave it that
+ * way unless you deliberately want the browser to hit Railway directly, in
+ * which case put the Railway origin in it (and add the site's origin to
+ * ALLOWED_ORIGINS on the bot, or every call will be blocked).
+ *
+ * Auth stays bearer-token-first regardless: the token from verify-otp is kept
+ * in localStorage and sent as `Authorization: Bearer`. The cookie is the
+ * fallback, not the other way round.
+ *
+ * Override the target at runtime with `window.ASTRAL_API_BASE` before this
+ * script loads, or `?api=https://host` once (it's remembered) - handy for
+ * pointing a preview deploy at a local bot.
  */
 
-const DEFAULT_BASE = 'https://animeastral.qzz.io'
+// '' = same origin, proxied by the vercel.json rewrite above. See the note.
+const DEFAULT_BASE = ''
 const TOKEN_KEY = 'astral:token'
 
 function resolveBase() {
@@ -31,7 +47,8 @@ function resolveBase() {
     const saved = localStorage.getItem('astral:api')
     if (saved) return saved.replace(/\/+$/, '')
   } catch {}
-  // Bot and site on the same host (local dev) - same-origin, no base needed.
+  // Local dev is same-origin too: scripts/dev-server.mjs proxies /api to
+  // whatever BOT_API points at, exactly like the Vercel rewrite does.
   if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') return ''
   return DEFAULT_BASE
 }
@@ -86,25 +103,15 @@ export async function uploadToImgbb(dataUrl, name) {
 /* ─────────────────────── Pokémon home-page showcase ────────────────────── */
 
 const POKEMON_API_BASE = 'https://pokeapi.co/api/v2'
-const POKEMON_CACHE_KEY = 'astral:sun-moon-pokemon:v2'
-// The Gen VII roster the two bots are themed on: the three Alola starters and
-// their finals, the island guardians, the Ultra Beast the Sun bot uses as its
-// raid boss, and the pair of box legendaries. Kept as one flat list so the
-// grid fills evenly at 2, 3, 4 and 6 columns - eighteen divides by all of them.
-const SUN_MOON_POKEMON_IDS = [
-  722, 724,        // Rowlet -> Decidueye
-  725, 727,        // Litten -> Incineroar
-  728, 730,        // Popplio -> Primarina
-  738, 745, 748,   // Vikavolt, Lycanroc, Toxapex
-  778, 784, 785,   // Mimikyu, Kommo-o, Tapu Koko
-  786, 787, 788,   // Tapu Lele, Tapu Bulu, Tapu Fini
-  789, 791, 792,   // Cosmog, Solgaleo, Lunala
-]
+const POKEMON_CACHE_KEY = 'astral:sun-moon-pokemon'
+const SUN_MOON_POKEMON_IDS = [722, 725, 728, 778, 785, 789, 800]
 
 /**
  * PokéAPI slugs are hyphenated, and blanket-replacing the hyphen with a space
  * is right for `tapu-koko` but wrong for `kommo-o`, which really is hyphenated.
- * Only the exceptions need listing.
+ * Only the exceptions need listing. Kept even with the original 7-item roster
+ * since Tapu Koko is in it and would otherwise render "Tapu Koko" -> fine,
+ * but this guards any future id in the list too.
  */
 const POKEMON_NAME_OVERRIDES = { 'kommo-o': 'Kommo-o', 'type-null': 'Type: Null' }
 
