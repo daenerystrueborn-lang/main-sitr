@@ -6,9 +6,9 @@
  * flicking between tabs doesn't re-hit the API, while `reload()` exists for
  * the places that must be fresh after a mutation.
  */
-import { api, ApiError, onConnectionChange, onAuthLost, hasSession, fileToDataUrl, uploadToImgbb, fetchSunMoonPokemon } from './api.js'
+import { api, API_BASE, ApiError, onConnectionChange, onAuthLost, hasSession, fileToDataUrl, uploadToImgbb, fetchSunMoonPokemon } from './api.js'
 import {
-  $, $$, esc, attr, num, compact, naira, usd, relTime, duration, titleCase,
+  $, $$, esc, attr, num, compact, usd, relTime, duration, titleCase,
   toast, busy, skeletonRows, skeletonCards,
   emptyState, openModal, closeModal, initials, bar, copyText, initMotion, iconSvg,
 } from './ui.js'
@@ -803,25 +803,47 @@ function ensureMeta() {
 /* ─────────────────────────────── page: home ───────────────────────────── */
 
 /**
- * Only WhatsApp is live. Discord and Telegram tabs exist so people know
- * they're coming, but selecting them swaps the hero into a "coming soon"
- * state instead of a play button - there's no bot to message yet.
+ * Where the APK comes from. GitHub Actions builds the release APK and attaches
+ * it to the latest release, so `/releases/latest/download/<asset>` always
+ * resolves to the newest build without this file needing a version bump.
+ *
+ * One constant, three consumers: the hero's App tab, the header button and the
+ * mobile drawer link. Change it here only.
+ */
+const APP_DOWNLOAD_URL = 'https://github.com/northernblader-sys/astral-bot/releases/latest/download/astral.apk'
+const APP_RELEASES_URL = 'https://github.com/northernblader-sys/astral-bot/releases/latest'
+
+/**
+ * The two surfaces the game actually has. Discord and Telegram used to sit
+ * here as "coming soon" tabs, but those adapters were deleted in v3.3.2, so
+ * the hero was advertising two bots that no longer exist. Both tabs below are
+ * live: the chat bot, and the Android app that talks to the same API and the
+ * same account.
  */
 const PLATFORMS = {
   whatsapp: {
     label: 'WhatsApp',
     live: true,
     sub: 'Message the bot on WhatsApp, make a character, and start clearing floors.',
+    actions: () => `
+      <a class="btn btn-primary" id="heroPlay" href="#/signup">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1.1-5.3A8.5 8.5 0 1 1 21 11.5z"/></svg> Start playing
+      </a>
+      <a class="btn btn-secondary" href="#/leaderboard" data-route="leaderboard">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M4 20h16M7 20v-7M12 20V6M17 20v-11"/></svg> See the boards
+      </a>`,
   },
-  discord: {
-    label: 'Discord',
-    live: false,
-    sub: 'Astral on Discord is on the way - the WhatsApp bot is live right now if you want to start today.',
-  },
-  telegram: {
-    label: 'Telegram',
-    live: false,
-    sub: 'Astral on Telegram is on the way - the WhatsApp bot is live right now if you want to start today.',
+  app: {
+    label: 'Android',
+    live: true,
+    sub: 'Dungeon raids, Pokemon battles and your empire, playable on your phone with the same character you use in chat.',
+    actions: () => `
+      <a class="btn btn-primary" href="${attr(APP_DOWNLOAD_URL)}" target="_blank" rel="noopener">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></svg> Download the app
+      </a>
+      <a class="btn btn-secondary" href="${attr(APP_RELEASES_URL)}" target="_blank" rel="noopener">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg> Release notes
+      </a>`,
   },
 }
 
@@ -840,19 +862,17 @@ function setHeroPlatform(key) {
   if (sub) sub.textContent = platform.sub
 
   const actions = $('#heroActions')
-  if (actions) {
-    actions.innerHTML = platform.live
-      ? `<a class="btn btn-primary" id="heroPlay" href="#/signup">
-           <svg class="icon" viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1.1-5.3A8.5 8.5 0 1 1 21 11.5z"/></svg> Start playing
-         </a>
-         <a class="btn btn-secondary" href="#/leaderboard" data-route="leaderboard">
-           <svg class="icon" viewBox="0 0 24 24"><path d="M4 20h16M7 20v-7M12 20V6M17 20v-11"/></svg> See the boards
-         </a>`
-      : `<span class="btn btn-secondary" style="pointer-events:none;opacity:.75;">Coming soon</span>
-         <a class="btn btn-primary" href="#/signup">
-           <svg class="icon" viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1.1-5.3A8.5 8.5 0 1 1 21 11.5z"/></svg> Play on WhatsApp instead
-         </a>`
-  }
+  // Replacing this innerHTML also replaces #heroPlay, so paintAvatar() has to
+  // run after it, never before - see the call order in boot().
+  if (actions) actions.innerHTML = platform.actions()
+}
+
+/** Points every download affordance at the one release URL. */
+function wireDownloadLinks() {
+  const nav = $('#navDownload')
+  if (nav) nav.href = APP_DOWNLOAD_URL
+  const drawer = $('#drawerDownload')
+  if (drawer) drawer.href = APP_DOWNLOAD_URL
 }
 
 function wirePlatformSwitch() {
@@ -938,29 +958,19 @@ function renderHomePokemon(pokemon) {
     return
   }
 
-  // Defensive rendering: types may be missing/malformed on a given entry,
-  // and the name is already display-cased by api.js (with the "Kommo-o"
-  // exception preserved), so it goes out verbatim instead of through
-  // titleCase() a second time, which would re-split the hyphen it protected.
-  host.innerHTML = pokemon.map(p => {
-    const types = Array.isArray(p.types) ? p.types.filter(Boolean) : []
-    const name = String(p.name ?? '')
-    return `
+  host.innerHTML = pokemon.map(p => `
     <article class="pokemon-card">
       <div class="pokemon-card-art">
         <span class="pokemon-number">#${String(p.id).padStart(3, '0')}</span>
-        ${p.image
-          ? `<img src="${attr(p.image)}" alt="${attr(name)}" loading="lazy" decoding="async">`
-          : ''}
+        <img src="${attr(p.image)}" alt="${attr(titleCase(p.name))}" loading="lazy">
       </div>
       <div class="pokemon-card-body">
-        <h3>${esc(name)}</h3>
+        <h3>${esc(titleCase(p.name))}</h3>
         <div class="pokemon-types">
-          ${types.map(type => `<span class="pokemon-type type-${esc(type)}">${esc(titleCase(type))}</span>`).join('')}
+          ${p.types.map(type => `<span class="pokemon-type type-${esc(type)}">${esc(titleCase(type))}</span>`).join('')}
         </div>
       </div>
-    </article>`
-  }).join('')
+    </article>`).join('')
 }
 
 function paintHomeStatic() {
@@ -968,7 +978,7 @@ function paintHomeStatic() {
   const prefix = state.meta?.prefix ?? '.'
   if (steps) {
     steps.innerHTML = [
-      ['chat', 'Message the bot', `Open WhatsApp and send <code>${esc(prefix)}menu</code>. No download, no account.`],
+      ['chat', 'Message the bot', `Open WhatsApp and send <code>${esc(prefix)}menu</code>. Nothing to install to start.`],
       ['character', 'Make your hero', `Pick a class and race with <code>${esc(prefix)}register</code>, then spend your 15 stat points.`],
       ['battle', 'Climb and rank', `Fight through floors, take on other players, and push up the boards each season.`],
     ].map(([i, t, b]) => `
@@ -982,7 +992,7 @@ function paintHomeStatic() {
   const faq = $('#homeFaq')
   if (faq) {
     faq.innerHTML = [
-      ['Do I need to install anything?', 'No. Astral runs entirely through WhatsApp messages - the website is just for browsing your profile and the boards.'],
+      ['Do I need to install anything?', 'Not to start. The whole game runs through WhatsApp messages. The Android app is optional and plays the same character, so you can move between the two whenever you want.'],
       ['Is it free?', `Yes. Premium and gems are optional and only add cosmetics, boosts and battle-pass rewards.`],
       ['How do I sign in here?', "Enter your WhatsApp number and the bot DMs you a 6-digit code from its own number. You'll need to have messaged the bot at least once first."],
       ['Can I play in a group chat?', `Yes - most commands work in groups. Use <code>${esc(prefix)}menu</code> to see what's available.`],
@@ -1054,14 +1064,8 @@ async function showBoard(key, { force = false } = {}) {
   state.lbRows = data.rows ?? []
   const total = $('#lbTotal')
   if (total) {
-    // `label` is optional in the payload, and when it was missing this line
-    // rendered "18,420 ranked on undefined". Fall back to the tab's own text,
-    // then to the board key itself, so there is always something to name.
-    const boardLabel = data.label
-      || $(`#lbTabs .tab-btn[data-board="${CSS.escape(key)}"]`)?.textContent?.trim()
-      || titleCase(key)
     total.textContent = data.total
-      ? `${num(data.total)} ranked on ${boardLabel}${data.rows.length < data.total ? ` - showing the top ${data.rows.length}` : ''}`
+      ? `${num(data.total)} ranked on ${data.label}${data.rows.length < data.total ? ` - showing the top ${data.rows.length}` : ''}`
       : `Nobody has made the ${data.label} board yet.`
   }
 
@@ -1210,58 +1214,37 @@ function playerDetailHtml({ player: p, rankings, isSelf }) {
 /* ───────────────────────── character detail modal ─────────────────────── */
 
 /**
+ * What a character costs, as a line of text.
+ *
+ * Every tile and modal used to read `gemPrice`, and every character in
+ * data/characters.json carries gemPrice 0 or null - gems stopped buying
+ * characters when Monds took that over. So the price line was falsy everywhere
+ * and the site quoted no price at all on things that cost 🪙5, or quoted
+ * "0 gems" where a truthy zero slipped through. `mondPrice` is what the bot
+ * actually charges (the API runs it through the same mondPriceFor() that
+ * .character buy does), and it's null for the ones Monds genuinely can't buy:
+ * season characters, which have their own three routes, and unfinished stubs.
+ */
+function characterPrice(c) {
+  const monds = Number(c?.mondPrice)
+  if (Number.isFinite(monds) && monds > 0) return `🪙${num(monds)} monds`
+  if (c?.exclusive) return 'One of a kind, win it from a spin'
+  if (c?.spinOnly) return 'Spin only'
+  return 'Earned in game'
+}
+
+/**
  * The Characters *page* is gone, but this modal isn't page-bound - it's opened
  * from any [data-char] element, which today means the equipped-character card
  * on the profile. /api/characters/:id still backs it.
  */
-/**
- * Normalizes a stat-bonus payload into [label, number] pairs.
- *
- * The bot sends this field in three different shapes depending on where the
- * record came from: a flat map (`{ atk: 5 }`), a map of wrapped values
- * (`{ atk: { value: 5, label: 'Attack' } }`), or a list of rows
- * (`[{ stat: 'atk', value: 5 }]`). The character and item panels each assumed
- * the first, so the other two rendered as "[object Object]" tiles with a "+NaN"
- * underneath. One reader, used by both.
- */
-function statEntries(raw) {
-  if (!raw) return []
-
-  const rows = Array.isArray(raw)
-    ? raw.map(row => (row && typeof row === 'object'
-        ? [row.stat ?? row.key ?? row.name ?? row.label, row.value ?? row.amount ?? row.bonus]
-        : [null, null]))
-    : Object.entries(raw).map(([key, val]) => (val && typeof val === 'object' && !Array.isArray(val)
-        ? [val.label ?? val.name ?? key, val.value ?? val.amount ?? val.bonus]
-        : [key, val]))
-
-  return rows
-    .map(([label, value]) => [titleCase(label), Number(value)])
-    .filter(([label, value]) => label && Number.isFinite(value) && value !== 0)
-}
-
-/** Renders statEntries() output as the .pd-stats tile grid. */
-function statTiles(raw) {
-  return statEntries(raw)
-    .map(([label, value]) => `<div class="pd-stat"><div class="pd-stat-k">${esc(label.toUpperCase())}</div><div class="pd-stat-v">${value > 0 ? '+' : '\u2212'}${num(Math.abs(value))}</div></div>`)
-    .join('')
-}
-
 async function openCharacter(id) {
   openModal(`<div style="padding:6px">${skeletonRows(3)}</div>`)
   try {
     const { character: c, owned, equipped, wielders, wielderCount } = await api.character(id)
-    const bonuses = statTiles(c.statBonuses)
-
-    // `ability` is a string on most characters and `{ name, description }` on
-    // the season roster, so render both halves when they're there instead of
-    // letting esc() pick one and drop the other.
-    const abilityName = c.ability && typeof c.ability === 'object'
-      ? esc(c.ability.name ?? c.ability.title ?? '')
-      : ''
-    const abilityText = esc(c.ability && typeof c.ability === 'object'
-      ? (c.ability.description ?? c.ability.text ?? c.ability.effect ?? '')
-      : c.ability)
+    const bonuses = Object.entries(c.statBonuses ?? {})
+      .map(([k, v]) => `<div class="pd-stat"><div class="pd-stat-k">${esc(k.toUpperCase())}</div><div class="pd-stat-v">+${num(v)}</div></div>`)
+      .join('')
 
     openModal(`
       ${c.image ? `<div class="pd-banner" style="background-image:url('${attr(c.image)}')"></div>` : ''}
@@ -1271,14 +1254,12 @@ async function openCharacter(id) {
           <h3>${esc(c.name)}
             ${equipped ? '<span class="badge badge-gold">Equipped</span>' : owned ? '<span class="badge badge-lvl">Owned</span>' : ''}</h3>
           <p class="pd-sub">${esc(c.rarity ? titleCase(c.rarity) : '')}${c.characterTier ? ` · Tier ${esc(c.characterTier)}` : ''}</p>
-          ${c.gemPrice ? `<p class="subtext">${num(c.gemPrice)} gems</p>` : ''}
+          <p class="subtext">${esc(characterPrice(c))}</p>
         </div>
       </div>
       <div class="pd-body">
         ${c.description ? `<p class="subtext">${esc(c.description)}</p>` : ''}
-        ${abilityName || abilityText ? `<div class="pd-sec-title">Ability</div>${
-          abilityName ? `<p class="pd-ability-name">${abilityName}</p>` : ''}${
-          abilityText ? `<p class="subtext">${abilityText}</p>` : ''}` : ''}
+        ${c.ability ? `<div class="pd-sec-title">Ability</div><p class="subtext">${esc(c.ability)}</p>` : ''}
         ${bonuses ? `<div class="pd-sec-title">Stat bonuses</div><div class="pd-stats">${bonuses}</div>` : ''}
         <div class="pd-sec-title">Wielded by ${num(wielderCount ?? 0)} player${wielderCount === 1 ? '' : 's'}</div>
         ${wielders?.length ? `<div class="lb-list">${wielders.map((w, i) => `
@@ -1304,7 +1285,9 @@ async function openCharacter(id) {
  */
 function openItem(item) {
   if (!item) return
-  const bonuses = statTiles(item.statBonuses)
+  const bonuses = Object.entries(item.statBonuses ?? {})
+    .map(([k, v]) => `<div class="pd-stat"><div class="pd-stat-k">${esc(k.toUpperCase())}</div><div class="pd-stat-v">${v > 0 ? '+' : ''}${num(v)}</div></div>`)
+    .join('')
 
   openModal(`
     <div class="pd-head">
@@ -1327,20 +1310,6 @@ function openItem(item) {
 
 let seasonTimer = null
 
-/**
- * Shows or hides the two season sections that only have content while a
- * season is running, along with the countdown badge in the hero - an empty
- * badge still renders as a bordered pill with a lone star in it.
- */
-function setSeasonSections(active) {
-  for (const id of ['#seasonMineSection', '#seasonLoreSection']) {
-    const el = $(id)
-    if (el) el.hidden = !active
-  }
-  const badge = $('#seasonBadge')
-  if (badge) badge.hidden = !active
-}
-
 async function loadSeason() {
   const tiersHost = $('#seasonTiers')
   if (tiersHost) tiersHost.innerHTML = skeletonRows(6)
@@ -1357,22 +1326,11 @@ async function loadSeason() {
     $('#seasonName').textContent = 'No active season'
     $('#seasonDesc').textContent = 'The next season has not started yet - check back soon.'
     $('#seasonClock').textContent = ''
-
-    // Between seasons there is no pass to track and no story to tell, so both
-    // of those sections get collapsed rather than left as a heading floating
-    // over dead space. #seasonMine used to be blanked to '' - which still
-    // painted an empty .card - and #seasonLore was never touched at all, so
-    // the page showed three headings and one empty state.
-    setSeasonSections(false)
-    // .tier-track is a flex row, so a bare empty state collapses to its own
-    // width and sits hard against the left edge. The wrapper makes it span.
+    $('#seasonMine').innerHTML = ''
     if (tiersHost) tiersHost.innerHTML = `<div style="flex:1">${emptyState('season', 'Between seasons', 'Rewards and the battle pass return when the next season opens.')}</div>`
     await banner
     return
   }
-
-  // Re-entering the route after a between-seasons visit has to put them back.
-  setSeasonSections(true)
 
   const s = out.season
   $('#seasonName').textContent = `Season ${s.number}: ${s.name}`
@@ -1473,7 +1431,7 @@ function renderSeasonRoster(s, out) {
       ${c.seasonTier ? `<p class="subtext">${esc(titleCase(c.seasonTier))} character</p>` : ''}
       <p>${c.purchasable
         ? `${num(c.price)} ${esc(currency(c.currency))}`
-        : c.gemPrice ? `${num(c.gemPrice)} gems` : 'Earned in game'}</p>
+        : esc(characterPrice(c))}</p>
       ${c.ability ? `<p class="subtext" style="margin-top:6px">${esc(c.ability)}</p>` : ''}
     </button>`
   }).join('')
@@ -1787,6 +1745,41 @@ function paintShopBalance() {
     </div>`
 }
 
+/**
+ * Item artwork for a shop/inventory tile.
+ *
+ * Two separate bugs used to make the shop grid look glyph-only:
+ *
+ * 1. The path. Every plate in the bot's data/ points at
+ *    `<publicApiUrl>/assets/items/<id>.png`, which the bot serves itself. If
+ *    that config is ever blank the API emits a root-relative path instead, and
+ *    a root-relative src on this page resolves against the VERCEL SITE, which
+ *    has no /assets/items - so every plate 404s. resolveArt() re-bases
+ *    anything that isn't already absolute onto the API host.
+ *
+ * 2. The failure mode. The old markup was `onerror="this.remove()"`, which
+ *    deleted the broken <img> and put nothing in its place, so a failed plate
+ *    was indistinguishable from an item that simply has no art - and there was
+ *    no visual cue at all that something had gone wrong. It now swaps in the
+ *    same glyph the no-art branch uses, the way the profile inventory already
+ *    did (data-fb + insertAdjacentHTML).
+ */
+function resolveArt(url) {
+  const s = String(url ?? '').trim()
+  if (!s) return ''
+  if (/^(https?:)?\/\//i.test(s) || s.startsWith('data:')) return s
+  return `${API_BASE}${s.startsWith('/') ? '' : '/'}${s}`
+}
+
+function shopArt(row) {
+  const src = resolveArt(row?.image)
+  const fallback = perkIcon('inventory')
+  if (!src) return fallback
+  return `<img src="${attr(src)}" alt="" loading="lazy" class="shop-img"
+               data-fb="${attr(fallback)}"
+               onerror="this.insertAdjacentHTML('afterend', this.dataset.fb); this.remove()">`
+}
+
 function paintShopShelf() {
   const grid = $('#shopGrid')
   if (!grid || !shopData) return
@@ -1814,10 +1807,7 @@ function paintShopShelf() {
             .map(([k, v]) => `${k.toUpperCase()} ${v > 0 ? '+' : ''}${v}`).join(' · ')
           return `
           <div class="perk-card shop-card reveal">
-            ${row.image
-              ? `<img src="${attr(row.image)}" alt="" loading="lazy" class="shop-img"
-                      onerror="this.remove()">`
-              : perkIcon('inventory')}
+            ${shopArt(row)}
             ${row.rarity ? `<span class="rarity-pill r-${attr(String(row.rarity).toLowerCase())}">${esc(titleCase(row.rarity))}</span>` : ''}
             <h4>${esc(row.name)}</h4>
             ${row.description ? `<p>${esc(row.description)}</p>` : ''}
@@ -2064,34 +2054,39 @@ async function loadPremium() {
   const out = await api.premium()
   const prefix = state.meta?.prefix ?? (await ensureMeta())?.prefix ?? '.'
 
-  // Prices are quoted in dollars, because plenty of players don't read naira
-  // as money. The CHARGE is still naira: the bot prices every plan and package
-  // in naira and `.premium buy` asks for naira, so each card carries the naira
-  // amount under the dollar one and a Nigerian buyer pays exactly as before.
+  // Dollars only, on owner request (2026-09-23). Every card used to carry the
+  // naira figure under the dollar one plus a "charged in naira" line, and the
+  // page read as two prices for one thing.
+  //
+  // Nothing about the CHARGE changed: the bot still prices every plan and
+  // package in naira and `.premium buy` still asks for naira, so a buyer pays
+  // exactly what they paid before. This is a label, and it's the only label
+  // now.
   //
   // The rate comes from the API, so the owner retunes it in .env without a
-  // frontend deploy. No rate (older bot, or deliberately cleared) falls all the
-  // way back to naira-only labels rather than showing a made-up dollar figure.
+  // frontend deploy. It defaults to 1385 in config.js, so "no rate" only
+  // happens if NAIRA_PER_USD is deliberately blanked - in that case the card
+  // sends the buyer to the bot rather than inventing a dollar figure or
+  // falling back to the naira one the owner asked us to drop.
   const rate = out.nairaPerUsd ?? null
-  const price = (n) => usd(n, rate) ?? naira(n)
-  const inNaira = (n) => (rate ? `<div class="price-naira">${esc(naira(n))} charged in naira</div>` : '')
+  const price = (n) => usd(n, rate) ?? 'Ask the bot'
 
-  // Best value = lowest cost per day. Computed from the API's own numbers so
-  // it can never contradict what the bot actually charges. Ranked on the naira
-  // figure, which is the one being charged, though dividing every plan by one
-  // rate cannot reorder them anyway.
-  const cheapest = (out.plans ?? []).reduce(
-    (best, p) => (best === null || p.perDayNaira < best.perDayNaira ? p : best), null)
+  // The golden card is the MIDDLE one, positionally, not the cheapest per day.
+  // It used to be whichever plan had the lowest perDayNaira, which put the
+  // ribbon on whichever end of the grid happened to win that division and left
+  // the layout lopsided. Owner wants the centre card featured (2026-09-23).
+  // With an even number of plans this rounds to the later of the two middles.
+  const plans = out.plans ?? []
+  const featuredIndex = plans.length ? Math.floor(plans.length / 2) : -1
 
   if (planGrid) {
-    planGrid.innerHTML = (out.plans ?? []).map(p => {
-      const best = cheapest && p.id === cheapest.id
+    planGrid.innerHTML = plans.map((p, i) => {
+      const best = i === featuredIndex
       return `
       <div class="plan-card${best ? ' featured' : ''} reveal">
         ${best ? '<span class="plan-ribbon">Best value</span>' : ''}
         <div class="plan-name">${esc(p.label ?? titleCase(p.id))}</div>
         <div class="plan-price">${esc(price(p.priceNaira))}<span> / ${num(p.durationDays)}d</span></div>
-        ${inNaira(p.priceNaira)}
         <div class="plan-desc">${esc(price(p.perDayNaira))} per day</div>
         <ul class="plan-features">
           <li>${CHECK} Premium badge on your profile and the boards</li>
@@ -2128,7 +2123,6 @@ async function loadPremium() {
         ${perkIcon('gem')}
         <h4>${num(g.gems)} gems</h4>
         <p>${esc(price(g.priceNaira))} · ${esc(price(g.perGemNaira))} per gem</p>
-        ${inNaira(g.priceNaira)}
         <a class="btn btn-ghost btn-sm btn-block" href="${attr(whatsappCommandUrl(g.command))}" target="_blank" rel="noopener" style="margin-top:11px">
           <svg class="icon" viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1.1-5.3A8.5 8.5 0 1 1 21 11.5z"/><path d="M8.5 8.5c.4 2.4 2.1 4.6 4.7 5.5l1.5-1.1 1.8.8c-.2 1-1 1.6-2 1.5-3.7-.4-6.8-3.5-7.2-7.2-.1-1 .5-1.8 1.5-2l.8 1.8-1.1 1.5z"/></svg>
           Buy gems in WhatsApp
@@ -2148,8 +2142,9 @@ async function loadPremium() {
           <p>Run the command in WhatsApp - the bot replies with the payment details and confirms once an admin approves it.</p>
         </div>
       </div>
-      ${rate ? `<p class="subtext" style="margin-top:14px">Prices are shown in US dollars, converted at ₦${num(rate)} to $1.
-        The charge itself is in naira, so the naira line on each card is what you actually send.</p>` : ''}
+      ${rate ? `<p class="subtext" style="margin-top:14px">Every price on this page is in US dollars.
+        The bot converts to your local payment currency when you run the command, and tells you the
+        exact amount before you send anything.</p>` : ''}
       ${out.botNumber ? `<p class="subtext" style="margin-top:14px">Send proof of payment to the bot on
         +${esc(String(out.botNumber).replace(/\D/g, ''))}.</p>` : ''}
       <p class="subtext">The bot is the only place the account details come from. Never send money to anyone else claiming to be staff.</p>`
@@ -2232,7 +2227,8 @@ async function loadProfile() {
         <div class="stat-pill"><div class="label">Fame</div><div class="value acc">${esc(p.fame.formatted ?? num(p.fame.value))}</div>
           <div class="subtext" style="margin-top:4px">${esc(p.fame.tier?.title ?? '')}</div></div>
         <div class="stat-pill"><div class="label">PvP record</div><div class="value acc">${num(p.record.wins)}W</div>
-          <div class="subtext" style="margin-top:4px">${num(p.record.losses)} losses</div></div>
+          <div class="subtext" style="margin-top:4px">${num(p.record.losses)} losses${
+            p.record.rating ? ` · ${num(p.record.rating)} rating` : ''}</div></div>
       </div>
 
       <div class="card reveal" style="margin-top:16px">
@@ -2917,11 +2913,6 @@ function wireGlobalClicks() {
 }
 
 function wireShell() {
-  // Hardcoding the year in the markup means the footer quietly goes stale on
-  // 1 January and nobody notices until a player points it out.
-  const year = $('#footerYear')
-  if (year) year.textContent = String(new Date().getFullYear())
-
   $('#bellBtn')?.addEventListener('click', (e) => { e.stopPropagation(); togglePanel() })
   $('#panelBackdrop')?.addEventListener('click', closePanel)
   $('#menuToggle')?.addEventListener('click', toggleDrawer)
@@ -2931,6 +2922,7 @@ function wireShell() {
   $('#modalX')?.addEventListener('click', closeModal)
   $('#modalScrim')?.addEventListener('click', closeModal)
   wirePlatformSwitch()
+  wireDownloadLinks()
 
   $('#avatarBtn')?.addEventListener('click', () => {
     goTo(isSignedIn() ? 'profile' : 'login')

@@ -111,21 +111,28 @@ button{font-family:inherit;}
   display:flex;align-items:center;justify-content:center;text-align:center;padding:124px 20px 40px;isolation:isolate;}
 .hero::before{content:"";position:absolute;inset:0;background-image:radial-gradient(circle,rgb(255 255 255 / 4%) 1px,transparent 1px);background-size:26px 26px;z-index:-1;}
 .hero-inner{max-width:640px;}
-.hero-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:999px;background:var(--bg-3);border:1px solid var(--gold);font-size:12px;font-weight:700;color:var(--gold);margin-bottom:18px;}
-.hero-badge .icon{width:13px;height:13px;}
 .hero h1{font-size:clamp(30px,6vw,52px);font-weight:800;line-height:1.05;margin-bottom:14px;}
 .hero h1 .grad{background:var(--grad-1);-webkit-background-clip:text;background-clip:text;color:transparent;}
 .hero p{color:var(--text-muted);font-size:15px;line-height:1.6;max-width:480px;margin:0 auto 26px;}
 .hero-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
 
  /* Platform switch - a small sliding tab group, not a full nav. Sits between
-   the headline and the subtitle so picking Discord/Telegram swaps both the
-   gradient word in the h1 and the subtitle/CTA beneath it. */
+   the headline and the subtitle so picking App swaps both the gradient word
+   in the h1 and the subtitle/CTA beneath it. */
 .platform-switch{display:inline-flex;gap:3px;padding:4px;border-radius:999px;background:var(--bg-3);border:1px solid var(--border);margin:0 auto 16px;position:relative;}
 .platform-tab{padding:7px 15px;border-radius:999px;border:none;background:none;color:var(--text-muted);font-size:12.5px;font-weight:700;cursor:pointer;transition:var(--transition);position:relative;z-index:1;}
 .platform-tab:hover{color:var(--text);}
 .platform-tab.is-active{background:var(--grad-1);color:#0a0805;}
 .platform-tab.is-soon{opacity:.85;}
+
+/* Download-the-app button in the header. The label collapses on narrow
+   screens so it doesn't fight the nav pill for width, leaving the arrow
+   glyph alone as an icon button. */
+.nav-download{flex-shrink:0;}
+@media (max-width:980px){
+  .nav-download span{display:none;}
+  .nav-download{padding:0;width:36px;height:36px;border-radius:999px;}
+}
 
 /* ===== SEASON HERO (full-bleed art) =====
     The art IS the background - no still image behind it, nothing letterboxed
@@ -318,15 +325,40 @@ section.hero.season-hero::before{content:none;}
 @media (max-width:820px){.pricing-grid{grid-template-columns:1fr;}}
 .plan-card{border:1px solid var(--border);border-radius:var(--r-xl);background:var(--bg-2);padding:26px;display:flex;flex-direction:column;position:relative;transition:var(--transition);}
 .plan-card:hover{border-color:var(--gold);transform:translateY(-3px);box-shadow:var(--shadow);}
-.plan-card.featured{border:1px solid var(--gold);box-shadow:0 0 0 1px rgb(212 175 55 / 20%),var(--shadow);}
+/* The middle card. Black rather than --bg-2, so the gold border and the gold
+   price read as lit instead of as a slightly different grey, and it lifts a few
+   px above its neighbours without a hover. Owner ask, 2026-09-23: "golden but
+   black with a best value tag".
+
+   The lift is cancelled on narrow screens where .pricing-grid collapses to one
+   column - a 6px offset in a vertical stack looks like a layout bug, not an
+   emphasis. */
+.plan-card.featured{
+  border:1px solid var(--gold);
+  background:#07070a;
+  box-shadow:0 0 0 1px rgb(212 175 55 / 22%),0 18px 44px rgb(0 0 0 / 55%),0 0 60px rgb(212 175 55 / 8%);
+  transform:translateY(-6px);
+}
+.plan-card.featured:hover{transform:translateY(-9px);}
+.plan-card.featured .plan-name{color:var(--gold);}
+.plan-card.featured .plan-price{
+  background:var(--grad-1);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;color:var(--gold);
+}
+/* The "/ 30d" suffix stays readable text - inheriting the clipped gradient
+   above would paint it transparent too. */
+.plan-card.featured .plan-price span{
+  -webkit-text-fill-color:var(--text-subtle);color:var(--text-subtle);
+}
+@media (max-width:820px){
+  .plan-card.featured,.plan-card.featured:hover{transform:none;}
+}
 .plan-ribbon{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--grad-1);color:#0a0805;font-size:10.5px;font-weight:800;padding:4px 14px;border-radius:999px;box-shadow:0 4px 12px rgb(212 175 55 / 40%);}
 .plan-name{font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;}
 .plan-price{font-size:36px;font-weight:800;margin:10px 0 2px;font-family:'Space Grotesk',sans-serif;}
 .plan-price span{font-size:14px;color:var(--text-subtle);font-weight:600;}
 .plan-desc{font-size:12.5px;color:var(--text-subtle);margin-bottom:18px;}
-/* The naira amount under a converted dollar price. Louder than .plan-desc on
-   purpose: it is the figure a Nigerian buyer actually transfers. */
-.price-naira{font-size:12.5px;font-weight:600;color:var(--text-muted);margin-bottom:4px;}
 .plan-features{list-style:none;padding:0;margin:0 0 22px;display:flex;flex-direction:column;gap:11px;}
 .plan-features li{display:flex;align-items:flex-start;gap:9px;font-size:13px;color:var(--text-muted);}
 .plan-features li .check{color:var(--success);flex-shrink:0;margin-top:1px;}
@@ -669,10 +701,6 @@ button.perk-card{width:100%;text-align:left;font:inherit;color:inherit;-webkit-a
 .pd-id .subtext{overflow-wrap:anywhere;}
 .pd-body{padding:18px 22px 24px;}
 .pd-sec-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text-subtle);margin:20px 0 10px;}
-/* Was the "[object Object]" fix's only new visual hook: an ability's name,
-   shown above its description when the API sends both instead of just one
-   or the other winning. */
-.pd-ability-name{margin:0 0 4px;font-weight:700;color:var(--gold);}
 .pd-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
 @media (max-width:520px){.pd-stats{grid-template-columns:repeat(2,1fr);}}
 .pd-stat{border:1px solid var(--border);border-radius:var(--r);background:var(--bg-3);padding:10px 8px;text-align:center;}
@@ -788,28 +816,19 @@ code{font-family:monospace;font-size:.92em;color:var(--gold);}
    on load rather than on scroll. Children rise in sequence; the heading
    gets a touch longer to land so it reads as the anchor of the group. */
 .hero-inner > *{animation:riseIn .8s var(--ease-out) both;}
-.hero-inner > .hero-badge{animation-delay:.05s;}
 .hero-inner > h1{animation-delay:.13s;animation-duration:.9s;}
 .hero-inner > p{animation-delay:.22s;}
 .hero-inner > .hero-actions{animation-delay:.3s;}
 .hero-inner > .chip-row{animation-delay:.38s;}
 @keyframes riseIn{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:none;}}
 
-/* A slow gold bloom behind the hero copy. 22s and opacity-only, so it reads
-   as the page breathing rather than as an animation playing. Scoped away
-   from .season-hero, which has video behind it already. */
-.hero:not(.season-hero)::after{
-  content:"";position:absolute;z-index:-1;
-  left:50%;top:42%;width:min(680px,110%);aspect-ratio:1;
-  transform:translate(-50%,-50%);
-  background:radial-gradient(circle,rgb(212 175 55 / 15%) 0%,transparent 62%);
-  animation:bloom 22s ease-in-out infinite;
-  pointer-events:none;
-}
-@keyframes bloom{
-  0%,100%{opacity:.5;transform:translate(-50%,-50%) scale(.92);}
-  50%    {opacity:1; transform:translate(-50%,-50%) scale(1.08);}
-}
+/* No bloom, no glow, no frosted panel behind the hero copy. There used to be
+   a 22s animated radial gold gradient here, and it read as a big soft blurred
+   box sitting behind the headline rather than as lighting - removed on owner
+   request (2026-09-23). The hero is now just the photograph, the flat scrim
+   that keeps the text readable, and the type. If the copy ever needs more
+   separation, darken the scrim ramp in #view-home .hero::before; do not put a
+   panel, a border or a backdrop-filter back behind .hero-inner. */
 
 /* The gradient word in the hero heading gets a slow shine travelling
    through it - the one piece of pure decoration on the page. */
@@ -933,7 +952,6 @@ textarea:focus-visible,[tabindex]:focus-visible{
       Hover feedback stays - it's a response to the user's own input, not
       unrequested motion - but it stops moving things around. */
   .hero-inner > *,
-  .hero:not(.season-hero)::after,
   .hero h1 .grad,
   .xp-fill::after,
   .view,
@@ -1044,30 +1062,18 @@ body{
 }
 #view-home .hero::before{
   z-index:0;
-  background:
-    linear-gradient(90deg,rgb(0 0 0 / 76%) 0%,rgb(0 0 0 / 38%) 58%,rgb(0 0 0 / 70%) 100%),
-    linear-gradient(180deg,rgb(0 0 0 / 40%) 0%,transparent 42%,rgb(0 0 0 / 88%) 100%);
+  background:linear-gradient(180deg,rgb(0 0 0 / 46%) 0%,rgb(0 0 0 / 28%) 40%,rgb(0 0 0 / 90%) 100%);
 }
+ /* Unpadded and unboxed. This element used to carry 34px of inset padding,
+   which - over the hero photograph and next to the side vignette that used to
+   live on ::before - read as a translucent card floating in the middle of the
+   hero. It is now a plain centred text column. */
 #view-home .hero-inner{
   position:relative;
   z-index:1;
   width:min(100%,740px);
   max-width:740px;
-  padding:34px 28px 26px;
-  border:1px solid rgb(245 243 238 / 15%);
-  border-radius:28px;
-  background:linear-gradient(145deg,rgb(8 8 8 / 78%),rgb(8 8 8 / 38%));
-  box-shadow:0 24px 80px rgb(0 0 0 / 42%),inset 0 1px 0 rgb(255 255 255 / 8%);
-  backdrop-filter:blur(8px);
-  -webkit-backdrop-filter:blur(8px);
-}
-#view-home .hero-inner::before{
-  content:"";
-  position:absolute;
-  inset:12px;
-  border:1px solid rgb(212 175 55 / 12%);
-  border-radius:20px;
-  pointer-events:none;
+  padding:0;
 }
 .hero-kicker{
   position:relative;
@@ -1078,12 +1084,6 @@ body{
   font-weight:800;
   letter-spacing:.14em;
   text-transform:uppercase;
-}
-#view-home .hero-badge{
-  position:relative;
-  z-index:1;
-  margin-bottom:16px;
-  background:rgb(212 175 55 / 12%);
 }
 #view-home .hero h1,
 #view-home .hero p,
@@ -1210,17 +1210,12 @@ body{
     background-position:62% center;
   }
   #view-home .hero::before{
-    background:
-      linear-gradient(180deg,rgb(0 0 0 / 64%) 0%,rgb(0 0 0 / 34%) 34%,rgb(0 0 0 / 91%) 100%),
-      linear-gradient(90deg,rgb(0 0 0 / 34%),transparent 65%);
+    background:linear-gradient(180deg,rgb(0 0 0 / 60%) 0%,rgb(0 0 0 / 30%) 34%,rgb(0 0 0 / 92%) 100%);
   }
   #view-home .hero-inner{
-    padding:28px 16px 22px;
-    border-radius:24px;
+    padding:0;
   }
-  #view-home .hero-inner::before{inset:9px;border-radius:17px;}
   .hero-kicker{font-size:9.5px;letter-spacing:.12em;margin-bottom:12px;}
-  #view-home .hero-badge{font-size:11px;padding:6px 11px;margin-bottom:14px;}
   #view-home .hero h1{
     font-size:clamp(34px,10.5vw,46px);
     line-height:1.02;
@@ -1320,19 +1315,6 @@ body{
 }
 .home-pokemon-section .section-head{
   align-items:center;
-}
-.api-live-badge{
-  display:inline-flex;
-  align-items:center;
-  gap:7px;
-  padding:7px 11px;
-  border:1px solid rgb(212 175 55 / 28%);
-  border-radius:999px;
-  background:rgb(212 175 55 / 8%);
-  color:var(--gold);
-  font-size:11px;
-  font-weight:800;
-  white-space:nowrap;
 }
 .pokemon-grid{
   display:grid;
@@ -1449,12 +1431,6 @@ body{
 }
 
 @media (max-width:760px){
-  #view-home .home-pokemon-section .section-head{
-    align-items:flex-start;
-  }
-  #view-home .home-pokemon-section .api-live-badge{
-    margin-top:2px;
-  }
   #view-home .pokemon-grid{
     grid-template-columns:repeat(2,minmax(0,1fr));
     gap:10px;
@@ -1466,10 +1442,3 @@ body{
   #view-home .pokemon-number{top:8px;left:9px;font-size:9px;}
 }
 
-
-/* ── hidden ─────────────────────────────────────────────────────────────── */
-
-/* `.hero-badge` sets display:inline-flex, and an author `display` beats the
-   UA's `[hidden]{display:none}` - so the season badge stayed visible when JS
-   set `hidden`. One guard covers every element the controllers toggle. */
-[hidden]{display:none !important;}

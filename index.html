@@ -65,6 +65,12 @@
     </nav>
 
     <div class="nav-right">
+      <!-- href is filled from APP_DOWNLOAD_URL in app.js so the release link
+           lives in exactly one place. -->
+      <a class="btn btn-gold btn-sm nav-download" id="navDownload" href="#/" target="_blank" rel="noopener" title="Download the Android app">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></svg>
+        <span>Get app</span>
+      </a>
       <button class="icon-btn bell-wrap" id="bellBtn" title="Notifications" aria-label="Notifications" aria-expanded="false">
         <svg class="icon" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         <span class="bell-dot" id="bellDot"></span>
@@ -91,6 +97,7 @@
   <a class="drawer-link" href="#/profile" data-route="profile">Profile</a>
   <a class="drawer-link" href="#/settings" data-route="settings">Settings</a>
   <a class="drawer-link" id="drawerAuth" href="#/login" data-route="login">Sign in</a>
+  <a class="drawer-link" id="drawerDownload" href="#/" target="_blank" rel="noopener">Download the app</a>
 </div>
 
 <!-- ===== NOTIFICATION BOX ===== -->
@@ -111,12 +118,13 @@
   <section class="hero">
     <div class="hero-inner">
       <div class="hero-kicker">A living dungeon crawler for your group chat</div>
-      <div class="hero-badge"><svg class="icon" viewBox="0 0 24 24"><path d="m12 3 2.1 5.9L20 10l-4.5 4.2L16.8 20 12 16.7 7.2 20l1.3-5.8L4 10l5.9-1.1L12 3z"/></svg> Season is live</div>
       <h1>Build your legend on <span class="grad" id="heroPlatformName">WhatsApp</span></h1>
-      <div class="platform-switch" id="platformSwitch" role="tablist" aria-label="Choose a platform">
+      <!-- Two surfaces, both real: the chat bot and the Android app. The old
+           Discord/Telegram tabs were removed with those adapters in v3.3.2, so
+           advertising them here promised a bot that no longer exists. -->
+      <div class="platform-switch" id="platformSwitch" role="tablist" aria-label="Choose where to play">
         <button class="platform-tab is-active" type="button" data-platform="whatsapp" role="tab" aria-selected="true">WhatsApp</button>
-        <button class="platform-tab" type="button" data-platform="discord" role="tab" aria-selected="false">Discord</button>
-        <button class="platform-tab" type="button" data-platform="telegram" role="tab" aria-selected="false">Telegram</button>
+        <button class="platform-tab" type="button" data-platform="app" role="tab" aria-selected="false">App</button>
       </div>
       <p id="heroSub">Message the bot on WhatsApp, make a character, and start clearing floors.</p>
       <div class="hero-actions" id="heroActions">
@@ -129,7 +137,7 @@
       </div>
       <div class="hero-trust" aria-label="Why players can start quickly">
         <span><i class="trust-dot"></i>Free to start</span>
-        <span><i class="trust-dot"></i>No download</span>
+        <span><i class="trust-dot"></i>Chat or app, one account</span>
         <span><i class="trust-dot"></i>New season live</span>
       </div>
       <div class="chip-row" id="heroChips" style="justify-content:center;margin-top:22px;"></div>
@@ -181,9 +189,8 @@
         <div>
           <div class="section-kicker">Sun &amp; Moon bots</div>
           <h2>Meet the Alola roster</h2>
-          <p>Live Pokémon data for the world our bots are building.</p>
+          <p>Pokémon companions for the world our bots are building.</p>
         </div>
-        <span class="api-live-badge"><i class="trust-dot"></i>Live API</span>
       </div>
       <div class="pokemon-grid" id="homePokemon">
         <div class="pokemon-loading" aria-live="polite">Loading the Alola roster...</div>
@@ -274,7 +281,7 @@
          alt="" aria-hidden="true" decoding="async" fetchpriority="high">
     <div class="season-hero-veil"></div>
     <div class="hero-inner">
-      <div class="hero-badge" id="seasonBadge">
+      <div class="hero-badge">
         <svg class="icon" viewBox="0 0 24 24"><path d="M12 2l2.4 6.9L21 9l-5 4.6L17.4 21 12 17.3 6.6 21 8 13.6 3 9l6.6-.1L12 2z"/></svg>
         <span id="seasonClock">Live now</span>
       </div>
@@ -284,7 +291,7 @@
   </section>
 
   <div class="page">
-    <section class="section" id="seasonMineSection">
+    <section class="section">
       <div class="section-head">
         <div>
           <h2>Battle pass progress</h2>
@@ -294,7 +301,7 @@
       <div class="card" id="seasonMine"></div>
     </section>
 
-    <section class="section" id="seasonLoreSection">
+    <section class="section">
       <div class="section-head">
         <div>
           <h2>The story so far</h2>
@@ -595,57 +602,6 @@
     </div>
   </div>
 </main>
-
-
-<!-- ===================================================== -->
-<!-- FOOTER -->
-<!-- ===================================================== -->
-<footer class="site-footer">
-  <div class="site-footer-inner">
-    <div class="site-footer-top">
-      <div class="site-footer-brand">
-        <a class="brand" href="#/" data-route="home" aria-label="Astral home">
-          <div class="brand-mark"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></div>
-          <span>Astral</span>
-        </a>
-        <p class="site-footer-tag">A dungeon crawler that lives in your group chat. Clear floors, collect companions, climb the boards.</p>
-        <a class="btn btn-primary btn-sm" id="footerCta" href="#/signup" data-route="signup">Start playing</a>
-      </div>
-
-      <nav class="site-footer-col" aria-label="Play">
-        <span class="site-footer-heading">Play</span>
-        <a href="#/season" data-route="season">Season</a>
-        <a href="#/leaderboard" data-route="leaderboard">Leaderboard</a>
-        <a href="#/cards" data-route="cards">Card vault</a>
-        <a href="#/shop" data-route="shop">Shop</a>
-      </nav>
-
-      <nav class="site-footer-col" aria-label="Account">
-        <span class="site-footer-heading">Account</span>
-        <a href="#/profile" data-route="profile">Profile</a>
-        <a href="#/settings" data-route="settings">Settings</a>
-        <a href="#/premium" data-route="premium">Premium</a>
-        <a id="footerAuth" href="#/login" data-route="login">Sign in</a>
-      </nav>
-
-      <nav class="site-footer-col" aria-label="Help">
-        <span class="site-footer-heading">Help</span>
-        <a id="footerSupport" href="#/" hidden>Support group</a>
-        <a href="#/signup" data-route="signup">Create a character</a>
-        <a href="#/" data-route="home">Questions</a>
-      </nav>
-    </div>
-
-    <div class="site-footer-bottom">
-      <span id="footerNote">Play it on WhatsApp.</span>
-      <span>&copy; <span id="footerYear">2026</span> Astral</span>
-    </div>
-    <p class="site-footer-credit">
-      Pokémon data and artwork come from <a href="https://pokeapi.co" target="_blank" rel="noopener">PokéAPI</a>
-      and belong to Nintendo, Game Freak and The Pokémon Company. Astral is not affiliated with them.
-    </p>
-  </div>
-</footer>
 
 <!-- ===== PLAYER / CHARACTER DETAIL ===== -->
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-label="Details">

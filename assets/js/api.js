@@ -1,39 +1,23 @@
 /**
  * api.js - the only place in the frontend that talks to the bot's API.
  *
- * ── Deployment shape (Vercel -> Railway, no Cloudflare) ──────────────────
+ * Deployment shape: this bundle is static and lives on Vercel, while the API
+ * runs inside the bot process on the VPS behind Cloudflare, so every call is
+ * cross-origin.
  *
- * This bundle is static and lives on Vercel. The API runs inside the bot
- * process on Railway. They are connected by ONE line in vercel.json:
+ * Auth is bearer-token-first by design: the API sets a session cookie too, but
+ * it's SameSite=None on a third-party origin, which browsers increasingly drop
+ * (see the note at lib/api-server.js issueSession). So we keep the token from
+ * verify-otp in localStorage and send it as `Authorization: Bearer` - the
+ * cookie is the fallback, not the other way round.
  *
- *   { "source": "/api/:path*", "destination": "https://<bot>.up.railway.app/api/:path*" }
- *
- * So the browser only ever calls its OWN origin - /api/me, /api/stats - and
- * Vercel forwards it to Railway. That matters for three reasons:
- *
- *   1. No CORS. Same-origin requests never preflight, so no allow-list can
- *      break the site when a domain changes.
- *   2. The session cookie becomes first-party (SameSite=Lax), instead of a
- *      third-party SameSite=None cookie that Chrome is busy killing.
- *   3. Nothing in the shipped JS names the backend, so moving the bot is a
- *      vercel.json edit, not a rebuild.
- *
- * DEFAULT_BASE is therefore empty. It is NOT a missing value - leave it that
- * way unless you deliberately want the browser to hit Railway directly, in
- * which case put the Railway origin in it (and add the site's origin to
- * ALLOWED_ORIGINS on the bot, or every call will be blocked).
- *
- * Auth stays bearer-token-first regardless: the token from verify-otp is kept
- * in localStorage and sent as `Authorization: Bearer`. The cookie is the
- * fallback, not the other way round.
- *
- * Override the target at runtime with `window.ASTRAL_API_BASE` before this
- * script loads, or `?api=https://host` once (it's remembered) - handy for
- * pointing a preview deploy at a local bot.
+ * Override the target without editing this file by setting
+ * `window.ASTRAL_API_BASE` before this script loads, or by adding
+ * `?api=https://host` to the URL once (it's remembered) - handy for pointing a
+ * preview deploy at a local bot.
  */
 
-// '' = same origin, proxied by the vercel.json rewrite above. See the note.
-const DEFAULT_BASE = ''
+const DEFAULT_BASE = 'https://animeastral.qzz.io'
 const TOKEN_KEY = 'astral:token'
 
 function resolveBase() {
@@ -47,8 +31,7 @@ function resolveBase() {
     const saved = localStorage.getItem('astral:api')
     if (saved) return saved.replace(/\/+$/, '')
   } catch {}
-  // Local dev is same-origin too: scripts/dev-server.mjs proxies /api to
-  // whatever BOT_API points at, exactly like the Vercel rewrite does.
+  // Bot and site on the same host (local dev) - same-origin, no base needed.
   if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') return ''
   return DEFAULT_BASE
 }
@@ -103,23 +86,16 @@ export async function uploadToImgbb(dataUrl, name) {
 /* ─────────────────────── Pokémon home-page showcase ────────────────────── */
 
 const POKEMON_API_BASE = 'https://pokeapi.co/api/v2'
-const POKEMON_CACHE_KEY = 'astral:sun-moon-pokemon'
-const SUN_MOON_POKEMON_IDS = [722, 725, 728, 778, 785, 789, 800]
-
-/**
- * PokéAPI slugs are hyphenated, and blanket-replacing the hyphen with a space
- * is right for `tapu-koko` but wrong for `kommo-o`, which really is hyphenated.
- * Only the exceptions need listing. Kept even with the original 7-item roster
- * since Tapu Koko is in it and would otherwise render "Tapu Koko" -> fine,
- * but this guards any future id in the list too.
- */
-const POKEMON_NAME_OVERRIDES = { 'kommo-o': 'Kommo-o', 'type-null': 'Type: Null' }
-
-function pokemonName(slug) {
-  const key = String(slug ?? '').toLowerCase()
-  if (POKEMON_NAME_OVERRIDES[key]) return POKEMON_NAME_OVERRIDES[key]
-  return key.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-}
+// Bumped from 'astral:sun-moon-pokemon' when Solgaleo was added. The entry
+// below caches for a full day, so reusing the old key would have kept every
+// returning visitor on the seven-strong roster until their cache aged out -
+// which looks exactly like the new Pokemon never shipped. Bump this suffix
+// again on any future change to the id list.
+const POKEMON_CACHE_KEY = 'astral:sun-moon-pokemon:v2'
+// Rowlet, Litten, Popplio (the Alola starters), Mimikyu, Tapu Koko, Cosmog,
+// Solgaleo and Necrozma. Solgaleo is Cosmog's final form and the Sun mascot,
+// so it belongs beside the Cosmog already here.
+const SUN_MOON_POKEMON_IDS = [722, 725, 728, 778, 785, 789, 791, 800]
 
 /**
  * Loads a small Alola roster for the home page. These are the Gen VII
@@ -138,12 +114,9 @@ export async function fetchSunMoonPokemon() {
   } catch {}
 
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 12_000)
+  const timer = setTimeout(() => controller.abort(), 8_000)
   try {
-    // allSettled, not all: one 404 or one slow row used to reject the whole
-    // batch and leave the section on its "taking a short break" message. A
-    // partial roster is better than none, so failures are dropped individually.
-    const settled = await Promise.allSettled(SUN_MOON_POKEMON_IDS.map(async id => {
+    const responses = await Promise.all(SUN_MOON_POKEMON_IDS.map(async id => {
       const res = await fetch(`${POKEMON_API_BASE}/pokemon/${id}`, {
         headers: { Accept: 'application/json' },
         signal: controller.signal,
@@ -152,19 +125,14 @@ export async function fetchSunMoonPokemon() {
       return res.json()
     }))
 
-    const items = settled
-      .filter(r => r.status === 'fulfilled' && r.value?.id)
-      .map(({ value: pokemon }) => ({
-        id: pokemon.id,
-        name: pokemonName(pokemon.name),
-        types: (pokemon.types ?? []).map(entry => entry?.type?.name).filter(Boolean),
-        image: pokemon.sprites?.other?.['official-artwork']?.front_default
-          || pokemon.sprites?.other?.home?.front_default
-          || pokemon.sprites?.front_default
-          || '',
-      }))
-
-    if (!items.length) throw new Error('No Pokémon could be loaded.')
+    const items = responses.map(pokemon => ({
+      id: pokemon.id,
+      name: pokemon.name,
+      types: pokemon.types.map(entry => entry.type.name),
+      image: pokemon.sprites?.other?.['official-artwork']?.front_default
+        || pokemon.sprites?.front_default
+        || '',
+    }))
 
     try {
       localStorage.setItem(POKEMON_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), items }))
