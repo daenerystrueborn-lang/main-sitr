@@ -17,7 +17,7 @@
  * preview deploy at a local bot.
  */
 
-const DEFAULT_BASE = 'https://animeastral.qzz.io'
+const DEFAULT_BASE = 'https://astral-bot-production-afb0.up.railway.app'
 const TOKEN_KEY = 'astral:token'
 
 function resolveBase() {
