@@ -57,6 +57,7 @@
 
     <nav class="nav-bar" aria-label="Primary">
       <a class="nav-slot" href="#/" data-route="home">Home</a>
+      <a class="nav-slot" href="#/characters" data-route="characters">Characters</a>
       <a class="nav-slot" href="#/leaderboard" data-route="leaderboard">Leaderboard</a>
       <a class="nav-slot" href="#/season" data-route="season">Season</a>
       <a class="nav-slot" href="#/shop" data-route="shop">Shop</a>
@@ -89,6 +90,7 @@
 <div class="drawer-backdrop" id="scrim"></div>
 <div class="drawer" id="drawer">
   <a class="drawer-link" href="#/" data-route="home">Home</a>
+  <a class="drawer-link" href="#/characters" data-route="characters">Characters</a>
   <a class="drawer-link" href="#/leaderboard" data-route="leaderboard">Leaderboard</a>
   <a class="drawer-link" href="#/season" data-route="season">Season</a>
   <a class="drawer-link" href="#/shop" data-route="shop">Shop</a>
@@ -242,6 +244,24 @@
 </main>
 
 <!-- ===================================================== -->
+<!-- CHARACTERS -->
+<!-- ===================================================== -->
+<main class="view" id="view-characters">
+  <div class="page" style="padding-top:56px;">
+    <section class="section" style="padding-top:0;">
+      <div class="section-head">
+        <div>
+          <h2 class="gold-fx">Characters</h2>
+          <p>Every hero in the roster, ranked by stars. Tap one for their full kit.</p>
+        </div>
+      </div>
+      <div class="tab-row" id="charFilters" role="tablist"></div>
+      <div class="grid-4" id="charGrid"></div>
+    </section>
+  </div>
+</main>
+
+<!-- ===================================================== -->
 <!-- LEADERBOARD -->
 <!-- ===================================================== -->
 <main class="view" id="view-leaderboard">
@@ -285,7 +305,7 @@
         <svg class="icon" viewBox="0 0 24 24"><path d="M12 2l2.4 6.9L21 9l-5 4.6L17.4 21 12 17.3 6.6 21 8 13.6 3 9l6.6-.1L12 2z"/></svg>
         <span id="seasonClock">Live now</span>
       </div>
-      <h1 id="seasonName">Season</h1>
+      <h1 id="seasonName" class="gold-fx">Season</h1>
       <p id="seasonDesc">A new battle pass, new rewards, and tiers of gear to climb through.</p>
     </div>
   </section>
@@ -331,19 +351,6 @@
       <div class="grid-4" id="seasonRoster"></div>
     </section>
 
-    <!-- Spin banner. Rendered independently of season state: the banner is not
-         season-bound, so it has to survive loadSeason()'s between-seasons
-         early return. The whole section hides itself when the bot has no
-         spinnable banner registered. -->
-    <section class="section" id="spinBannerSection" style="display:none;">
-      <div class="section-head">
-        <div>
-          <h2>Spin banner</h2>
-          <p>Pull for a character you cannot buy at any price</p>
-        </div>
-      </div>
-      <div id="spinBanner"></div>
-    </section>
   </div>
 </main>
 

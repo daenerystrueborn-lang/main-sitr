@@ -59,6 +59,7 @@ const isSignedIn = () => !!state.me
 
 const routes = {
   home: { view: 'view-home', title: 'Home', load: loadHome },
+  characters: { view: 'view-characters', title: 'Characters', load: loadCharacters },
   leaderboard: { view: 'view-leaderboard', title: 'Leaderboard', load: loadLeaderboard },
   season: { view: 'view-season', title: 'Season', load: loadSeason },
   // Neither gates on auth - both are browsable signed out, and only the buy
@@ -1191,7 +1192,7 @@ function playerDetailHtml({ player: p, rankings, isSelf }) {
           <div style="min-width:0">
             <strong>${esc(p.equippedCharacter.name)}</strong>
             <p class="subtext">${esc(p.equippedCharacter.rarity ? titleCase(p.equippedCharacter.rarity) : '')}${
-              p.equippedCharacter.ability ? ' · ' + esc(p.equippedCharacter.ability) : ''}</p>
+              p.equippedCharacter.ability ? ' · ' + esc(abilityName(p.equippedCharacter.ability)) : ''}</p>
           </div>
         </div>` : ''}
 
@@ -1259,7 +1260,7 @@ async function openCharacter(id) {
       </div>
       <div class="pd-body">
         ${c.description ? `<p class="subtext">${esc(c.description)}</p>` : ''}
-        ${c.ability ? `<div class="pd-sec-title">Ability</div><p class="subtext">${esc(c.ability)}</p>` : ''}
+        ${c.ability ? `<div class="pd-sec-title">Ability</div><p class="subtext">${esc(abilityText(c.ability))}</p>` : ''}
         ${bonuses ? `<div class="pd-sec-title">Stat bonuses</div><div class="pd-stats">${bonuses}</div>` : ''}
         <div class="pd-sec-title">Wielded by ${num(wielderCount ?? 0)} player${wielderCount === 1 ? '' : 's'}</div>
         ${wielders?.length ? `<div class="lb-list">${wielders.map((w, i) => `
@@ -1292,7 +1293,7 @@ function openItem(item) {
   openModal(`
     <div class="pd-head">
       <div class="pd-avatar">${item.image
-        ? `<img src="${attr(item.image)}" alt="" style="width:100%;height:100%;object-fit:contain">`
+        ? `<img src="${attr(resolveArt(item.image))}" alt="" style="width:100%;height:100%;object-fit:contain">`
         : iconSvg('inventory', 'inventory-icon')}</div>
       <div class="pd-id">
         <h3>${esc(item.name)}${item.qty > 1 ? ` <span class="badge badge-lvl">×${num(item.qty)}</span>` : ''}</h3>
@@ -1314,12 +1315,6 @@ async function loadSeason() {
   const tiersHost = $('#seasonTiers')
   if (tiersHost) tiersHost.innerHTML = skeletonRows(6)
 
-  // Before the !active return below, and deliberately not awaited alongside the
-  // season fetch: a spin banner is not season content. Gogeta's runs between
-  // seasons, so gating it on an active season would hide a banner that is still
-  // live. It renders (or hides itself) on its own.
-  const banner = renderSpinBanner()
-
   const out = await api.season()
 
   if (!out.active) {
@@ -1328,7 +1323,6 @@ async function loadSeason() {
     $('#seasonClock').textContent = ''
     $('#seasonMine').innerHTML = ''
     if (tiersHost) tiersHost.innerHTML = `<div style="flex:1">${emptyState('season', 'Between seasons', 'Rewards and the battle pass return when the next season opens.')}</div>`
-    await banner
     return
   }
 
@@ -1388,7 +1382,6 @@ async function loadSeason() {
 
   renderSeasonRoster(s, out)
   renderSeasonLore(s, out)
-  await banner
 }
 
 /**
@@ -1432,203 +1425,79 @@ function renderSeasonRoster(s, out) {
       <p>${c.purchasable
         ? `${num(c.price)} ${esc(currency(c.currency))}`
         : esc(characterPrice(c))}</p>
-      ${c.ability ? `<p class="subtext" style="margin-top:6px">${esc(c.ability)}</p>` : ''}
+      ${c.ability ? `<p class="subtext" style="margin-top:6px">${esc(abilityName(c.ability))}</p>` : ''}
     </button>`
   }).join('')
 }
 
-/* ───────────────────────────── spin banners ───────────────────────────── */
+/* ───────────────────────────── characters page ───────────────────────────── */
 
-/** Gem amounts are fractional (1.5 a spin), so round before formatting. */
-const gemAmount = (n) => num(Math.round((Number(n) || 0) * 100) / 100)
+let charFilter = 0      // 0 = every star level
+let charList = []
 
-/**
- * The character spin banners, drawn under the season page.
- *
- * Deliberately its own fetch rather than a slice of the season payload: a
- * banner is not season-bound (Gogeta's runs between seasons too) and
- * loadSeason() returns early when no season is active, so folding this into
- * that payload would make the banner vanish exactly when it should still be
- * spinnable. Called before that early return for the same reason.
- *
- * Fails quietly. A banner list that won't load must not take the rest of the
- * season page down with it.
- *
- * Which characters are spinnable comes entirely from the API's /spins list, so
- * a new banner added to the bot's lib/spin-banners.js shows up here with no
- * change to this file.
- */
-async function renderSpinBanner() {
-  const section = $('#spinBannerSection')
-  const host = $('#spinBanner')
-  if (!section || !host) return
+/** Gold star row. Each star level gets its own variant of the site's gold effect (see .gs-N in style.css). */
+function starsMarkup(n) {
+  const k = Math.max(1, Math.min(6, Number(n) || 1))
+  return `<span class="gold-stars gs-${k}" role="img" aria-label="${k} star${k === 1 ? '' : 's'}">${'★'.repeat(k)}</span>`
+}
 
-  let banners = []
-  try {
-    banners = (await api.spins())?.banners ?? []
-  } catch {
-    section.style.display = 'none'
+function charClaim(c) {
+  if (c.owned) return { label: 'Claimed · yours', cls: 'badge-gold' }
+  if (c.claim?.claimed) {
+    return { label: c.claim.claimedBy ? `Claimed by ${c.claim.claimedBy}` : 'Claimed', cls: 'badge-lvl' }
+  }
+  return { label: 'Unclaimed', cls: 'badge-lvl' }
+}
+
+function paintCharFilters() {
+  const host = $('#charFilters')
+  if (!host) return
+  const levels = [...new Set(charList.map(c => Number(c.stars) || 1))].sort((a, b) => b - a)
+  host.innerHTML = [0, ...levels].map(n => `
+    <button class="tab-btn${n === charFilter ? ' active' : ''}" data-charstars="${n}" role="tab">
+      ${n === 0 ? 'All' : `${n} ★`}
+    </button>`).join('')
+}
+
+function paintCharacters() {
+  const host = $('#charGrid')
+  if (!host) return
+  const rows = charList.filter(c => !charFilter || (Number(c.stars) || 1) === charFilter)
+  if (!rows.length) {
+    host.innerHTML = emptyState('character', 'No characters', 'Nothing matched this filter.')
     return
   }
-
-  section.style.display = banners.length ? '' : 'none'
-  if (banners.length) host.innerHTML = banners.map(spinBannerCard).join('')
+  host.innerHTML = rows.map(c => {
+    const k = Math.max(1, Math.min(6, Number(c.stars) || 1))
+    const badge = c.tag ?? c.rarity
+    const claim = charClaim(c)
+    return `
+    <button type="button" class="perk-card char-card reveal" data-char="${attr(c.id)}"
+            aria-label="${attr(`${c.name} details`)}">
+      ${mediaFrame(c.image, { ratio: '4/5', fallback: perkIcon('gift') })}
+      <div class="char-stars">${starsMarkup(k)}</div>
+      <h4>${esc(c.name)}</h4>
+      ${badge ? `<span class="rarity-pill r-${attr(String(badge).toLowerCase())}">${esc(titleCase(badge))}</span>` : ''}
+      ${c.description ? `<p class="char-lore">${esc(c.description)}</p>` : ''}
+      <div class="char-status"><span class="badge ${claim.cls}">${esc(claim.label)}</span></div>
+    </button>`
+  }).join('')
 }
 
-/**
- * One banner.
- *
- * The action block's branches run in the same order the API applies its own
- * gates, so what the button offers and what a pull would actually do can never
- * disagree. Note what is NOT here: the odds. The bot never reveals its dead
- * zone or plateau on any surface, and all the API sends is the cost, the
- * lifetime cap and how far through it you are.
- */
-function spinBannerCard(b) {
-  const c = b.character ?? {}
-  const prefix = state.meta?.prefix ?? '.'
-  const stars = c.stars ? '★'.repeat(c.stars) + '☆'.repeat(Math.max(0, 5 - c.stars)) : ''
-
-  let action
-  if (b.claimedByYou || b.owned) {
-    action = `<p class="spin-note"><span class="badge badge-gold">Yours</span>
-      Equip ${esc(c.name)} in chat with <code>${esc(prefix)}character equip ${esc(c.id)}</code>.</p>`
-  } else if (b.claimed) {
-    action = `<p class="spin-note"><span class="badge badge-lvl">Claimed</span>
-      ${b.claimedBy ? `${esc(b.claimedBy)} got there first.` : 'Another player got there first.'}
-      ${b.exclusive ? 'One player, bot-wide. This banner is closed for good.' : ''}</p>`
-  } else if (b.locked) {
-    action = `<p class="spin-note"><span class="badge badge-lvl">Closed</span>
-      This banner is frozen right now. Check back soon.</p>`
-  } else if (!isSignedIn()) {
-    action = `<a class="btn btn-primary btn-sm" href="#/login" data-route="login">Sign in to spin</a>`
-  } else if (b.spinsLeft <= 0) {
-    action = `<p class="spin-note"><span class="badge badge-lvl">Spent</span>
-      You have used all ${num(b.maxSpins)} of your spins.</p>`
-  } else {
-    // The batch button is capped by whichever runs out first: ten, the spins
-    // this player has left, or the banner's own per-pull limit.
-    const batch = Math.min(10, b.spinsLeft, b.maxPerPull)
-    action = `
-      <div class="spin-actions">
-        <button class="btn btn-primary btn-sm" data-spin="${attr(c.id)}" data-count="1">
-          Spin ×1 · ${gemAmount(b.cost)} gems</button>
-        ${batch > 1 ? `<button class="btn btn-secondary btn-sm" data-spin="${attr(c.id)}" data-count="${batch}">
-          Spin ×${batch} · ${gemAmount(b.cost * batch)} gems</button>` : ''}
-      </div>`
-  }
-
-  return `
-    <div class="card spin-banner reveal">
-      <div class="spin-art">
-        ${c.image
-          ? `<img src="${attr(c.image)}" alt="" loading="lazy" onerror="this.remove()">`
-          : perkIcon('gift')}
-      </div>
-      <div class="spin-info">
-        <div class="spin-head">
-          <h3>${esc(c.name ?? 'Unknown')}</h3>
-          ${b.exclusive ? '<span class="rarity-pill r-ts">One of one</span>' : ''}
-        </div>
-        ${stars ? `<div class="spin-stars">${stars}</div>` : ''}
-        ${c.ability?.name
-          ? `<p class="subtext">${esc(c.ability.name)}${c.ability.flavor ? `: ${esc(c.ability.flavor)}` : ''}</p>`
-          : ''}
-        ${c.description ? `<p class="spin-desc">${esc(c.description)}</p>` : ''}
-        ${bar('Spins used', b.spinsUsed, b.maxSpins)}
-        ${b.gems != null
-          ? `<div class="shop-wallet"><span><strong>${gemAmount(b.gems)}</strong> gems</span></div>`
-          : ''}
-        ${action}
-      </div>
-    </div>`
-}
-
-/**
- * Pull a banner, then show what happened.
- *
- * Same shape as buyCardPull() and for the same reason: the confirm closes the
- * modal, so without the "spinning" frame the whole round trip would happen
- * with nothing on screen and the result would arrive out of nowhere.
- *
- * Every no-cost refusal (claimed, frozen, out of gems, no spins left) is the
- * API's call, not this function's - it just reports what came back, so the
- * client can never wrongly tell someone they can't spin.
- */
-async function spinBannerPull(id, count, btn = null) {
-  if (!isSignedIn()) return goTo('login')
-
-  const ok = await confirmAction({
-    title: count > 1 ? `Spin ${count} times?` : 'Spin once?',
-    body: 'Gems are spent per spin, win or lose. A spin that lands stops the rest of the batch.',
-    confirmLabel: count > 1 ? `Spin ×${count}` : 'Spin',
-    danger: false,
-  })
-  if (!ok) return
-
-  const done = busy(btn)
-  openModal(`
-    <div class="pull-wait">
-      <div class="pull-wait-orb"></div>
-      <h3>Spinning…</h3>
-      <p class="subtext">Rolling the banner.</p>
-    </div>`)
-
+async function loadCharacters() {
+  const host = $('#charGrid')
+  if (host && !charList.length) host.innerHTML = skeletonCards(8)
   try {
-    const out = await api.spinCharacter(id, count)
-    const c = out.character ?? {}
-    if (out.player) state.me = out.player
-    invalidate('profile', 'season')
-
-    const reel = (out.results ?? []).map(r => (r.won ? '✦' : '·')).join(' ')
-    const pulls = out.spinsThisPull ?? out.results?.length ?? 0
-
-    openModal(out.won
-      ? `<div class="pull-reveal">
-          <div class="pull-art">${c.image
-            ? `<img src="${attr(c.image)}" alt="" class="pull-art-media">`
-            : perkIcon('gift')}</div>
-          <div class="pull-info">
-            ${out.exclusive ? '<span class="rarity-pill r-ts">One of one</span>' : ''}
-            <h3>${esc(c.name ?? 'Obtained')}</h3>
-            ${c.stars ? `<div class="pull-stars">${'★'.repeat(c.stars)}${'☆'.repeat(Math.max(0, 5 - c.stars))}</div>` : ''}
-            <p class="subtext">Won on spin ${num(out.lastSpin)} for ${gemAmount(out.spent)} gems.
-              ${out.exclusive ? 'Locked bot-wide, nobody else can ever obtain them.' : ''}
-              Balance is now <strong>${gemAmount(out.balance)}</strong> gems.</p>
-            <p class="subtext">Equip in chat with
-              <code>${esc(state.meta?.prefix ?? '.')}character equip ${esc(c.id)}</code>.</p>
-            <button class="btn btn-primary btn-block" id="pullDone">Nice</button>
-          </div>
-        </div>`
-      : `<div class="pull-reveal">
-          <div class="pull-info">
-            <h3>No luck</h3>
-            <div class="spin-reel">${esc(reel)}</div>
-            <p class="subtext">${num(pulls)} spin${pulls === 1 ? '' : 's'} for
-              ${gemAmount(out.spent)} gems. Nothing held.</p>
-            ${bar('Spins used', out.spinsUsed, out.maxSpins)}
-            <p class="subtext">Balance is now <strong>${gemAmount(out.balance)}</strong> gems.</p>
-            <button class="btn btn-primary btn-block" id="pullDone">Try again later</button>
-          </div>
-        </div>`)
-    $('#pullDone')?.addEventListener('click', closeModal)
-
-    toast(out.won ? `${c.name} obtained` : `No luck, ${pulls} spin${pulls === 1 ? '' : 's'} spent`,
-      out.won ? 'ok' : '')
-
-    // Repaint from the state the server just reported, so the pity bar, the
-    // balance and the buttons all move together without a second fetch.
-    await renderSpinBanner()
+    // The spins list is the only place the API says whether a one-of-one has been won.
+    const [chars, spins] = await Promise.all([api.characters(), api.spins().catch(() => null)])
+    const claims = new Map((spins?.banners ?? []).map(b => [b.character?.id, b]))
+    charList = (chars.characters ?? [])
+      .map(c => ({ ...c, claim: claims.get(c.id) ?? null }))
+      .sort((a, b) => (b.stars ?? 0) - (a.stars ?? 0) || String(a.name).localeCompare(String(b.name)))
+    paintCharFilters()
+    paintCharacters()
   } catch (err) {
-    // The waiting frame has to come down on failure too, or a 402/409/423
-    // leaves "Spinning…" turning over an error toast.
-    closeModal()
-    reportError(err)
-    // A refusal usually means the banner's state moved (claimed, frozen), so
-    // redraw rather than leaving a button that can no longer work.
-    renderSpinBanner().catch(() => {})
-  } finally {
-    done()
+    if (host) host.innerHTML = emptyState('warning', 'Characters unavailable', err?.message ?? '')
   }
 }
 
@@ -1764,9 +1633,28 @@ function paintShopBalance() {
  *    same glyph the no-art branch uses, the way the profile inventory already
  *    did (data-fb + insertAdjacentHTML).
  */
+/** Character `ability` is { name, flavor }, not a string; printing it raw gave "[object Object]". */
+function abilityName(a) {
+  if (!a) return ''
+  return typeof a === 'string' ? a : String(a.name ?? '')
+}
+function abilityText(a) {
+  if (!a) return ''
+  if (typeof a === 'string') return a
+  return [a.name, a.flavor].filter(Boolean).join(': ')
+}
+
+/** Upstream card records without a series come through as the literal 'Unknown'. */
+const hasSeries = (v) => { const t = String(v ?? '').trim(); return !!t && t.toLowerCase() !== 'unknown' }
+
 function resolveArt(url) {
   const s = String(url ?? '').trim()
   if (!s) return ''
+  // Item plates are served by the bot itself at /assets/items/<id>.png, but the
+  // catalog data still names dead hosts (play.astral.qzz.io, animeastral.qzz.io).
+  // Keep the path, swap the host for the live API, or every plate 404s.
+  const plate = /^(?:https?:)?\/\/[^/]+(\/assets\/items\/[^?#]+)/i.exec(s)
+  if (plate) return `${API_BASE}${plate[1]}`
   if (/^(https?:)?\/\//i.test(s) || s.startsWith('data:')) return s
   return `${API_BASE}${s.startsWith('/') ? '' : '/'}${s}`
 }
@@ -1917,18 +1805,43 @@ async function loadCards() {
  * to look. `playsinline` keeps iOS from taking it fullscreen, and the poster
  * stays empty so nothing flashes before the first frame.
  */
-function cardArt(url, className) {
-  if (!url) return perkIcon('gem')
-  if (/\.(webm|mp4)(\?|$)/i.test(url)) {
-    // Under reduced motion the loop is dropped and the card sits on its first
-    // frame, so the art is still visible without anything moving.
+function mediaKind(url) {
+  const path = String(url ?? '').split(/[?#]/)[0].toLowerCase()
+  if (/\.(webm|mp4|m4v|mov)$/.test(path)) return 'video'
+  if (path.endsWith('.gif')) return 'gif'
+  return 'image'
+}
+
+/**
+ * One element for any art: <video> for webm/mp4, <img> for gif and stills.
+ * GIFs are never lazy-swapped or restyled, so they keep animating; reduced
+ * motion only affects video loops. no-referrer stops hotlink-protected CDNs
+ * from refusing the request.
+ */
+function mediaEl(url, className, fallback = '') {
+  const kind = mediaKind(url)
+  const fb = attr(fallback)
+  if (kind === 'video') {
     const still = document.documentElement.classList.contains('no-motion')
       || !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     const motionAttrs = still ? 'preload="auto"' : 'autoplay loop preload="metadata"'
     return `<video class="${attr(className)}" src="${attr(url)}" muted playsinline
                     ${motionAttrs} onerror="this.remove()"></video>`
   }
-  return `<img src="${attr(url)}" alt="" loading="lazy" class="${attr(className)}" onerror="this.remove()">`
+  return `<img src="${attr(url)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+               class="${attr(className)}" data-fb="${fb}"
+               onerror="if(this.dataset.fb){this.insertAdjacentHTML('afterend',this.dataset.fb)}this.remove()">`
+}
+
+/** Fixed-ratio frame that hosts mediaEl(); data-kind lets CSS treat gif vs image. */
+function mediaFrame(url, { ratio = '3/4', className = 'media-el', fallback = '' } = {}) {
+  if (!url) return `<div class="media-frame" data-kind="none" style="aspect-ratio:${attr(ratio)}">${fallback}</div>`
+  return `<div class="media-frame" data-kind="${mediaKind(url)}" style="aspect-ratio:${attr(ratio)}">${mediaEl(url, className, fallback)}</div>`
+}
+
+function cardArt(url, className) {
+  if (!url) return perkIcon('gem')
+  return mediaEl(url, className)
 }
 
 /**
@@ -1949,10 +1862,10 @@ async function paintCardCatalog({ reset = false } = {}) {
     const out = await api.cardCatalog({ page: cardPage, limit: 24, tier: cardTier || undefined })
     const html = (out.cards ?? []).map(c => `
       <div class="perk-card card-tile reveal">
-        ${cardArt(c.imageUrl, 'card-img')}
+        ${mediaFrame(c.imageUrl, { ratio: '3/4', fallback: perkIcon('gem') })}
         <span class="rarity-pill r-t${attr(String(c.tier).toLowerCase())}">Tier ${esc(c.tier)}</span>
         <h4>${esc(c.title)}</h4>
-        <p>${esc(c.series ?? '')}</p>
+        ${hasSeries(c.series) ? `<p>${esc(c.series)}</p>` : ''}
       </div>`).join('')
 
     if (reset) host.innerHTML = html || emptyState('gem', 'No cards', 'Nothing matched this filter.')
@@ -2187,7 +2100,7 @@ async function loadProfile() {
          data-item="${attr(String(idx))}"
          title="${attr(i.name)}" aria-label="${attr(i.name)}">
       ${i.image
-        ? `<img src="${attr(i.image)}" alt="" loading="lazy" class="inv-img"
+        ? `<img src="${attr(resolveArt(i.image))}" alt="" loading="lazy" class="inv-img"
                 onerror="this.insertAdjacentHTML('afterend', this.dataset.fb); this.remove()"
                 data-fb="${attr(`<span>${iconSvg('inventory', 'inventory-icon')}</span>`)}">`
         : `<span>${iconSvg('inventory', 'inventory-icon')}</span>`}
@@ -2284,7 +2197,7 @@ async function loadProfile() {
             : iconSvg('character', 'character-placeholder')}
           <span style="min-width:0">
             <strong>${esc(p.equippedCharacter.name)}</strong>
-            <p class="subtext">${esc(p.equippedCharacter.ability ?? '')}</p>
+            <p class="subtext">${esc(abilityName(p.equippedCharacter.ability))}</p>
           </span>
         </button>
       </section>` : ''}
@@ -2828,11 +2741,12 @@ function wireGlobalClicks() {
       return
     }
 
-    // Character spin banners on the season page.
-    const spinBtn = t.closest('[data-spin]')
-    if (spinBtn) {
+    const starTab = t.closest('[data-charstars]')
+    if (starTab) {
       e.preventDefault()
-      spinBannerPull(spinBtn.dataset.spin, Number(spinBtn.dataset.count) || 1, spinBtn)
+      charFilter = Number(starTab.dataset.charstars) || 0
+      for (const b of $$('#charFilters .tab-btn')) b.classList.toggle('active', Number(b.dataset.charstars) === charFilter)
+      paintCharacters()
       return
     }
 

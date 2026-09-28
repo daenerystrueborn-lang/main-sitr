@@ -953,6 +953,8 @@ textarea:focus-visible,[tabindex]:focus-visible{
       unrequested motion - but it stops moving things around. */
   .hero-inner > *,
   .hero h1 .grad,
+  .gold-fx,
+  .gold-stars,
   .xp-fill::after,
   .view,
   .toast{animation:none;}
@@ -990,6 +992,7 @@ html.no-motion .reveal,
 html.no-motion.js .reveal{opacity:1!important;transform:none!important;}
 html.no-motion .btn::before{display:none;}
 html.no-motion .hero h1 .grad{background:var(--grad-1);-webkit-background-clip:text;background-clip:text;}
+html.no-motion .gold-stars{animation:none;}
 
 /* ── settings page ────────────────────────────────────────────────────── */
 .settings-group{margin-top:30px;}
@@ -1442,3 +1445,45 @@ body{
   #view-home .pokemon-number{top:8px;left:9px;font-size:9px;}
 }
 
+
+
+/* ── golden text: the same effect as the hero's "WhatsApp" word ───────── */
+.gold-fx{
+  background:linear-gradient(100deg,#a97e1f 0%,#e8c86a 42%,#fff3cf 50%,#e8c86a 58%,#a97e1f 100%);
+  background-size:220% 100%;
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:shine 7s ease-in-out infinite;
+}
+html.no-motion .gold-fx{animation:none;background:var(--grad-1);-webkit-background-clip:text;background-clip:text;}
+.season-hero h1.gold-fx{font-weight:800;}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;padding:5px 12px;margin-bottom:16px;border-radius:999px;
+  font-size:12px;font-weight:700;color:var(--gold);background:rgb(212 175 55 / 10%);border:1px solid rgb(212 175 55 / 35%);}
+.hero-badge .icon{width:14px;height:14px;}
+
+/* Star rows: the base gold gradient, then a stronger variant per star level. */
+.gold-stars{display:inline-block;line-height:1;letter-spacing:.14em;font-size:16px;
+  background:var(--grad-1);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.gold-stars.gs-2{filter:drop-shadow(0 0 3px rgb(212 175 55 / 35%));}
+.gold-stars.gs-3{background-image:var(--grad-gold);filter:drop-shadow(0 0 5px rgb(232 200 106 / 50%));}
+.gold-stars.gs-4,.gold-stars.gs-5,.gold-stars.gs-6{
+  background-image:linear-gradient(100deg,#a97e1f 0%,#e8c86a 42%,#fff3cf 50%,#e8c86a 58%,#a97e1f 100%);
+  background-size:220% 100%;animation:shine 6s ease-in-out infinite;}
+.gold-stars.gs-4{filter:drop-shadow(0 0 6px rgb(232 200 106 / 55%));}
+.gold-stars.gs-5{animation-duration:4s;filter:drop-shadow(0 0 8px rgb(240 213 133 / 65%));}
+.gold-stars.gs-6{animation:shine 3s ease-in-out infinite,starPulse 2.2s ease-in-out infinite;
+  background-image:linear-gradient(100deg,#c9962e 0%,#ffe9a8 40%,#ffffff 50%,#ffe9a8 60%,#c9962e 100%);}
+@keyframes starPulse{0%,100%{filter:drop-shadow(0 0 5px rgb(232 200 106 / 45%));}50%{filter:drop-shadow(0 0 13px rgb(255 232 150 / 85%));}}
+
+/* Shared art frame: fixed ratio, so a gif, a still and a video all fit the same box. */
+.media-frame{position:relative;width:100%;overflow:hidden;border-radius:var(--r);margin-bottom:11px;
+  background:var(--bg-3);display:flex;align-items:center;justify-content:center;}
+.media-frame>img,.media-frame>video{width:100%;height:100%;object-fit:cover;display:block;
+  transition:transform var(--dur-slow) var(--ease-out);}
+.media-frame[data-kind="gif"]>img{image-rendering:auto;}
+.media-frame>.icon,.media-frame>svg{width:38%;height:auto;opacity:.6;}
+.char-card:hover .media-frame>*{transform:scale(1.04);}
+
+.char-card{display:flex;flex-direction:column;text-align:left;}
+.char-stars{margin-bottom:6px;}
+.char-lore{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin-top:2px;}
+.char-status{margin-top:auto;padding-top:12px;}
