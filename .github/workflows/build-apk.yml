@@ -1,0 +1,91 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['mobile/**', 'index.html', 'assets/**', '.github/workflows/build-apk.yml']
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      # If this repo only holds mobile/, pull the website source in next to it.
+      # Private site repo? Add a repo secret SITE_REPO_TOKEN (a token with read access to it).
+      - name: Fetch website source
+        if: hashFiles('index.html') == ''
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.SITE_REPO || 'daenerystrueborn-lang/main-sitr' }}
+          token: ${{ secrets.SITE_REPO_TOKEN || github.token }}
+          path: site-src
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Bundle the site into the app
+        env:
+          # Optional repo variable to point the app at a different API.
+          ASTRAL_API_BASE: ${{ vars.ASTRAL_API_BASE }}
+        run: node scripts/prepare-www.mjs
+
+      - name: Create Android project
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      - name: App icons
+        run: npx capacitor-assets generate --android --assetPath resources --iconBackgroundColor '#000000' --iconBackgroundColorDark '#000000'
+
+      - name: Version and status bar
+        run: |
+          sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/; s/versionName \"1.0\"/versionName \"1.0.${{ github.run_number }}\"/" android/app/build.gradle
+          python3 - <<'PY'
+          import re, pathlib
+          p = pathlib.Path('android/app/src/main/res/values/styles.xml')
+          s = p.read_text()
+          extra = '<item name="android:statusBarColor">#000000</item><item name="android:navigationBarColor">#000000</item>'
+          s = re.sub(r'(<style name="AppTheme.NoActionBar"[^>]*>)', r'\1' + extra, s, count=1)
+          p.write_text(s)
+          PY
+
+      - name: Build debug APK
+        working-directory: mobile/android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Name the APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk astral.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: astral-apk
+          path: mobile/astral.apk
+
+      - name: Publish release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: mobile/astral.apk
