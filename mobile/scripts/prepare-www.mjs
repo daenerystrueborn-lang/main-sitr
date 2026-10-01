@@ -56,9 +56,12 @@ fs.writeFileSync(path.join(www, 'assets/css/fonts.css'), fontCss)
 
 // 4) app shell
 fs.mkdirSync(path.join(www, 'assets/app'), { recursive: true })
-for (const f of ['shell.css', 'shell.js', 'play.css', 'play.js']) {
+for (const f of fs.readdirSync(path.join(mobile, 'app-shell'))) {
   fs.copyFileSync(path.join(mobile, 'app-shell', f), path.join(www, 'assets/app', f))
 }
+// App logo for the splash: mobile/resources/logo.png if you've added one, else the site's logo.
+const appLogo = path.join(mobile, 'resources/logo.png')
+fs.copyFileSync(fs.existsSync(appLogo) ? appLogo : path.join(site, 'assets/img/logo.png'), path.join(www, 'assets/img/app-logo.png'))
 
 // 4b) router patches on the bundled copy of app.js (the site's own file is never touched).
 //     Each anchor is asserted, so a site change that breaks one fails the build instead of shipping a broken app.
@@ -72,7 +75,72 @@ patch("  404: { view: 'view-404', title: 'Not found' },",
   "  welcome: { view: 'view-welcome', title: 'Welcome', auth: true },\n  pokemon: { view: 'view-pokemon', title: 'Pokemon', auth: true },\n  404: { view: 'view-404', title: 'Not found' },",
   'routes table')
 patch("const next = pendingRoute ?? 'profile'", "const next = pendingRoute ?? 'welcome'", 'post-login landing')
+
+// 4b-2) character modal becomes a 2:3 card + info (no banner, no round pfp); profile header gets edit buttons.
+appJs = appJs.replace(/\r\n/g, '\n')
+const between = (startMarker, endMarker, file, label) => {
+  const a = appJs.indexOf(startMarker)
+  if (a < 0) throw new Error(`app.js patch anchor not found: ${label} (start)`)
+  const b = appJs.indexOf(endMarker, a + startMarker.length)
+  if (b < 0) throw new Error(`app.js patch anchor not found: ${label} (end)`)
+  appJs = appJs.slice(0, a) + fs.readFileSync(path.join(here, 'patches', file), 'utf8') + appJs.slice(b)
+}
+between("${c.image ? `<div class=\"pd-banner\" style=\"background-image:url('${attr(c.image)}')\"></div>` : ''}",
+  '<div class="pd-body">', 'character-card.txt', 'character modal')
+between('<div class="profile-banner"${p.bannerUrl',
+  '<section class="section">\n      <div class="stat-row reveal">', 'profile-head.txt', 'profile header')
+patch("const box = inputEl?.closest('.img-upload')", "const box = inputEl?.closest('.img-upload') ?? $('#profileWrap')", 'upload busy box')
+patch("toast(kind === 'banner' ? 'Banner updated.' : 'Profile picture updated.')\n    await loadSettings()",
+  "toast(kind === 'banner' ? 'Banner updated.' : 'Profile picture updated.')\n    await (location.hash.startsWith('#/profile') ? loadProfile() : loadSettings())",
+  'reload after upload')
 fs.writeFileSync(appJsPath, appJs)
+
+// 4c) api.js: stale-while-revalidate GET cache (persisted), so pages open instantly from saved data and refresh behind the scenes. Any write wipes it.
+const apiPath = path.join(www, 'assets/js/api.js')
+let apiSrc = fs.readFileSync(apiPath, 'utf8')
+const apiAnchor = `const get = (p) => request(p)
+const post = (p, body) => request(p, { method: 'POST', body })
+const patch = (p, body) => request(p, { method: 'PATCH', body })
+const del = (p) => request(p, { method: 'DELETE' })`
+if (!apiSrc.includes(apiAnchor)) throw new Error('api.js patch anchor not found: get/post/patch/del')
+apiSrc = apiSrc.replace(apiAnchor, `/* Astral app cache: stale-while-revalidate, persisted so a cold launch opens pages instantly. */
+const __cache = new Map()
+const __PK = 'astral:c:'
+const __load = (p) => { try { const o = JSON.parse(localStorage.getItem(__PK + p) || 'null'); return o && Date.now() - o.t < 21600000 ? o : null } catch { return null } }
+const __save = (p, t, d) => { try { const s = JSON.stringify({ t, d }); if (s.length < 300000) localStorage.setItem(__PK + p, s) } catch {} }
+const __wipe = () => { __cache.clear(); try { Object.keys(localStorage).filter((k) => k.startsWith(__PK)).forEach((k) => localStorage.removeItem(k)) } catch {} }
+const __same = (a, b) => { try { return JSON.stringify(a) === JSON.stringify(b) } catch { return false } }
+function __refresh(p, prev) {
+  request(p).then((d) => {
+    __cache.set(p, { t: Date.now(), v: Promise.resolve(d), d }); __save(p, Date.now(), d)
+    if (!__same(prev, d)) window.dispatchEvent(new CustomEvent('astral:data', { detail: p }))
+  }).catch(() => { const h = __cache.get(p); if (h) h.r = false })
+}
+const get = (p) => {
+  let hit = __cache.get(p)
+  if (!hit) { const o = __load(p); if (o) { hit = { t: 0, v: Promise.resolve(o.d), d: o.d }; __cache.set(p, hit) } }
+  if (hit) {
+    if (Date.now() - hit.t < 45000) return hit.v
+    if (hit.d !== undefined) { if (!hit.r) { hit.r = true; __refresh(p, hit.d) } return hit.v }
+    return hit.v
+  }
+  const v = request(p)
+  const e = { t: Date.now(), v, d: undefined }
+  __cache.set(p, e)
+  v.then((d) => { e.d = d; __save(p, e.t, d) }).catch(() => __cache.delete(p))
+  return v
+}
+const post = (p, body) => (__wipe(), request(p, { method: 'POST', body }).finally(__wipe))
+const patch = (p, body) => (__wipe(), request(p, { method: 'PATCH', body }).finally(__wipe))
+const del = (p) => (__wipe(), request(p, { method: 'DELETE' }).finally(__wipe))`)
+fs.writeFileSync(apiPath, apiSrc)
+
+
+// Splash markup (styles live in app-shell/splash.css). Gooey SVG filters make the drops melt together.
+const SPLASH_HTML = `<div id="appSplash"><svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<filter id="spGoo" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur in="SourceGraphic" stdDeviation="7" result="b"/><feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -8"/></filter>
+<filter id="spGoo2" x="-30%" y="-50%" width="160%" height="200%"><feGaussianBlur in="SourceGraphic" stdDeviation="2.6" result="b"/><feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7"/></filter>
+</defs></svg><div class="sp-glow"></div><div class="sp-stage"><div class="sp-goo"><i class="sp-drop d1"></i><i class="sp-drop d2"></i><i class="sp-drop d3"></i><i class="sp-pool"></i><i class="sp-jet j1"></i><i class="sp-jet j2"></i><i class="sp-jet j3"></i><i class="sp-jet j4"></i><i class="sp-jet j5"></i><i class="sp-jet j6"></i></div><i class="sp-ring r1"></i><i class="sp-ring r2"></i><i class="sp-ring r3"></i><i class="sp-ring r4"></i><div class="sp-logo-wrap"><img class="sp-logo" src="assets/img/app-logo.png" alt=""></div></div><div class="sp-name"><span style="--i:0">A</span><span style="--i:1">S</span><span style="--i:2">T</span><span style="--i:3">R</span><span style="--i:4">A</span><span style="--i:5">L</span></div><div class="sp-dots"><i></i><i></i><i></i></div></div>`
 
 // 5) html
 let html = fs.readFileSync(path.join(site, 'index.html'), 'utf8')
@@ -87,7 +155,8 @@ html = html
     '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">')
   .replace('</head>',
     `<link rel="stylesheet" href="assets/app/shell.css">\n<script>window.ASTRAL_API_BASE=${JSON.stringify(apiBase)}</script>\n</head>`)
-  .replace('<body>', '<body class="is-app">')
+  .replace('</head>', '<link rel="stylesheet" href="assets/app/splash.css">\n</head>')
+  .replace('<body>', () => '<body class="is-app">\n' + SPLASH_HTML)
   .replace('</head>', '<link rel="stylesheet" href="assets/app/play.css">\n</head>')
   .replace('</body>', `<main class="view" id="view-welcome"><div class="page" id="welcomeRoot"></div></main>
 <main class="view" id="view-pokemon"><div class="page" id="pokemonRoot"></div></main>
@@ -95,7 +164,7 @@ html = html
 <script type="module" src="assets/app/play.js"></script>
 </body>`)
 
-for (const needle of ['assets/css/fonts.css', 'assets/app/shell.css', 'assets/app/play.css', 'assets/app/shell.js', 'assets/app/play.js', 'view-welcome', 'view-pokemon', 'is-app']) {
+for (const needle of ['assets/css/fonts.css', 'assets/app/shell.css', 'assets/app/play.css', 'assets/app/shell.js', 'assets/app/play.js', 'appSplash', 'view-welcome', 'view-pokemon', 'is-app']) {
   if (!html.includes(needle)) throw new Error(`index.html injection failed: ${needle}`)
 }
 if (html.includes('fonts.googleapis.com')) throw new Error('Google Fonts link still present')

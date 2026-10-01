@@ -80,28 +80,75 @@ body.is-app #view-settings .auth-wrap{
 }
 .app-tab:active{transform:scale(.94);}
 
-/* ── "More" sheet ────────────────────────────────────────────────────────── */
-.app-sheet-scrim{
-  position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.6);opacity:0;pointer-events:none;
-  transition:opacity .2s;
-}
-.app-sheet{
-  position:fixed;left:0;right:0;bottom:0;z-index:91;transform:translateY(105%);
-  transition:transform .28s cubic-bezier(.2,.7,.2,1);
-  background:var(--bg-2);border:1px solid var(--border);border-bottom:0;
-  border-radius:22px 22px 0 0;padding:10px 14px calc(18px + env(safe-area-inset-bottom,0px));
-  box-shadow:0 -20px 50px rgb(0 0 0 / 60%);
-}
-.app-sheet::before{content:"";display:block;width:38px;height:4px;border-radius:4px;background:var(--border);margin:0 auto 12px;}
-body.sheet-open .app-sheet{transform:none;}
-body.sheet-open .app-sheet-scrim{opacity:1;pointer-events:auto;}
-.app-sheet a{
-  display:flex;align-items:center;gap:14px;padding:14px 12px;border-radius:14px;
-  color:var(--text);font-weight:600;font-size:15px;
-}
-.app-sheet a svg{width:22px;height:22px;fill:none;stroke:var(--gold);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
-.app-sheet a:active{background:var(--bg-4);}
-.app-sheet a.is-active{background:var(--bg-3);color:var(--gold);}
-
 /* The offline banner would sit under the status bar. */
 body.is-app .offline{top:env(safe-area-inset-top,0px);}
+
+/* ── speed: no blur, no entrance animations, no scroll-reveal fades, no looping shine ── */
+body.is-app *,body.is-app *::before,body.is-app *::after{-webkit-backdrop-filter:none !important;backdrop-filter:none !important;}
+body.is-app .view,body.is-app .view.active,body.is-app .tab-panel.active,body.is-app .auth-step.active{animation:none !important;}
+body.is-app .reveal{opacity:1 !important;transform:none !important;transition:none !important;animation:none !important;}
+body.is-app .gold-fx,body.is-app .gold-stars,body.is-app .xp-fill,body.is-app .hero-inner > *{animation:none !important;}
+body.is-app .nav-shell{background:#000;}
+.app-tabs{background:#070707;}
+.app-sheet{box-shadow:none;}
+
+/* the website's landing page has no place in the app */
+body.is-app #view-home{display:none !important;}
+
+/* ── two cards per row on phones (characters, shop, cards, premium) ── */
+body.is-app .grid-4,body.is-app .grid-3{grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:10px !important;}
+body.is-app .perk-card{padding:12px;}
+body.is-app .perk-card h4{font-size:14px;margin-bottom:4px;}
+body.is-app .perk-card p{font-size:12px;}
+body.is-app .shop-group{margin-bottom:20px;}
+body.is-app .section-head h2{font-size:24px;}
+
+/* back arrow on pages opened from Welcome (Season, Cards, Ranks, Premium, Profile) */
+.app-back{display:none;width:34px;height:34px;margin-left:2px;border:0;border-radius:50%;background:var(--bg-3);align-items:center;justify-content:center;}
+.app-back svg{width:20px;height:20px;fill:none;stroke:var(--gold);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
+body.is-app.app-sub .app-back{display:inline-flex;}
+body.is-app.app-sub .nav-inner .brand{display:none;}
+
+/* ── performance mode (default): no transitions, shadows or shimmer; battle animations stay ── */
+body.lite *,body.lite *::before,body.lite *::after{transition:none !important;box-shadow:none !important;text-shadow:none !important;}
+body.lite .wl-skel,body.lite .pk-wx,body.lite .pk-rays{animation:none !important;}
+body.lite .app-tab:active,body.lite .pk-act:active,body.lite .pk-chip:active,body.lite .wl-quick a:active{transform:none;}
+
+/* the website's own settings page is replaced by the app's game settings */
+body.is-app #view-settings > :not(#appSettings){display:none !important;}
+
+/* ── profile page: header sits clear of the banner, banner + pfp editable in place ── */
+body.is-app .profile-banner{height:170px;margin-top:0}
+body.is-app .profile-banner-edit{right:12px;bottom:12px}
+body.is-app .profile-banner-edit svg,body.is-app .profile-pfp-edit svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+body.is-app .profile-head-row{align-items:flex-start;gap:14px;padding:0 4px}
+body.is-app .profile-pfp-wrap{margin-top:-46px}
+body.is-app .profile-pfp{width:92px;height:92px;font-size:30px}
+body.is-app .profile-status{right:auto;left:6px;bottom:6px;width:18px;height:18px}
+body.is-app .profile-pfp-edit{position:absolute;right:-2px;bottom:-2px;width:32px;height:32px;padding:0;border-radius:50%;display:grid;place-items:center;background:var(--gold);color:#0a0805;border:3px solid var(--bg);cursor:pointer}
+body.is-app .profile-info-row{align-items:flex-start;padding:14px 0 0;min-width:0}
+body.is-app .profile-info{min-width:0;flex:1 1 140px}
+body.is-app .profile-info h2{font-size:21px}
+body.is-app .profile-actions{flex:0 0 auto}
+body.is-app #profileWrap .field-err{margin:8px 4px 0}
+body.is-app #profileWrap .field-err:empty{display:none}
+body.is-app #profileWrap.busy{opacity:.55;pointer-events:none}
+body.is-app #profileWrap [data-char]>img[style*="58px"]{width:44px !important;height:66px !important}
+
+/* ── character details: a 2:3 card with the info under it ── */
+.cc-wrap{padding:20px 18px 2px;display:flex;flex-direction:column;align-items:center}
+.cc-card{position:relative;width:min(250px,70%);aspect-ratio:2/3;border-radius:20px;overflow:hidden;background:linear-gradient(160deg,#241d0e,#0c0a06);border:1px solid rgb(212 175 55 / 35%)}
+.cc-card.cc-r-legendary,.cc-card.cc-r-mythic{border-color:rgb(212 175 55 / 75%)}
+.cc-card.cc-r-epic,.cc-card.cc-r-special{border-color:rgb(168 85 247 / 55%)}
+.cc-card.cc-r-rare{border-color:rgb(96 165 250 / 50%)}
+.cc-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.cc-ph{position:absolute;inset:0;display:grid;place-items:center}
+.cc-ph svg{width:38%;height:auto;opacity:.5}
+.cc-shade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(to top,rgb(0 0 0 / 90%) 0%,rgb(0 0 0 / 45%) 24%,transparent 52%)}
+.cc-meta{position:absolute;left:0;right:0;bottom:0;padding:14px}
+.cc-meta h3{margin:0;font:800 20px/1.15 'Space Grotesk',Inter,sans-serif;overflow-wrap:anywhere}
+.cc-meta p{margin:4px 0 0;font-size:12px;font-weight:700;color:var(--gold)}
+.cc-flag{position:absolute;top:10px;left:10px;padding:3px 10px;border-radius:999px;font:800 10.5px Inter,sans-serif;background:rgb(0 0 0 / 60%);color:var(--text);border:1px solid var(--border)}
+.cc-flag.is-eq{color:var(--gold);border-color:rgb(212 175 55 / 45%)}
+.cc-price{margin:12px 0 0;font-size:12.5px;color:var(--text-muted);text-align:center}
+.cc-wrap+.pd-body{padding-top:14px}

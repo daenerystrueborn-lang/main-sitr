@@ -21,11 +21,12 @@
     welcome: I('<circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.6M12 19.4V22M2 12h2.6M19.4 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/>'),
     pokemon: I('<circle cx="12" cy="12" r="9"/><path d="M3 12h5.5M15.5 12H21"/><circle cx="12" cy="12" r="3.2"/>')
   }
-  var TABS = ['welcome', 'characters', 'shop', 'pokemon']
-  var MORE = ['profile', 'season', 'leaderboard', 'cards', 'premium', 'settings']
+  var TABS = ['welcome', 'characters', 'shop', 'pokemon', 'settings']   // Season, Cards, Ranks, Premium and Profile open from the Welcome page
 
   var body = document.body
   var first = true
+  var lastNav = Date.now()
+  try { if (JSON.parse(localStorage.getItem('astral:prefs') || '{}').lite !== false) body.classList.add('lite') } catch (e) { body.classList.add('lite') }
 
   function route() { return (location.hash.replace(/^#\/?/, '').split('?')[0].split('/')[0]) || 'home' }
   function signedIn() { try { return !!localStorage.getItem(TOKEN_KEY) } catch (e) { return false } }
@@ -37,30 +38,13 @@
     tabs.setAttribute('aria-label', 'Main')
     tabs.innerHTML = TABS.map(function (r) {
       return '<button class="app-tab" data-tab="' + r + '">' + ICON[r] + '<span>' + TITLES[r] + '</span></button>'
-    }).join('') + '<button class="app-tab" data-tab="more">' + ICON.more + '<span>More</span></button>'
-    body.appendChild(tabs)
-
-    var scrim = document.createElement('div')
-    scrim.className = 'app-sheet-scrim'
-    var sheet = document.createElement('div')
-    sheet.className = 'app-sheet'
-    sheet.innerHTML = MORE.map(function (r) {
-      return '<a href="#/' + r + '" data-sheet="' + r + '">' + ICON[r] + '<span>' + TITLES[r] + '</span></a>'
     }).join('')
-    body.appendChild(scrim)
-    body.appendChild(sheet)
+    body.appendChild(tabs)
 
     tabs.addEventListener('click', function (e) {
       var b = e.target.closest('[data-tab]'); if (!b) return
-      if (b.dataset.tab === 'more') { body.classList.toggle('sheet-open'); return }
-      body.classList.remove('sheet-open')
       if (route() !== b.dataset.tab) go(b.dataset.tab)
       else window.scrollTo({ top: 0, behavior: 'smooth' })
-    })
-    scrim.addEventListener('click', function () { body.classList.remove('sheet-open') })
-    sheet.addEventListener('click', function (e) {
-      var a = e.target.closest('[data-sheet]'); if (!a) return
-      e.preventDefault(); body.classList.remove('sheet-open'); go(a.dataset.sheet)
     })
 
     // Title next to the brand mark in the app bar.
@@ -68,6 +52,10 @@
     if (brand) {
       var t = document.createElement('div'); t.className = 'app-title'; t.id = 'appTitle'
       brand.insertAdjacentElement('afterend', t)
+      var back = document.createElement('button'); back.className = 'app-back'; back.setAttribute('aria-label', 'Back')
+      back.innerHTML = '<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>'
+      back.addEventListener('click', function () { go('welcome') })
+      brand.insertAdjacentElement('afterend', back)
     }
 
     // Branded header above the sign in / sign up cards.
@@ -94,19 +82,38 @@
     }
 
     body.classList.toggle('app-auth', !s || !!AUTH_ROUTES[r])
-    var inMore = MORE.indexOf(r) >= 0
+    body.classList.toggle('app-sub', TABS.indexOf(r) < 0)   // a page opened from Welcome: show the back arrow
     document.querySelectorAll('[data-tab]').forEach(function (b) {
-      b.classList.toggle('is-active', b.dataset.tab === r || (b.dataset.tab === 'more' && inMore))
-    })
-    document.querySelectorAll('[data-sheet]').forEach(function (a) {
-      a.classList.toggle('is-active', a.dataset.sheet === r)
+      b.classList.toggle('is-active', b.dataset.tab === r)
     })
     var title = document.getElementById('appTitle')
     if (title) title.textContent = TITLES[r] || ''
   }
 
+  /* Splash: stays up (covering the site's home view) until the first real screen is ready. */
+  function hideSplash() {
+    var sp = document.getElementById('appSplash'); if (!sp) return
+    sp.classList.add('out'); setTimeout(function () { sp.remove() }, 480)
+  }
+  var t0 = Date.now()
+  ;(function waitReady() {
+    var r = route(), age = Date.now() - t0
+    var view = document.getElementById('view-' + r)
+    var ready = view && view.classList.contains('active') &&
+      (r === 'welcome' ? !!document.querySelector('#welcomeRoot[data-ready]') : true)
+    if ((ready && age > 1900) || age > 5000) return hideSplash()
+    setTimeout(waitReady, 80)
+  })()
+
   build()
-  window.addEventListener('hashchange', function () { body.classList.remove('sheet-open'); sync() })
+  window.addEventListener('hashchange', function () { lastNav = Date.now(); sync() })
+  // A background refresh brought newer data for a page that just opened: let the site re-render it in place.
+  window.addEventListener('astral:data', function () {
+    var r = route(), a = document.activeElement
+    if (r === 'welcome' || r === 'pokemon' || r === 'settings' || AUTH_ROUTES[r]) return
+    if (Date.now() - lastNav > 8000 || (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) return
+    window.dispatchEvent(new HashChangeEvent('hashchange'))
+  })
   setInterval(sync, 1000)   // catches a token that disappears without a route change
   sync()
 })()

@@ -1,0 +1,36 @@
+<div class="profile-banner"${p.bannerUrl ? ` style="background-image:url('${attr(p.bannerUrl)}');background-size:cover;background-position:center;"` : ''}>
+      <button type="button" class="profile-banner-edit" data-pick="bannerInput" aria-label="Change banner">
+        <svg viewBox="0 0 24 24"><path d="M4 8h3l1.6-2.2h6.8L17 8h3v11H4z"/><circle cx="12" cy="13.2" r="3.2"/></svg>
+        <span>Banner</span>
+      </button>
+    </div>
+    <input id="bannerInput" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-upload="banner">
+    <input id="pfpInput" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-upload="pfp">
+
+    <div class="profile-head-row">
+      <div class="profile-pfp-wrap">
+        <div class="profile-pfp">${p.avatarUrl
+          ? `<img src="${attr(p.avatarUrl)}" alt="">`
+          : esc(initials(p.name))}</div>
+        <button type="button" class="profile-pfp-edit" data-pick="pfpInput" aria-label="Change profile picture">
+          <svg viewBox="0 0 24 24"><path d="M4 8h3l1.6-2.2h6.8L17 8h3v11H4z"/><circle cx="12" cy="13.2" r="3.2"/></svg>
+        </button>
+        <span class="profile-status"></span>
+      </div>
+      <div class="profile-info-row">
+        <div class="profile-info">
+          <h2><span class="profile-name-text">${esc(p.name)}</span>
+            <span class="badge badge-lvl">Lv ${num(p.level)}</span>
+            ${p.premium?.active ? '<span class="badge badge-gold">Premium</span>' : ''}</h2>
+          <p class="handle">${iconSvg('rank', 'inline-icon')} ${esc(p.rank.title)} · ${esc(p.rank.epithet ?? '')}</p>
+        </div>
+        <div class="profile-actions">
+          <a class="btn btn-secondary btn-sm" href="#/settings" data-route="settings">Settings</a>
+          <a class="btn btn-ghost btn-sm" href="#/leaderboard" data-route="leaderboard">Boards</a>
+        </div>
+      </div>
+    </div>
+    <p class="field-err" id="bannerErr"></p>
+    <p class="field-err" id="pfpErr"></p>
+
+    

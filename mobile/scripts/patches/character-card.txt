@@ -1,0 +1,15 @@
+<div class="cc-wrap">
+        <div class="cc-card cc-r-${attr(String(c.rarity ?? '').toLowerCase())}">
+          ${c.image
+            ? mediaEl(c.image, 'cc-img', `<span class="cc-ph">${iconSvg('character', 'character-placeholder')}</span>`)
+            : `<span class="cc-ph">${iconSvg('character', 'character-placeholder')}</span>`}
+          <div class="cc-shade"></div>
+          ${equipped || owned ? `<span class="cc-flag${equipped ? ' is-eq' : ''}">${equipped ? 'Equipped' : 'Owned'}</span>` : ''}
+          <div class="cc-meta">
+            <h3>${esc(c.name)}</h3>
+            <p>${esc([c.rarity && titleCase(c.rarity), c.characterTier && `Tier ${c.characterTier}`].filter(Boolean).join(' · '))}</p>
+          </div>
+        </div>
+        ${characterPrice(c) ? `<p class="cc-price">${esc(characterPrice(c))}</p>` : ''}
+      </div>
+      
