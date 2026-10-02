@@ -1,17 +1,25 @@
 /* Pokémon page: Battle (hunt / tower), Party (care), Bag (items), Shop. */
 import { $, $$, pk, route, esc, num, typeChip, TYPE_COLOR, hpBar, hpClass, pctOf, fail, openSheet, closeSheet, sleep } from './core.js'
 import { toast } from '../js/ui.js'
-import { spriteImg, itemIcon } from './showdown.js'
+import { spriteImg, itemIcon, REGION_BG, loadBg } from './showdown.js'
 import { mountBattle, showBattle, inBattle } from './battle.js'
 
 let META = null
-const T = { tab: 'battle', gen: 0 }
+const T = { tab: 'battle', gen: 0, region: '' }
 const META_KEY = 'astral:pk-meta'
 const loadMeta = () => { try { return JSON.parse(localStorage.getItem(META_KEY) || 'null') } catch { return null } }
 const saveMeta = (m) => { try { localStorage.setItem(META_KEY, JSON.stringify(m)) } catch {} }
 const cap = (s) => String(s ?? '').replace(/(^|[\s_-])\w/g, m => m.toUpperCase()).replace(/[_-]/g, ' ')
 const img = (m, opts = {}) => spriteImg(m.name, { dex: m.dexId, shiny: m.shiny, ...opts })
 const stage = () => $('#pkStage')
+const locationArt = (key) => REGION_BG[String(key ?? '').toLowerCase()]?.[0] ?? 'route'
+function paintLocationBackdrop(el, name) {
+  if (!el || !name) return
+  el.dataset.pkBg = name
+  loadBg([name]).then(url => {
+    if (url && el.isConnected && el.dataset.pkBg === name) el.style.setProperty('--pk-location-image', `url("${url}")`)
+  })
+}
 
 export async function renderPokemon() {
   const host = $('#pokemonRoot'); if (!host) return
@@ -65,27 +73,79 @@ async function drawBattleTab(st, ok = () => true) {
   }
   const party = o.party ?? []
   const hurt = party.some(m => m.fainted || pctOf(m.hp, m.maxHp) < 50)
+  const regions = (META.regions ?? []).filter(r => r?.key != null)
+  if (!regions.some(r => String(r.key) === T.region)) T.region = ''
+  const selectedRegion = regions.find(r => String(r.key) === T.region)
+  const selectedName = selectedRegion ? cap(selectedRegion.key) : ''
   const next = t && !t.championed && t.nextStage ? t.masters?.find(m => m.stage === t.nextStage) : null
   st.innerHTML = `
     ${hurt ? `<div class="pk-warn"><span>Your team is hurt. Heal up before battling.</span><button class="btn btn-gold btn-sm" id="pkHealNow">Heal all</button></div>` : ''}
-    <div class="pk-card">
-      <div class="pk-row"><h3 class="pk-h3">Wild hunt</h3>
-        <select id="pkRegion" class="pk-select"><option value="">Anywhere</option>${(META.regions ?? []).map(r => `<option value="${esc(r.key)}">${esc(cap(r.key))}</option>`).join('')}</select></div>
-      <button class="btn btn-gold pk-wide" id="pkHunt">Go hunting</button>
-    </div>
+    <section class="pk-adventure-hero" id="pkAdventureHero" aria-label="Pokémon adventure">
+      <div class="pk-adventure-copy">
+        <div class="pk-adventure-kicker"><i></i> THE WILD IS CALLING</div>
+        <h2>Your next<br>Pokémon awaits.</h2>
+        <p>Choose a region—or let the wild surprise you.</p>
+        <div class="pk-adventure-tags"><span>⚔ Wild encounters</span><span>✦ ${num(party.length)} partners</span></div>
+      </div>
+      <div class="pk-adventure-partner" aria-hidden="true">${party[0] ? img(party[0]) : '<span>⚔</span>'}</div>
+    </section>
+    <section class="pk-location-section" aria-labelledby="pkLocationTitle">
+      <div class="pk-location-head">
+        <div><span class="pk-location-kicker">SET YOUR DESTINATION</span><h3 class="pk-h3" id="pkLocationTitle">Where to, Trainer?</h3></div>
+        <span class="pk-location-count"><b>${num(regions.length)}</b><small>regions</small></span>
+      </div>
+      <p class="pk-location-hint">Pick a place or tap Anywhere to let fate decide.</p>
+      <div class="pk-location-track" role="group" aria-label="Choose a Pokémon hunt location">
+        <button class="pk-location-card ${T.region ? '' : 'on'}" type="button" data-region="" data-loc-bg="route" aria-pressed="${!T.region}">
+          <span class="pk-location-mark">✦</span><span class="pk-location-name"><b>Anywhere</b><small>Surprise encounter</small></span><span class="pk-location-check" aria-hidden="true">✓</span>
+        </button>
+        ${regions.map(r => {
+          const key = String(r.key), chosen = key === T.region
+          return `<button class="pk-location-card ${chosen ? 'on' : ''}" type="button" data-region="${esc(key)}" data-loc-bg="${locationArt(key)}" aria-pressed="${chosen}">
+            <span class="pk-location-mark">⌖</span><span class="pk-location-name"><b>${esc(cap(key))}</b><small>Explore the wilds</small></span><span class="pk-location-check" aria-hidden="true">✓</span>
+          </button>`
+        }).join('')}
+      </div>
+      <p class="pk-art-credit">Location art from the <a href="https://github.com/smogon/pokemon-showdown-client/tree/master/play.pokemonshowdown.com/fx" target="_blank" rel="noopener noreferrer">Pokémon Showdown client</a>.</p>
+    </section>
+    <button class="pk-start-hunt" id="pkHunt" type="button">
+      <span class="pk-start-hunt-icon" aria-hidden="true">⚔</span>
+      <span class="pk-start-hunt-copy"><b id="pkHuntTitle">${selectedRegion ? `Explore ${esc(selectedName)}` : 'Battle anywhere'}</b>
+        <small id="pkHuntHint">${selectedRegion ? `Look for wild Pokémon in ${esc(selectedName)}.` : 'Find a wild Pokémon in any region.'}</small></span>
+      <span class="pk-start-hunt-arrow" aria-hidden="true">→</span>
+    </button>
     ${next ? `<div class="pk-card pk-tower">
       <div class="pk-kicker">Sinnoh League · Stage ${num(next.stage)} / ${num(t.total)}</div>
       <h3 class="pk-h3">${esc(next.emoji ?? '')} ${esc(next.name)} <small>${esc(next.title ?? '')}</small></h3>
       <div class="subtext">Level ${num(next.level)} · ${num(next.team?.length ?? 0)} Pokémon</div>
       <button class="btn pk-wide" id="pkTower">Challenge</button></div>`
       : t?.championed ? '<div class="pk-card"><b>🏆 League Champion</b></div>' : ''}
-    <div class="pk-row" style="margin:16px 2px 8px"><h3 class="pk-h3">Ready to go</h3><button class="pk-link" data-t="party">Manage ›</button></div>
-    <div class="pk-strip">${party.map(m => `<div class="pk-chip ${m.fainted ? 'faint' : ''}">${img(m, { list: true })}<b>${esc(m.nickname ?? m.name)}</b><small>Lv ${num(m.level)}</small>${hpBar(m.hp, m.maxHp)}</div>`).join('')}</div>`
+    <section class="pk-squad">
+      <div class="pk-squad-head"><div><span class="pk-location-kicker">YOUR TEAM</span><h3 class="pk-h3">Ready to go</h3></div><button class="pk-link" data-t="party">Manage ›</button></div>
+      <div class="pk-strip">${party.map(m => `<div class="pk-chip ${m.fainted ? 'faint' : ''}">${img(m, { list: true })}<b>${esc(m.nickname ?? m.name)}</b><small>Lv ${num(m.level)}</small>${hpBar(m.hp, m.maxHp)}</div>`).join('')}</div>
+    </section>`
 
+  const hero = $('#pkAdventureHero', st)
+  paintLocationBackdrop(hero, selectedRegion ? locationArt(selectedRegion.key) : 'route')
+  $$('.pk-location-card', st).forEach(card => {
+    paintLocationBackdrop(card, card.dataset.locBg)
+    card.addEventListener('click', () => {
+      T.region = card.dataset.region ?? ''
+      const chosen = regions.find(r => String(r.key) === T.region)
+      $$('.pk-location-card', st).forEach(option => {
+        const active = option.dataset.region === T.region
+        option.classList.toggle('on', active)
+        option.setAttribute('aria-pressed', String(active))
+      })
+      $('#pkHuntTitle', st).textContent = chosen ? `Explore ${cap(chosen.key)}` : 'Battle anywhere'
+      $('#pkHuntHint', st).textContent = chosen ? `Look for wild Pokémon in ${cap(chosen.key)}.` : 'Find a wild Pokémon in any region.'
+      paintLocationBackdrop(hero, chosen ? locationArt(chosen.key) : 'route')
+    })
+  })
   $('[data-t=party]', st)?.addEventListener('click', () => { T.tab = 'party'; draw() })
   $('#pkHealNow')?.addEventListener('click', async () => { try { await pk.heal(); toast('Team healed', 'ok'); draw() } catch (e) { toast(e.message) } })
   $('#pkHunt').addEventListener('click', async (e) => {
-    const b = e.currentTarget, region = $('#pkRegion').value || null; b.disabled = true
+    const b = e.currentTarget, region = T.region || null; b.disabled = true
     $('#pkTabs').style.display = 'none'
     try { await showBattle(await pk.hunt(region), { kind: 'wild', region }) }
     catch (err) {
