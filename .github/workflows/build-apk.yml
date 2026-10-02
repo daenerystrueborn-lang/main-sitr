@@ -48,8 +48,8 @@ jobs:
 
       - name: Bundle the site into the app
         env:
-          # Optional repo variable to point the app at a different API.
-          ASTRAL_API_BASE: ${{ vars.ASTRAL_API_BASE }}
+          # API the app talks to. Hardcoded on purpose, no repo variable needed.
+          ASTRAL_API_BASE: https://astral-bot-production-afb0.up.railway.app
         run: node scripts/prepare-www.mjs
 
       - name: Create Android project
@@ -58,7 +58,7 @@ jobs:
           npx cap sync android
 
       - name: App icons
-        run: npx capacitor-assets generate --android --assetPath resources --iconBackgroundColor '#000000' --iconBackgroundColorDark '#000000'
+        run: npx capacitor-assets generate --android --assetPath resources --iconBackgroundColor '#000000' --iconBackgroundColorDark '#000000' --splashBackgroundColor '#000000' --splashBackgroundColorDark '#000000'
 
       - name: Version and status bar
         run: |
