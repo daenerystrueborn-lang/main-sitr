@@ -132,6 +132,10 @@ const get = (p) => {
 const post = (p, body) => (__wipe(), request(p, { method: 'POST', body }).finally(__wipe))
 const patch = (p, body) => (__wipe(), request(p, { method: 'PATCH', body }).finally(__wipe))
 const del = (p) => (__wipe(), request(p, { method: 'DELETE' }).finally(__wipe))`)
+// 4d) debug: show the real network error + URL so "Cannot reach the server" can be diagnosed on the phone.
+const netFrom = "aborted ? 'The server took too long to respond.' : 'Cannot reach the server.',"
+if (!apiSrc.includes(netFrom)) throw new Error('api.js patch anchor not found: network error message')
+apiSrc = apiSrc.replace(netFrom, "aborted ? 'The server took too long to respond.' : `Cannot reach the server (${API_BASE} | ${err?.name}: ${err?.message}).`,")
 fs.writeFileSync(apiPath, apiSrc)
 
 

@@ -24,7 +24,7 @@ async function send(path, { method = 'GET', body = null } = {}) {
       body: body ? JSON.stringify(body) : undefined,
     })
   } catch (e) {
-    throw new ApiError(e?.name === 'AbortError' ? 'The server took too long.' : 'Cannot reach the server.', { status: 0, code: 'network' })
+    throw new ApiError(e?.name === 'AbortError' ? 'The server took too long.' : `Cannot reach the server (${API_BASE} | ${e?.name}: ${e?.message}).`, { status: 0, code: 'network' })
   } finally { clearTimeout(timer) }
   let data = null
   try { data = await res.json() } catch {}
