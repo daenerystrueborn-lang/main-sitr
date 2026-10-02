@@ -1235,9 +1235,9 @@ function characterPrice(c) {
 }
 
 /**
- * The Characters *page* is gone, but this modal isn't page-bound - it's opened
- * from any [data-char] element, which today means the equipped-character card
- * on the profile. /api/characters/:id still backs it.
+ * Character details use the collectible art-card treatment, not the banner and
+ * avatar layout used by player profiles. Any [data-char] card can open this:
+ * the main roster, season roster, or a player's equipped character.
  */
 async function openCharacter(id) {
   openModal(`<div style="padding:6px">${skeletonRows(3)}</div>`)
@@ -1248,15 +1248,19 @@ async function openCharacter(id) {
       .join('')
 
     openModal(`
-      ${c.image ? `<div class="pd-banner" style="background-image:url('${attr(c.image)}')"></div>` : ''}
-      <div class="pd-head">
-        <div class="pd-avatar">${iconSvg('character', 'character-placeholder')}</div>
-        <div class="pd-id">
-          <h3>${esc(c.name)}
-            ${equipped ? '<span class="badge badge-gold">Equipped</span>' : owned ? '<span class="badge badge-lvl">Owned</span>' : ''}</h3>
-          <p class="pd-sub">${esc(c.rarity ? titleCase(c.rarity) : '')}${c.characterTier ? ` · Tier ${esc(c.characterTier)}` : ''}</p>
-          <p class="subtext">${esc(characterPrice(c))}</p>
+      <div class="cc-wrap">
+        <div class="cc-card cc-r-${attr(String(c.rarity ?? '').toLowerCase())}">
+          ${c.image
+            ? mediaEl(c.image, 'cc-img', `<span class="cc-ph">${iconSvg('character', 'character-placeholder')}</span>`)
+            : `<span class="cc-ph">${iconSvg('character', 'character-placeholder')}</span>`}
+          <div class="cc-shade"></div>
+          ${equipped || owned ? `<span class="cc-flag${equipped ? ' is-eq' : ''}">${equipped ? 'Equipped' : 'Owned'}</span>` : ''}
+          <div class="cc-meta">
+            <h3>${esc(c.name)}</h3>
+            <p>${esc([c.rarity && titleCase(c.rarity), c.characterTier && `Tier ${c.characterTier}`].filter(Boolean).join(' · '))}</p>
+          </div>
         </div>
+        ${characterPrice(c) ? `<p class="cc-price">${esc(characterPrice(c))}</p>` : ''}
       </div>
       <div class="pd-body">
         ${c.description ? `<p class="subtext">${esc(c.description)}</p>` : ''}
