@@ -37,10 +37,7 @@ bg.save(out / 'icon-background.png')
 fg = Image.new('RGBA', (1024, 1024), (0, 0, 0, 0)); s = int(1024 * 0.66)
 fg.alpha_composite(rounded(full.resize((s, s), Image.LANCZOS), .12), ((1024 - s) // 2, (1024 - s) // 2))
 fg.save(out / 'icon-foreground.png')
-# Splash: the sun (resources/sun.png) centred on black. The app icon stays icon-only; the splash never uses it.
-sun_path = out / 'sun.png'
-sun = Image.open(sun_path).convert('RGBA') if sun_path.exists() else tile
-sp = Image.new('RGBA', (2732, 2732), BLACK); t = int(2732 * 0.30)
-sp.alpha_composite(sun.resize((t, t), Image.LANCZOS), ((2732 - t) // 2, (2732 - t) // 2))
+# Splash: plain black (no logo). The app icon stays icon-only.
+sp = Image.new('RGBA', (2732, 2732), BLACK)
 sp.save(out / 'splash.png'); sp.save(out / 'splash-dark.png')
 print('resources written to', out)

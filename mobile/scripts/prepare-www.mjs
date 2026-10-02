@@ -59,6 +59,11 @@ fs.mkdirSync(path.join(www, 'assets/app'), { recursive: true })
 for (const f of fs.readdirSync(path.join(mobile, 'app-shell'))) {
   fs.copyFileSync(path.join(mobile, 'app-shell', f), path.join(www, 'assets/app', f))
 }
+// Armor slot icons (game-icons.net, CC BY 3.0; see armor/CREDITS.txt).
+fs.mkdirSync(path.join(www, 'assets/armor'), { recursive: true })
+for (const f of fs.readdirSync(path.join(mobile, 'armor'))) {
+  if (f.endsWith('.png')) fs.copyFileSync(path.join(mobile, 'armor', f), path.join(www, 'assets/armor', f))
+}
 // Splash logo: the site's sun (favicon.png), spun by splash.css.
 fs.copyFileSync(path.join(site, 'assets/img/favicon.png'), path.join(www, 'assets/img/app-logo.png'))
 
@@ -75,8 +80,7 @@ patch("  404: { view: 'view-404', title: 'Not found' },",
   'routes table')
 patch("const next = pendingRoute ?? 'profile'", "const next = pendingRoute ?? 'welcome'", 'post-login landing')
 
-// 4b-2) The shared site source now renders the 2:3 character mini-card directly.
-// Keep the legacy patch for older site copies; don't re-patch the current markup.
+// 4b-2) character modal becomes a 2:3 card + info (no banner, no round pfp); profile header gets edit buttons.
 appJs = appJs.replace(/\r\n/g, '\n')
 const between = (startMarker, endMarker, file, label) => {
   const a = appJs.indexOf(startMarker)
@@ -85,12 +89,11 @@ const between = (startMarker, endMarker, file, label) => {
   if (b < 0) throw new Error(`app.js patch anchor not found: ${label} (end)`)
   appJs = appJs.slice(0, a) + fs.readFileSync(path.join(here, 'patches', file), 'utf8') + appJs.slice(b)
 }
-if (!appJs.includes('class="cc-wrap"')) {
-  between("${c.image ? `<div class=\"pd-banner\" style=\"background-image:url('${attr(c.image)}')\"></div>` : ''}",
-    '<div class="pd-body">', 'character-card.txt', 'character modal')
-}
+between("${c.image ? `<div class=\"pd-banner\" style=\"background-image:url('${attr(c.image)}')\"></div>` : ''}",
+  '<div class="pd-body">', 'character-card.txt', 'character modal')
 between('<div class="profile-banner"${p.bannerUrl',
   '<section class="section">\n      <div class="stat-row reveal">', 'profile-head.txt', 'profile header')
+patch('state.inv = (p.inventory ?? []).slice(0, 24)', 'state.inv = (p.inventory ?? []).slice(0, 24)\n  window.__astralInv = state.inv\n  window.__astralMe = p', 'expose inventory for drag and drop')
 patch("const box = inputEl?.closest('.img-upload')", "const box = inputEl?.closest('.img-upload') ?? $('#profileWrap')", 'upload busy box')
 patch("toast(kind === 'banner' ? 'Banner updated.' : 'Profile picture updated.')\n    await loadSettings()",
   "toast(kind === 'banner' ? 'Banner updated.' : 'Profile picture updated.')\n    await (location.hash.startsWith('#/profile') ? loadProfile() : loadSettings())",
@@ -143,7 +146,9 @@ fs.writeFileSync(apiPath, apiSrc)
 
 
 // Splash markup (styles live in app-shell/splash.css). Gooey SVG filters make the drops melt together.
-const SPLASH_HTML = `<div id="appSplash"><svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+// Set to true to bring back the water-drop + spinning sun splash. false = plain black while the app boots.
+const SPLASH_ANIM = false
+const SPLASH_HTML_ANIM = `<div id="appSplash"><svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
 <filter id="spGoo" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur in="SourceGraphic" stdDeviation="7" result="b"/><feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -8"/></filter>
 <filter id="spGoo2" x="-30%" y="-50%" width="160%" height="200%"><feGaussianBlur in="SourceGraphic" stdDeviation="2.6" result="b"/><feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7"/></filter>
 </defs></svg><div class="sp-glow"></div><div class="sp-stage"><div class="sp-goo"><i class="sp-drop d1"></i><i class="sp-drop d2"></i><i class="sp-drop d3"></i><i class="sp-pool"></i><i class="sp-jet j1"></i><i class="sp-jet j2"></i><i class="sp-jet j3"></i><i class="sp-jet j4"></i><i class="sp-jet j5"></i><i class="sp-jet j6"></i></div><i class="sp-ring r1"></i><i class="sp-ring r2"></i><i class="sp-ring r3"></i><i class="sp-ring r4"></i><div class="sp-logo-wrap"><img class="sp-logo" src="assets/img/app-logo.png" alt=""></div></div></div>`
@@ -160,9 +165,9 @@ html = html
   .replace(/<meta name="viewport"[^>]*>/,
     '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">')
   .replace('</head>',
-    `<link rel="stylesheet" href="assets/app/shell.css">\n<script>window.ASTRAL_API_BASE=${JSON.stringify(apiBase)}</script>\n</head>`)
+    `<link rel="stylesheet" href="assets/app/shell.css">\n<script>window.ASTRAL_API_BASE=${JSON.stringify(apiBase)};window.ASTRAL_SPLASH_MS=${SPLASH_ANIM ? 1900 : 350}</script>\n</head>`)
   .replace('</head>', '<link rel="stylesheet" href="assets/app/splash.css">\n</head>')
-  .replace('<body>', () => '<body class="is-app">\n' + SPLASH_HTML)
+  .replace('<body>', () => '<body class="is-app">\n' + (SPLASH_ANIM ? SPLASH_HTML_ANIM : '<div id="appSplash" class="blank"></div>'))
   .replace('</head>', '<link rel="stylesheet" href="assets/app/play.css">\n</head>')
   .replace('</body>', `<main class="view" id="view-welcome"><div class="page" id="welcomeRoot"></div></main>
 <main class="view" id="view-pokemon"><div class="page" id="pokemonRoot"></div></main>

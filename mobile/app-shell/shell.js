@@ -101,7 +101,7 @@
     var view = document.getElementById('view-' + r)
     var ready = view && view.classList.contains('active') &&
       (r === 'welcome' ? !!document.querySelector('#welcomeRoot[data-ready]') : true)
-    if ((ready && age > 1900) || age > 5000) return hideSplash()
+    if ((ready && age > (window.ASTRAL_SPLASH_MS ?? 350)) || age > 5000) return hideSplash()
     setTimeout(waitReady, 80)
   })()
 

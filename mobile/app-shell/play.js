@@ -6,6 +6,7 @@ import { spriteImg } from './showdown.js'
 import { renderPokemon } from './pokemon.js'
 import { renderSettings } from './settings.js'
 import './prefs.js'
+import './inventory.js'
 
 /* ── Pokémon avatar (stored on this device) ── */
 const AV_KEY = 'astral:pk-avatar'
@@ -63,9 +64,36 @@ const slimSeason = (sv) => (!sv?.active ? { active: false } : { active: true, nu
 const slimTeam = (o) => (o.needsStarter ? { starter: true } : { party: (o.party ?? []).map(m => ({ name: m.name, nickname: m.nickname, dexId: m.dexId, shiny: m.shiny, level: m.level, hp: m.hp, maxHp: m.maxHp, fainted: m.fainted })) })
 const slimBoard = (b) => (b?.rows ?? []).map(r => ({ uid: r.uid, position: r.position, name: r.name, level: r.level, avatarUrl: r.avatarUrl ?? null }))
 const listOf = (r) => (Array.isArray(r) ? r : r && typeof r === 'object' ? (Object.values(r).find(Array.isArray) ?? []) : [])
-const slimCards = (r) => listOf(r).filter(x => x && typeof x === 'object').slice(0, 8).map(x => ({
-  name: String(x.name ?? x.title ?? x.label ?? x.tier ?? x.key ?? 'Card'),
-  img: [x.image, x.img, x.imageUrl, x.art, x.icon, x.thumbnail].find(v => typeof v === 'string') ?? null }))
+const CARD_MS = 5 * 60 * 1000
+const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]] } return a }
+// Three random cards from the catalog. Page count comes from the tier pool sizes; falls back to the first few pages.
+async function fetchRandomCards() {
+  let pages = 0
+  try {
+    const total = listOf(await api.cardPrices()).reduce((n, t) => n + (Number(t?.poolSize) || 0), 0)
+    if (total > 0) pages = Math.max(1, Math.ceil(total / 24))
+  } catch {}
+  const grab = async (pg) => { const out = await api.cardCatalog({ page: pg, limit: 24 }); return (out?.cards ?? []).filter(c => c && typeof c === 'object') }
+  const pg = 1 + Math.floor(Math.random() * (pages || 5))
+  let list = []
+  try { list = await grab(pg) } catch {}
+  if (list.length < 3 && pg !== 1) { try { list = await grab(1) } catch {} }
+  return shuffle(list).slice(0, 3).map(c => ({ name: String(c.title ?? c.name ?? 'Card'), img: c.imageUrl ?? c.image ?? null, tier: c.tier ?? null }))
+}
+async function refreshCards(force = false) {
+  if (!W.d) return
+  if (!force && W.d.cards?.length >= 3 && Date.now() - (W.d.cardsAt ?? 0) < CARD_MS) return
+  if (W.cardsBusy) return
+  W.cardsBusy = true
+  try {
+    const c = await fetchRandomCards()
+    if (c.length) { patchWelcome('cards', c); patchWelcome('cardsAt', Date.now()) }
+  } catch {} finally {
+    W.cardsBusy = false
+    if (W.d.cards === undefined) patchWelcome('cards', null)
+  }
+}
+setInterval(() => { if (route() === 'welcome' && signedIn()) refreshCards() }, 30000)
 
 const QUICK = [['characters', 'Characters', 'Browse every hero'], ['shop', 'Shop', 'Gear and items']]
 const skel = '<div class="wl-skel"></div>'
@@ -112,8 +140,8 @@ const SECTIONS = {
     const c = d.cards
     if (c === undefined) return skel
     if (!c?.length) return '<a class="wl-cta wl-cta-soft" href="#/cards"><b>Cards</b><span>Collect card tiers ›</span></a>'
-    return `<div class="pk-strip">${c.map(x => `<a class="wl-card" href="#/cards">
-      <span class="wl-card-art">${x.img ? `<img src="${esc(x.img)}" alt="" loading="lazy" decoding="async">` : `<em>${esc(initials(x.name))}</em>`}</span><b>${esc(x.name)}</b></a>`).join('')}</div>`
+    return `<div class="wl-mini">${c.map(x => `<a class="wl-mc" href="#/cards">
+      <span class="wl-mc-art">${x.img ? `<img src="${esc(x.img)}" alt="" loading="lazy" decoding="async">` : `<em>${esc(initials(x.name))}</em>`}${x.tier != null && x.tier !== '' ? `<i class="wl-mc-tier">${esc(x.tier)}</i>` : ''}</span><b>${esc(x.name)}</b></a>`).join('')}</div>`
   },
   wlTop(d) {
     const rows = d.board
@@ -173,13 +201,12 @@ async function renderWelcome() {
   if (W.fetching) { W.again = true; return }
   W.fetching = true; W.again = false
 
-  const cardsFn = api.cards ?? api.cardTiers ?? api.cardSets ?? api.getCards
   const jobs = [
     api.me().then(r => { W.err = null; patchWelcome('p', slimPlayer(r.player)) }).catch(e => { if (!W.d.p) { W.err = e?.message || 'Could not load your profile.'; paintWelcome() } }),
     api.season().then(sv => patchWelcome('sv', slimSeason(sv))).catch(() => patchWelcome('sv', W.d.sv ?? null)),
     pk.overview().then(o => patchWelcome('team', slimTeam(o))).catch(() => patchWelcome('team', W.d.team ?? null)),
     api.leaderboard('level', 5).then(b => patchWelcome('board', slimBoard(b))).catch(() => patchWelcome('board', W.d.board ?? null)),
-    (cardsFn ? cardsFn.call(api) : Promise.resolve(null)).then(r => patchWelcome('cards', slimCards(r))).catch(() => patchWelcome('cards', W.d.cards ?? null)),
+    refreshCards(),
   ]
   await Promise.allSettled(jobs)
   host.dataset.ready = '1'                           // also lifts the splash if the very first load failed

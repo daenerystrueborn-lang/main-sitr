@@ -63,3 +63,5 @@ body.lite #appSplash .sp-stage{transition:transform .5s ease !important}
   100%{opacity:1;transform:scale(1);filter:blur(0) drop-shadow(0 0 22px rgba(255,190,20,.45))}
 }
 @keyframes spSpin{to{transform:rotate(360deg)}}
+
+#appSplash.blank{background:#000}

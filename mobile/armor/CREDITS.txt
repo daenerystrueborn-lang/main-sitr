@@ -1,0 +1,6 @@
+Armor slot icons are from game-icons.net, licensed CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/).
+Recoloured gold and exported to PNG. Authors:
+- Lorc (https://lorcblog.blogspot.com): crested-helmet, breastplate, boots
+- Delapouite (https://delapouite.com): shoulder-armor, gauntlet, belt-armor, leg-armor, cape-armor
+- Willdabeast: round-shield
+Source: https://github.com/game-icons/icons
