@@ -59,7 +59,10 @@ const DYNAMIC_IDS = new Set([
 ])
 for (const id of DYNAMIC_IDS) jsIds.add(id)
 
-const missingIds = [...jsIds].filter(id => !knownIds.has(id)).sort()
+// These footer controls are deliberately optional: the site shell can ship
+// without a footer, and each lookup is guarded before it is used.
+const OPTIONAL_IDS = new Set(['footerAuth', 'footerCta', 'footerNote', 'footerSupport'])
+const missingIds = [...jsIds].filter(id => !knownIds.has(id) && !OPTIONAL_IDS.has(id)).sort()
 if (missingIds.length) fail(`JS reaches for #ids that don't exist: ${missingIds.join(', ')}`)
 else ok(`all ${jsIds.size} #ids referenced by JS exist in the markup`)
 

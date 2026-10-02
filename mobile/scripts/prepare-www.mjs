@@ -75,7 +75,8 @@ patch("  404: { view: 'view-404', title: 'Not found' },",
   'routes table')
 patch("const next = pendingRoute ?? 'profile'", "const next = pendingRoute ?? 'welcome'", 'post-login landing')
 
-// 4b-2) character modal becomes a 2:3 card + info (no banner, no round pfp); profile header gets edit buttons.
+// 4b-2) The shared site source now renders the 2:3 character mini-card directly.
+// Keep the legacy patch for older site copies; don't re-patch the current markup.
 appJs = appJs.replace(/\r\n/g, '\n')
 const between = (startMarker, endMarker, file, label) => {
   const a = appJs.indexOf(startMarker)
@@ -84,8 +85,10 @@ const between = (startMarker, endMarker, file, label) => {
   if (b < 0) throw new Error(`app.js patch anchor not found: ${label} (end)`)
   appJs = appJs.slice(0, a) + fs.readFileSync(path.join(here, 'patches', file), 'utf8') + appJs.slice(b)
 }
-between("${c.image ? `<div class=\"pd-banner\" style=\"background-image:url('${attr(c.image)}')\"></div>` : ''}",
-  '<div class="pd-body">', 'character-card.txt', 'character modal')
+if (!appJs.includes('class="cc-wrap"')) {
+  between("${c.image ? `<div class=\"pd-banner\" style=\"background-image:url('${attr(c.image)}')\"></div>` : ''}",
+    '<div class="pd-body">', 'character-card.txt', 'character modal')
+}
 between('<div class="profile-banner"${p.bannerUrl',
   '<section class="section">\n      <div class="stat-row reveal">', 'profile-head.txt', 'profile header')
 patch("const box = inputEl?.closest('.img-upload')", "const box = inputEl?.closest('.img-upload') ?? $('#profileWrap')", 'upload busy box')
