@@ -59,9 +59,8 @@ fs.mkdirSync(path.join(www, 'assets/app'), { recursive: true })
 for (const f of fs.readdirSync(path.join(mobile, 'app-shell'))) {
   fs.copyFileSync(path.join(mobile, 'app-shell', f), path.join(www, 'assets/app', f))
 }
-// App logo for the splash: mobile/resources/logo.png if you've added one, else the site's logo.
-const appLogo = path.join(mobile, 'resources/logo.png')
-fs.copyFileSync(fs.existsSync(appLogo) ? appLogo : path.join(site, 'assets/img/logo.png'), path.join(www, 'assets/img/app-logo.png'))
+// Splash logo: the site's sun (favicon.png), spun by splash.css.
+fs.copyFileSync(path.join(site, 'assets/img/favicon.png'), path.join(www, 'assets/img/app-logo.png'))
 
 // 4b) router patches on the bundled copy of app.js (the site's own file is never touched).
 //     Each anchor is asserted, so a site change that breaks one fails the build instead of shipping a broken app.
@@ -140,7 +139,7 @@ fs.writeFileSync(apiPath, apiSrc)
 const SPLASH_HTML = `<div id="appSplash"><svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
 <filter id="spGoo" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur in="SourceGraphic" stdDeviation="7" result="b"/><feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -8"/></filter>
 <filter id="spGoo2" x="-30%" y="-50%" width="160%" height="200%"><feGaussianBlur in="SourceGraphic" stdDeviation="2.6" result="b"/><feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7"/></filter>
-</defs></svg><div class="sp-glow"></div><div class="sp-stage"><div class="sp-goo"><i class="sp-drop d1"></i><i class="sp-drop d2"></i><i class="sp-drop d3"></i><i class="sp-pool"></i><i class="sp-jet j1"></i><i class="sp-jet j2"></i><i class="sp-jet j3"></i><i class="sp-jet j4"></i><i class="sp-jet j5"></i><i class="sp-jet j6"></i></div><i class="sp-ring r1"></i><i class="sp-ring r2"></i><i class="sp-ring r3"></i><i class="sp-ring r4"></i><div class="sp-logo-wrap"><img class="sp-logo" src="assets/img/app-logo.png" alt=""></div></div><div class="sp-name"><span style="--i:0">A</span><span style="--i:1">S</span><span style="--i:2">T</span><span style="--i:3">R</span><span style="--i:4">A</span><span style="--i:5">L</span></div><div class="sp-dots"><i></i><i></i><i></i></div></div>`
+</defs></svg><div class="sp-glow"></div><div class="sp-stage"><div class="sp-goo"><i class="sp-drop d1"></i><i class="sp-drop d2"></i><i class="sp-drop d3"></i><i class="sp-pool"></i><i class="sp-jet j1"></i><i class="sp-jet j2"></i><i class="sp-jet j3"></i><i class="sp-jet j4"></i><i class="sp-jet j5"></i><i class="sp-jet j6"></i></div><i class="sp-ring r1"></i><i class="sp-ring r2"></i><i class="sp-ring r3"></i><i class="sp-ring r4"></i><div class="sp-logo-wrap"><img class="sp-logo" src="assets/img/app-logo.png" alt=""></div></div></div>`
 
 // 5) html
 let html = fs.readFileSync(path.join(site, 'index.html'), 'utf8')

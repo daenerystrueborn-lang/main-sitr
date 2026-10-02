@@ -55,25 +55,11 @@ body.lite #appSplash .sp-stage{transition:transform .5s ease !important}
 #appSplash .sp-ring.r4{border-color:rgba(227,187,67,.3);animation:spRing 2.6s ease-out 2s infinite forwards}
 @keyframes spRing{0%{transform:scale(.25);opacity:.9}100%{transform:scale(2.2);opacity:0}}
 
-#appSplash .sp-logo-wrap{position:absolute;left:50%;top:50%;width:112px;height:112px;margin:-56px 0 0 -56px;border-radius:26px;overflow:hidden;opacity:0;animation:spLogo .8s cubic-bezier(.2,.9,.25,1.12) 1.2s forwards}
-#appSplash .sp-logo{display:block;width:100%;height:100%;object-fit:contain}
-#appSplash .sp-logo-wrap::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse at 28% 12%,rgba(255,255,255,.3),transparent 52%)}
-#appSplash .sp-logo-wrap::after{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.5) 50%,transparent 70%);transform:translateX(-130%);animation:spSheen 2.8s ease-in-out 2s infinite}
+#appSplash .sp-logo-wrap{position:absolute;left:50%;top:50%;width:132px;height:132px;margin:-66px 0 0 -66px;opacity:0;animation:spLogo .8s cubic-bezier(.2,.9,.25,1.12) 1.2s forwards;filter:drop-shadow(0 0 22px rgba(255,190,20,.45))}
+#appSplash .sp-logo{display:block;width:100%;height:100%;object-fit:contain;animation:spSpin 7s linear 1.2s infinite}
 @keyframes spLogo{
-  0%{opacity:0;transform:scale(.45);filter:blur(10px)}
-  60%{opacity:1;filter:blur(0)}
-  100%{opacity:1;transform:scale(1);filter:blur(0) drop-shadow(0 0 22px rgba(212,175,55,.4))}
+  0%{opacity:0;transform:scale(.4);filter:blur(10px) drop-shadow(0 0 0 rgba(255,190,20,0))}
+  60%{opacity:1;filter:blur(0) drop-shadow(0 0 10px rgba(255,190,20,.3))}
+  100%{opacity:1;transform:scale(1);filter:blur(0) drop-shadow(0 0 22px rgba(255,190,20,.45))}
 }
-@keyframes spSheen{0%{transform:translateX(-130%)}45%,100%{transform:translateX(130%)}}
-
-#appSplash .sp-name{display:flex;margin-top:12px;font:800 22px/1 'Space Grotesk',Inter,system-ui,sans-serif;letter-spacing:.42em;padding-left:.42em}
-#appSplash .sp-name span{display:inline-block;opacity:0;transform:translateY(14px);filter:blur(5px);background:linear-gradient(180deg,#f7e39a,#d4af37 55%,#8a6d1c);-webkit-background-clip:text;background-clip:text;color:transparent;animation:spRise .6s cubic-bezier(.2,.8,.2,1) forwards;animation-delay:calc(1.45s + var(--i) * .07s)}
-@keyframes spRise{to{opacity:1;transform:none;filter:blur(0)}}
-
-#appSplash .sp-dots{position:relative;width:64px;height:26px;margin-top:22px;filter:url(#spGoo2);opacity:0;animation:spShow .4s ease 1.7s forwards}
-#appSplash .sp-dots i{position:absolute;bottom:4px;width:9px;height:9px;border-radius:50%;background:#e3bb43;animation:spBob 1s ease-in-out infinite}
-#appSplash .sp-dots i:nth-child(1){left:10px}
-#appSplash .sp-dots i:nth-child(2){left:27px;animation-delay:.15s}
-#appSplash .sp-dots i:nth-child(3){left:44px;animation-delay:.3s}
-@keyframes spBob{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-12px) scale(.85,1.2)}}
-@keyframes spShow{to{opacity:1}}
+@keyframes spSpin{to{transform:rotate(360deg)}}
