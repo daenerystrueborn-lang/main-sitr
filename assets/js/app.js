@@ -804,14 +804,13 @@ function ensureMeta() {
 /* ─────────────────────────────── page: home ───────────────────────────── */
 
 /**
- * Where the APK comes from. GitHub Actions builds the release APK and attaches
- * it to the latest release, so `/releases/latest/download/<asset>` always
- * resolves to the newest build without this file needing a version bump.
+ * Where the APK comes from. The build is hosted on MediaFire, so this is a
+ * plain file link - swap the URL here when a new APK is uploaded.
  *
  * One constant, three consumers: the hero's App tab, the header button and the
  * mobile drawer link. Change it here only.
  */
-const APP_DOWNLOAD_URL = 'https://github.com/northernblader-sys/astral-bot/releases/latest/download/astral.apk'
+const APP_DOWNLOAD_URL = 'https://www.mediafire.com/file/ku97joe1145m7aj/astral+(1).apk/file'
 const APP_RELEASES_URL = 'https://github.com/northernblader-sys/astral-bot/releases/latest'
 
 /**
