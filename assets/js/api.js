@@ -355,11 +355,8 @@ export const api = {
 
   /* ──────────────────────────────── cards ──────────────────────────────── */
 
-  /** Buyable tiers with prices, cheapest first. Covers 1-6 and S. */
+  /** Tier pool metadata used by the mobile card showcase. */
   cardPrices: () => get('/cards/prices'),
-
-  /** Buys one random card of a guaranteed tier. */
-  buyCardTier: (tier) => post('/cards/buy-tier', { tier }),
 
   /**
    * Browse the card catalog.

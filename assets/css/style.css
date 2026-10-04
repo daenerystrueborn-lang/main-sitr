@@ -431,12 +431,7 @@ button.perk-card{width:100%;text-align:left;font:inherit;color:inherit;-webkit-a
 .shop-card .btn{margin-top:auto;}
 
 /* ── cards ────────────────────────────────────────────────────────────── */
-.card-tier{display:flex;flex-direction:column;text-align:center;}
-.card-tier-stars{font-size:17px;color:var(--gold);margin-bottom:7px;letter-spacing:.08em;}
-.card-tier .shop-price{justify-content:center;}
-.card-tier .btn{margin-top:auto;}
- /* Catalog tiles are display-only - the card you get is a random pull of the
-   tier, so nothing here should read as clickable. */
+/* The catalog is display-only, so its tiles don't read as clickable. */
 .card-tile{cursor:default;}
 .card-img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:var(--r);margin-bottom:11px;
   transition:transform var(--dur-slow) var(--ease-out);}
@@ -448,46 +443,6 @@ button.perk-card{width:100%;text-align:left;font:inherit;color:inherit;-webkit-a
 .rarity-pill.r-ts{background:rgb(212 175 55 / 18%);color:var(--gold);border-color:rgb(212 175 55 / 50%);}
 .rarity-pill.r-t6,.rarity-pill.r-t5{background:rgb(168 85 247 / 14%);color:#c99bff;border-color:rgb(168 85 247 / 40%);}
 .rarity-pill.r-t4,.rarity-pill.r-t3{background:rgb(96 165 250 / 12%);color:#8ec2ff;border-color:rgb(96 165 250 / 35%);}
-
-/* ── card pull reveal ──────────────────────────────────────────────────
-   The popup after buying a guaranteed-tier pull.
-
-   Pointedly not .pd-banner: that is a 118px strip filled with
-   background-size:cover, and card art is portrait, so it cropped every
-   card down to an unreadable band across its middle. The frame here is
-   tall and the art is contained inside it, letterboxed against the vault
-   glow, so the whole card is visible whatever its aspect ratio. Going
-   through a real <img>/<video> (cardArt()) also sidesteps a live bug in
-   the old markup: attr() escapes ' to &#39;, the HTML parser turns that
-   back into a bare quote, and inside style="…url('…')" it closed the
-   url() early and the art silently disappeared. */
-.pull-reveal{display:flex;flex-direction:column;}
-.pull-art{position:relative;display:flex;align-items:center;justify-content:center;
-  height:min(46svh,340px);padding:18px 18px 0;overflow:hidden;
-  border-radius:var(--r-xl) var(--r-xl) 0 0;
-  background:radial-gradient(circle at 50% 0%, rgb(212 175 55 / 18%), transparent 62%), var(--bg-3);}
-.pull-art-media{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;
-  border-radius:var(--r-lg);box-shadow:0 14px 34px rgb(0 0 0 / 55%);
-  animation:pullIn .42s var(--ease-out) both;}
-/* cardArt() falls back to an inline perk icon for a card with no art. */
-.pull-art .perk-icon{opacity:.55;}
-@keyframes pullIn{from{opacity:0;transform:scale(.92) translateY(10px);}to{opacity:1;transform:none;}}
-.pull-info{padding:18px 22px 22px;text-align:center;}
-.pull-info .rarity-pill{margin-bottom:9px;}
-.pull-info h3{margin:0 0 3px;font-size:19px;}
-.pull-info .pd-sub{margin:0;}
-.pull-stars{margin:7px 0 10px;color:var(--gold);font-size:13px;letter-spacing:.14em;}
-.pull-info .subtext{margin:0 0 16px;}
-
-/* The wait between confirming and revealing. /cards/buy-tier pulls from
-   the upstream vault before it debits, and confirmAction() has already
-   dismissed its own dialog by then, so this holds the screen instead of
-   leaving a second or two of nothing. */
-.pull-wait{padding:44px 26px;text-align:center;}
-.pull-wait-orb{width:46px;height:46px;margin:0 auto 18px;border-radius:var(--r-full);
-  border:2px solid var(--border);border-top-color:var(--gold);animation:spin .8s linear infinite;}
-.pull-wait h3{margin:0 0 6px;font-size:17px;}
-.pull-wait .subtext{margin:0;}
 
 /* spin banner
    ─────────────────────────────────────────────────────────────────────────

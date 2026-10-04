@@ -1752,43 +1752,12 @@ async function buyShopItem(id, name, price) {
 
 let cardPage = 1
 let cardTier = ''
+const CARD_TIERS = ['1', '2', '3', '4', '5', '6', 'S']
 
 async function loadCards() {
-  const tierGrid = $('#cardTierGrid')
-  // Seven, matching BUYABLE_CARD_TIERS: 1-6 plus S. Undercounting here made the
-  // grid visibly jump a row when the real tiles landed.
-  if (tierGrid) tierGrid.innerHTML = skeletonCards(7)
-
-  const prices = await api.cardPrices()
-
-  const balance = $('#cardBalance')
-  if (balance) {
-    balance.innerHTML = prices.you
-      ? `<div class="shop-wallet"><span><strong>${num(prices.you.solars)}</strong> solars</span></div>`
-      : `<a class="btn btn-primary btn-sm" href="#/login" data-route="login">Sign in to buy</a>`
-  }
-
-  if (tierGrid) {
-    tierGrid.innerHTML = (prices.tiers ?? []).map(t => `
-      <div class="perk-card card-tier reveal">
-        <div class="card-tier-stars">${esc(t.stars ?? '')}</div>
-        <h4>Tier ${esc(t.tier)}</h4>
-        <p>${t.poolSize ? `${num(t.poolSize)} cards in this tier` : 'A random card of this tier'}</p>
-        <div class="shop-price"><span class="gold">${num(t.price)} solars</span></div>
-        <button class="btn btn-primary btn-sm btn-block" data-buytier="${attr(t.tier)}"
-                data-price="${attr(String(t.price))}">Buy a pull</button>
-      </div>`).join('')
-  }
-
-  // Tier filters for the catalog below. '' is "all".
-  //
-  // Taken straight from the priced tiers now. 5 and S used to be appended by
-  // hand because the API refused to sell them and so never listed them; both
-  // are in BUYABLE_CARD_TIERS today, and the manual append had started
-  // rendering each of them twice.
   const filters = $('#cardFilters')
   if (filters) {
-    const tiers = ['', ...(prices.tiers ?? []).map(t => t.tier)]
+    const tiers = ['', ...CARD_TIERS]
     filters.innerHTML = tiers.map(t => `
       <button class="tab-btn${t === cardTier ? ' active' : ''}" data-cardtier="${attr(t)}" role="tab">
         ${t === '' ? 'All' : `Tier ${esc(t)}`}
@@ -1842,11 +1811,6 @@ function mediaFrame(url, { ratio = '3/4', className = 'media-el', fallback = '' 
   return `<div class="media-frame" data-kind="${mediaKind(url)}" style="aspect-ratio:${attr(ratio)}">${mediaEl(url, className, fallback)}</div>`
 }
 
-function cardArt(url, className) {
-  if (!url) return perkIcon('gem')
-  return mediaEl(url, className)
-}
-
 /**
  * Fetch one catalog page.
  *
@@ -1879,85 +1843,8 @@ async function paintCardCatalog({ reset = false } = {}) {
       more.disabled = false
     }
   } catch (err) {
-    if (reset) host.innerHTML = emptyState('warning', 'Card vault unavailable', err?.message ?? '')
+    if (reset) host.innerHTML = emptyState('warning', 'Card collection unavailable', err?.message ?? '')
     if (more) more.style.display = 'none'
-  }
-}
-
-/**
- * Buy one guaranteed-tier pull, then show what came out.
- *
- * Three things this deliberately does NOT reuse from the profile-detail modal:
- *
- *   1. `.pd-banner` - a 118px strip with `background-size:cover`. Gacha art is
- *      portrait, so cover cropped every card to an unreadable horizontal sliver
- *      of its own middle. The art gets its own tall frame instead.
- *   2. A CSS `background-image:url('…')`. attr() escapes `'` to `&#39;`, which
- *      the HTML parser decodes back to a bare `'` before CSS ever sees it, so a
- *      URL containing an apostrophe closed the url() early and the art vanished.
- *      An <img>/<video> src has no such hole.
- *   3. `.pd-head` - it is built around a `.pd-avatar` with a -38px overlap, and
- *      this modal has no avatar, so the row collapsed into a gap.
- *
- * The dead time is the other half of the fix: /cards/buy-tier fetches from the
- * upstream vault before it debits, which takes a second or two. confirmAction()
- * closes the modal on confirm, so without the "opening" frame below the whole
- * wait happened with nothing on screen and the reveal arrived out of nowhere.
- */
-async function buyCardPull(tier, price, btn = null) {
-  if (!isSignedIn()) return goTo('login')
-
-  const ok = await confirmAction({
-    title: `Buy a tier ${tier} pull?`,
-    body: `This costs ${Number(price).toLocaleString()} solars. The tier is guaranteed; which card you get is random.`,
-    confirmLabel: 'Pull a card',
-    danger: false,
-  })
-  if (!ok) return
-
-  const done = busy(btn)
-  openModal(`
-    <div class="pull-wait">
-      <div class="pull-wait-orb"></div>
-      <h3>Opening a tier ${esc(tier)} pull…</h3>
-      <p class="subtext">Pulling from the vault. Nothing is charged until a card comes back.</p>
-    </div>`)
-
-  try {
-    const out = await api.buyCardTier(tier)
-    const c = out.card ?? {}
-    if (out.player) state.me = out.player
-    invalidate('profile', 'cards')
-
-    const shownTier = String(c.tier ?? tier)
-    openModal(`
-      <div class="pull-reveal">
-        <div class="pull-art">${cardArt(c.imageUrl, 'pull-art-media')}</div>
-        <div class="pull-info">
-          <span class="rarity-pill r-t${attr(shownTier.toLowerCase())}">Tier ${esc(shownTier)}</span>
-          <h3>${esc(c.title ?? 'New card')}</h3>
-          ${c.series ? `<p class="pd-sub">${esc(c.series)}</p>` : ''}
-          <div class="pull-stars">${esc(c.stars ?? '')}</div>
-          <p class="subtext">Added to your collection. Balance is now
-            <strong>${num(out.balance ?? 0)}</strong> solars.</p>
-          <button class="btn btn-primary btn-block" id="pullDone">Nice</button>
-        </div>
-      </div>`)
-    $('#pullDone')?.addEventListener('click', closeModal)
-
-    toast(`Pulled ${c.title ?? `a tier ${shownTier} card`}`, 'ok')
-
-    const balance = $('#cardBalance')
-    if (balance && out.balance != null) {
-      balance.innerHTML = `<div class="shop-wallet"><span><strong>${num(out.balance)}</strong> solars</span></div>`
-    }
-  } catch (err) {
-    // The waiting frame has to come down on failure too, or a 402/503 leaves
-    // "Opening a pull…" spinning over an error toast.
-    closeModal()
-    reportError(err)
-  } finally {
-    done()
   }
 }
 
@@ -2734,16 +2621,7 @@ function wireGlobalClicks() {
       return
     }
 
-    // Cards: tier purchase, catalog filter, and paging.
-    const pullBtn = t.closest('[data-buytier]')
-    if (pullBtn) {
-      e.preventDefault()
-      // The button goes through so buyCardPull can spin it for the second or
-      // two the upstream vault fetch takes, instead of looking inert.
-      buyCardPull(pullBtn.dataset.buytier, pullBtn.dataset.price, pullBtn)
-      return
-    }
-
+    // Cards are view-only: tier filters and catalog paging are the only actions.
     const starTab = t.closest('[data-charstars]')
     if (starTab) {
       e.preventDefault()

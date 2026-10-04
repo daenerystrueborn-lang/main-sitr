@@ -157,6 +157,21 @@ const badNav = [...navTargets].filter(r => !routeNames.has(r)).sort()
 if (badNav.length) fail(`data-route values with no route: ${badNav.join(', ')}`)
 else ok(`all ${navTargets.size} data-route links resolve to a route`)
 
+/* ── 5b. the cards page is a browsable collection, never a shop ────────── */
+
+const cardsView = html.match(/<main class="view" id="view-cards">([\s\S]*?)<\/main>/)?.[1] ?? ''
+const cardsSections = [...cardsView.matchAll(/<section\b/g)].length
+if (!cardsView || !/<h2>Browse the collection<\/h2>/.test(cardsView) || cardsSections !== 1
+  || /cardTierGrid|cardBalance|data-buytier/.test(cardsView)) {
+  fail('cards view should contain only the browse section, without purchase controls')
+} else {
+  ok('cards view contains only the browse section')
+}
+
+if (/\b(?:buyCardPull|buyCardTier)\b|data-buytier/.test(allJs))
+  fail('card purchase code is still reachable from the frontend')
+else ok('frontend has no card purchase action')
+
 /* ── 6. every asset the markup references is on disk ───────────────────── */
 
 const assets = new Set([
