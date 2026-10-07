@@ -64,6 +64,8 @@ fs.mkdirSync(path.join(www, 'assets/armor'), { recursive: true })
 for (const f of fs.readdirSync(path.join(mobile, 'armor'))) {
   if (f.endsWith('.png')) fs.copyFileSync(path.join(mobile, 'armor', f), path.join(www, 'assets/armor', f))
 }
+// Login screen art (shown above the sign in / sign up cards).
+fs.copyFileSync(path.join(mobile, 'login-art.jpg'), path.join(www, 'assets/img/login-art.jpg'))
 // Splash logo: the site's sun (favicon.png), spun by splash.css.
 fs.copyFileSync(path.join(site, 'assets/img/favicon.png'), path.join(www, 'assets/img/app-logo.png'))
 
@@ -82,17 +84,40 @@ patch("const next = pendingRoute ?? 'profile'", "const next = pendingRoute ?? 'w
 
 // 4b-2) character modal becomes a 2:3 card + info (no banner, no round pfp); profile header gets edit buttons.
 appJs = appJs.replace(/\r\n/g, '\n')
-const between = (startMarker, endMarker, file, label) => {
-  const a = appJs.indexOf(startMarker)
-  if (a < 0) throw new Error(`app.js patch anchor not found: ${label} (start)`)
-  const b = appJs.indexOf(endMarker, a + startMarker.length)
-  if (b < 0) throw new Error(`app.js patch anchor not found: ${label} (end)`)
-  appJs = appJs.slice(0, a) + fs.readFileSync(path.join(here, 'patches', file), 'utf8') + appJs.slice(b)
+// Cosmetic patches. Start/end markers can be a string or a RegExp (whitespace/escaping tolerant).
+// If the site's markup drifted and an anchor is gone, we print what the file looks like now and SKIP
+// that patch (the app still builds, just without that cosmetic change). Set STRICT_PATCHES=1 to fail instead.
+const STRICT = process.env.STRICT_PATCHES === '1'
+const find = (marker, from = 0) => {
+  if (typeof marker === 'string') {
+    const i = appJs.indexOf(marker, from)
+    return i < 0 ? null : { index: i, length: marker.length }
+  }
+  const re = new RegExp(marker.source, marker.flags.replace('g', ''))
+  const m = re.exec(appJs.slice(from))
+  return m ? { index: from + m.index, length: m[0].length } : null
 }
-between("${c.image ? `<div class=\"pd-banner\" style=\"background-image:url('${attr(c.image)}')\"></div>` : ''}",
-  '<div class="pd-body">', 'character-card.txt', 'character modal')
-between('<div class="profile-banner"${p.bannerUrl',
-  '<section class="section">\n      <div class="stat-row reveal">', 'profile-head.txt', 'profile header')
+const between = (startMarker, endMarker, file, label, hint) => {
+  const a = find(startMarker)
+  const b = a && find(endMarker, a.index + a.length)
+  if (!a || !b) {
+    const where = !a ? 'start' : 'end'
+    const msg = `app.js patch anchor not found: ${label} (${where})`
+    if (STRICT) throw new Error(msg)
+    console.warn(`::warning::${msg} - SKIPPED. Site markup changed; update scripts/prepare-www.mjs.`)
+    if (hint) {
+      const lines = appJs.split('\n')
+      lines.forEach((l, i) => { if (l.includes(hint)) console.warn(`  app.js:${i + 1}: ${l.trim().slice(0, 200)}`) })
+    }
+    return
+  }
+  appJs = appJs.slice(0, a.index) + fs.readFileSync(path.join(here, 'patches', file), 'utf8') + appJs.slice(b.index)
+}
+// Old: banner div rendered from c.image. Matches with or without escaped quotes / extra whitespace.
+between(/\$\{\s*c\.image\s*\?\s*`<div class=\\?"pd-banner\\?"[^`]*`\s*:\s*''\s*\}/,
+  /<div class=\\?"pd-body\\?">/, 'character-card.txt', 'character modal', 'pd-')
+between(/<div class=\\?"profile-banner\\?"\$\{\s*p\.bannerUrl/,
+  /<section class=\\?"section\\?">\s*<div class=\\?"stat-row reveal\\?">/, 'profile-head.txt', 'profile header', 'profile-banner')
 patch('state.inv = (p.inventory ?? []).slice(0, 24)', 'state.inv = (p.inventory ?? []).slice(0, 24)\n  window.__astralInv = state.inv\n  window.__astralMe = p', 'expose inventory for drag and drop')
 patch("const box = inputEl?.closest('.img-upload')", "const box = inputEl?.closest('.img-upload') ?? $('#profileWrap')", 'upload busy box')
 patch("toast(kind === 'banner' ? 'Banner updated.' : 'Profile picture updated.')\n    await loadSettings()",
