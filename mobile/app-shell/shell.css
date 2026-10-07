@@ -4,9 +4,12 @@
 body.is-app{
   -webkit-tap-highlight-color:transparent;
   -webkit-user-select:none;user-select:none;
-  overscroll-behavior:none;
   padding-bottom:calc(104px + max(env(safe-area-inset-bottom,0px),14px));
 }
+/* Scroll safety: the page itself (html) is the one scroller on every phone/WebView. Site CSS that locks
+   html/body (overflow:hidden, fixed heights, overscroll-behavior:none) is what stops swipe-up on some devices. */
+html{height:auto !important;min-height:100%;overflow-x:hidden !important;overflow-y:auto !important;overscroll-behavior:auto !important;}
+body.is-app{height:auto !important;min-height:100vh;overflow:visible !important;overscroll-behavior:auto !important;position:relative;}
 body.is-app input,body.is-app textarea{-webkit-user-select:text;user-select:text;}
 body.is-app a,body.is-app button{touch-action:manipulation;}
 
@@ -39,7 +42,7 @@ body.is-app.app-auth{padding-bottom:0;}
 body.is-app.app-auth .nav-shell,
 body.is-app.app-auth .app-tabs{display:none !important;}
 body.is-app .auth-wrap{
-  min-height:100svh;flex-direction:column;justify-content:center;gap:22px;
+  min-height:100vh;min-height:100svh;flex-direction:column;justify-content:center;gap:22px;
   padding:calc(36px + env(safe-area-inset-top,0px)) 18px 36px;
   background:radial-gradient(120% 70% at 50% 0%,rgb(212 175 55 / 14%),transparent 62%);
 }
