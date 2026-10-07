@@ -349,12 +349,5 @@ function drawResult() {
       ${caught ? `<div class="pk-caught">${spriteImg(caught, {})}<span>Caught ${esc(caught)}!</span></div>` : ''}
       ${rows}${evos}${extra.map(l => `<div class="pk-xtra">${esc(l)}</div>`).join('')}</div>
     <button class="pk-big gold pk-wide" id="pkDone">Continue</button>`
-  const done = $('#pkDone')
-  done?.addEventListener('click', () => {
-    S.b = null; S.summary = null; ++S.token
-    // renderPokemon intentionally keeps a visible result screen in place while #pkDone exists.
-    // Remove it before asking the Pokémon page to render again, or Continue becomes a no-op.
-    cmd.replaceChildren()
-    onExit()
-  })
+  $('#pkDone').addEventListener('click', () => { S.b = null; S.summary = null; ++S.token; onExit() })
 }

@@ -139,7 +139,7 @@ const SECTIONS = {
   wlCards(d) {
     const c = d.cards
     if (c === undefined) return skel
-    if (!c?.length) return '<a class="wl-cta wl-cta-soft" href="#/cards"><b>Cards</b><span>Browse the collection ›</span></a>'
+    if (!c?.length) return '<a class="wl-cta wl-cta-soft" href="#/cards"><b>Cards</b><span>Collect card tiers ›</span></a>'
     return `<div class="wl-mini">${c.map(x => `<a class="wl-mc" href="#/cards">
       <span class="wl-mc-art">${x.img ? `<img src="${esc(x.img)}" alt="" loading="lazy" decoding="async">` : `<em>${esc(initials(x.name))}</em>`}${x.tier != null && x.tier !== '' ? `<i class="wl-mc-tier">${esc(x.tier)}</i>` : ''}</span><b>${esc(x.name)}</b></a>`).join('')}</div>`
   },
