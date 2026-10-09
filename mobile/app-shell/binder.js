@@ -28,11 +28,12 @@ function addPull(c) {
 window.addEventListener('astral:pull', (e) => addPull(e.detail ?? {}))
 
 const DEFAULT_TIERS = ['1', '2', '3', '4', '5', '6', 'S']
-const ui = { on: false, mode: 'collection', tier: '', pools: {}, tiers: DEFAULT_TIERS, poolsLoaded: false,
+const ui = { on: false, mode: Object.keys(read().pulls).length ? 'collection' : 'all', tier: '', pools: {}, tiers: DEFAULT_TIERS, poolsLoaded: false,
   all: { list: [], page: 0, more: true, loading: false, err: '' } }
 const rank = (t) => (String(t).toUpperCase() === 'S' ? 9 : Number(t) || 0)
 const isVid = (u) => /\.(webm|mp4|m4v|mov)(\?|#|$)/i.test(String(u ?? ''))
 const cards = new Map()
+const tracking = () => Object.keys(S.pulls).length > 0
 
 const art = (c) => !c.imageUrl ? '<span class="bn-ph">✦</span>'
   : isVid(c.imageUrl) ? `<video src="${esc(c.imageUrl)}#t=0.1" muted playsinline preload="metadata" onerror="this.remove()"></video>`
@@ -59,21 +60,24 @@ function render() {
   if (!root) return
   cards.clear()
   const pulls = Object.values(S.pulls), total = pulls.reduce((n, c) => n + c.n, 0)
-  stats.innerHTML = `<div><b>${num(total)}</b><span>pulled</span></div><div><b>${num(pulls.length)}</b><span>unique</span></div><div><b>${num(Object.keys(S.favs).length)}</b><span>favorites</span></div>`
+  stats.innerHTML = tracking()
+    ? `<div><b>${num(total)}</b><span>pulled</span></div><div><b>${num(pulls.length)}</b><span>unique</span></div><div><b>${num(Object.keys(S.favs).length)}</b><span>favorites</span></div>`
+    : `<div><b>${num(Object.keys(S.favs).length)}</b><span>favorites</span></div>`
+  stats.style.gridTemplateColumns = tracking() ? '' : '1fr'
   chips.innerHTML = ['', ...ui.tiers].map(t => {
     const have = t ? pulls.filter(c => String(c.tier).toUpperCase() === t.toUpperCase()).length : pulls.length, pool = t ? ui.pools[t] : 0
-    return `<button type="button" class="bn-chip${ui.tier === t ? ' on' : ''}" data-tier="${esc(t)}">${t ? `T${esc(t)}` : 'All'}<small>${num(have)}${pool ? `/${num(pool)}` : ''}</small></button>`
+    return `<button type="button" class="bn-chip${ui.tier === t ? ' on' : ''}" data-tier="${esc(t)}">${t ? `T${esc(t)}` : 'All'}${tracking() ? `<small>${num(have)}${pool ? `/${num(pool)}` : ''}</small>` : pool ? `<small>${num(pool)}</small>` : ''}</button>`
   }).join('')
   tabs.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.mode === ui.mode))
   const items = list(), A = ui.all
   if (ui.mode === 'all') {
-    grid.innerHTML = items.map(c => tile(c, !!S.pulls[keyOf(c)])).join('') + (A.loading ? '<div class="bn-load">Loading cards…</div>' : '')
+    grid.innerHTML = items.map(c => tile(c, !tracking() || !!S.pulls[keyOf(c)])).join('') + (A.loading ? '<div class="bn-load">Loading cards…</div>' : '')
     if (A.err) grid.innerHTML += `<div class="bn-empty">${esc(A.err)}</div>`
     more.hidden = !(A.more && !A.loading && items.length)
-    note.textContent = 'Faded cards are ones you have not pulled in this app yet.'
+    note.textContent = tracking() ? 'Faded cards are ones you have not pulled in this app yet.' : 'Tap a card to inspect it. Tap the heart to keep it in your favorites.'
   } else {
     grid.innerHTML = items.length ? items.map(c => tile(c, true)).join('')
-      : `<div class="bn-empty">${ui.mode === 'favorites' ? 'Tap the heart on a card to add it here.' : 'No cards yet. Pull one from the Vault and it shows up here.'}</div>`
+      : `<div class="bn-empty">${ui.mode === 'favorites' ? 'Tap the heart on a card to add it here.' : 'No pulled cards on this phone yet. Open All cards to browse the collection.'}</div>`
     more.hidden = true
     note.textContent = 'Your binder tracks cards pulled in this app on this phone.'
   }
@@ -104,13 +108,13 @@ function view(v) {
   ui.on = v === 'binder'
   page.classList.toggle('bn-on', ui.on); root.hidden = !ui.on
   seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.view === v))
-  if (ui.on) { render(); loadPools(); window.scrollTo({ top: 0 }) }
+  if (ui.on) { if (ui.mode === 'all' && !ui.all.list.length) loadAll(true); else render(); loadPools(); window.scrollTo({ top: 0 }) }
 }
 
 function init() {
   page = document.querySelector('#view-cards .page'); if (!page) return
   seg = document.createElement('div'); seg.className = 'bn-seg'
-  seg.innerHTML = '<button type="button" class="on" data-view="vault">Vault</button><button type="button" data-view="binder">Binder</button>'
+  seg.innerHTML = '<button type="button" class="on" data-view="vault">Browse</button><button type="button" data-view="binder">Binder</button>'
   root = document.createElement('div'); root.id = 'binderRoot'; root.className = 'bn'; root.hidden = true
   root.innerHTML = '<div class="bn-stats" id="bnStats"></div><div class="bn-chips" id="bnChips"></div>' +
     '<div class="bn-tabs" id="bnTabs"><button type="button" data-mode="collection">Collection</button><button type="button" data-mode="favorites">Favorites</button><button type="button" data-mode="all">All cards</button></div>' +

@@ -71,9 +71,18 @@ fs.copyFileSync(path.join(site, 'assets/img/favicon.png'), path.join(www, 'asset
 //     Each anchor is asserted, so a site change that breaks one fails the build instead of shipping a broken app.
 const appJsPath = path.join(www, 'assets/js/app.js')
 let appJs = fs.readFileSync(appJsPath, 'utf8')
+// The site source may already contain a change (it is merged back into the site repo), so every patch first checks
+// whether its result is already there. patch() is for things the app cannot work without and fails the build when the
+// anchor is gone; soft() is for nice-to-haves and just warns, so a site refactor never blocks a release.
 const patch = (from, to, label) => {
+  if (appJs.includes(to)) return
   if (!appJs.includes(from)) throw new Error(`app.js patch anchor not found: ${label}`)
-  appJs = appJs.replace(from, to)
+  appJs = appJs.replace(from, () => to)
+}
+const soft = (from, to, label) => {
+  if (appJs.includes(to)) return
+  if (!appJs.includes(from)) { console.warn(`[prepare-www] skipped "${label}": the site code it hooks into has changed`); return }
+  appJs = appJs.replace(from, () => to)
 }
 patch("  404: { view: 'view-404', title: 'Not found' },",
   "  welcome: { view: 'view-welcome', title: 'Welcome', auth: true },\n  pokemon: { view: 'view-pokemon', title: 'Pokemon', auth: true },\n  hub: { view: 'view-hub', title: 'Hub', auth: true },\n  404: { view: 'view-404', title: 'Not found' },",
@@ -82,7 +91,8 @@ patch("const next = pendingRoute ?? 'profile'", "const next = pendingRoute ?? 'w
 
 // 4b-2) character modal becomes a 2:3 card + info (no banner, no round pfp); profile header gets edit buttons.
 appJs = appJs.replace(/\r\n/g, '\n')
-const between = (startMarker, endMarker, file, label) => {
+const between = (startMarker, endMarker, file, label, doneMarker) => {
+  if (doneMarker && appJs.includes(doneMarker)) return
   const a = appJs.indexOf(startMarker)
   if (a < 0) throw new Error(`app.js patch anchor not found: ${label} (start)`)
   const b = appJs.indexOf(endMarker, a + startMarker.length)
@@ -90,14 +100,17 @@ const between = (startMarker, endMarker, file, label) => {
   appJs = appJs.slice(0, a) + fs.readFileSync(path.join(here, 'patches', file), 'utf8') + appJs.slice(b)
 }
 between("${c.image ? `<div class=\"pd-banner\" style=\"background-image:url('${attr(c.image)}')\"></div>` : ''}",
-  '<div class="pd-body">', 'character-card.txt', 'character modal')
+  '<div class="pd-body">', 'character-card.txt', 'character modal', 'class="cc-wrap"')
 between('<div class="profile-banner"${p.bannerUrl',
-  '<section class="section">\n      <div class="stat-row reveal">', 'profile-head.txt', 'profile header')
-patch('state.inv = (p.inventory ?? []).slice(0, 24)', 'state.inv = (p.inventory ?? []).slice(0, 24)\n  window.__astralInv = state.inv\n  window.__astralMe = p', 'expose inventory for drag and drop')
-patch('const c = out.card ?? {}\n    if (out.player) state.me = out.player', 'const c = out.card ?? {}\n    if (out.player) state.me = out.player\n    window.dispatchEvent(new CustomEvent(\'astral:pull\', { detail: c }))', 'announce card pulls')
-patch('<button class="btn btn-primary btn-block" id="pullDone">Nice</button>', '<button class="btn btn-secondary btn-block" data-share="pull" style="margin-bottom:8px">Share this pull</button>\n          <button class="btn btn-primary btn-block" id="pullDone">Nice</button>', 'share button on pull reveal')
-patch("const box = inputEl?.closest('.img-upload')", "const box = inputEl?.closest('.img-upload') ?? $('#profileWrap')", 'upload busy box')
-patch("toast(kind === 'banner' ? 'Banner updated.' : 'Profile picture updated.')\n    await loadSettings()",
+  '<section class="section">\n      <div class="stat-row reveal">', 'profile-head.txt', 'profile header', 'profile-pfp-edit')
+soft('${characterPrice(c) ? `<p class="cc-price">${esc(characterPrice(c))}</p>` : \'\'}',
+  '${characterPrice(c) ? `<p class="cc-price">${esc(characterPrice(c))}</p>` : \'\'}\n        <button type="button" class="btn btn-secondary btn-sm cc-share" data-share="character">Share image</button>',
+  'share button on character card')
+soft('state.inv = (p.inventory ?? []).slice(0, 24)', 'state.inv = (p.inventory ?? []).slice(0, 24)\n  window.__astralInv = state.inv\n  window.__astralMe = p', 'expose inventory for drag and drop')
+soft('const c = out.card ?? {}\n    if (out.player) state.me = out.player', 'const c = out.card ?? {}\n    if (out.player) state.me = out.player\n    window.dispatchEvent(new CustomEvent(\'astral:pull\', { detail: c }))', 'announce card pulls')
+soft('<button class="btn btn-primary btn-block" id="pullDone">Nice</button>', '<button class="btn btn-secondary btn-block" data-share="pull" style="margin-bottom:8px">Share this pull</button>\n          <button class="btn btn-primary btn-block" id="pullDone">Nice</button>', 'share button on pull reveal')
+soft("const box = inputEl?.closest('.img-upload')", "const box = inputEl?.closest('.img-upload') ?? $('#profileWrap')", 'upload busy box')
+soft("toast(kind === 'banner' ? 'Banner updated.' : 'Profile picture updated.')\n    await loadSettings()",
   "toast(kind === 'banner' ? 'Banner updated.' : 'Profile picture updated.')\n    await (location.hash.startsWith('#/profile') ? loadProfile() : loadSettings())",
   'reload after upload')
 fs.writeFileSync(appJsPath, appJs)
