@@ -52,6 +52,9 @@ jobs:
           ASTRAL_API_BASE: https://astral-bot-production-afb0.up.railway.app
         run: node scripts/prepare-www.mjs
 
+      # Capacitor 6 generates Gradle 8.2.1. Keep native plugins on that line:
+      # @aparajita/capacitor-biometric-auth 9.x declares AGP 8.13, and Gradle 8.2.1
+      # then fails configuring the plugin (bcprov-jdk18on-1.79.jar cache).
       - name: Create Android project
         run: |
           npx cap add android
