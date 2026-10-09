@@ -12,6 +12,7 @@ import './binder.js'
 import './holo.js'
 import './share.js'
 import './lock.js'
+import { renderHub } from './hub.js'
 import * as notify from './notify.js'
 
 /* ── Pokémon avatar (stored on this device) ── */
@@ -101,6 +102,7 @@ async function refreshCards(force = false) {
 }
 setInterval(() => { if (route() === 'welcome' && signedIn()) refreshCards() }, 30000)
 
+const HUB = [['wallet', 'Wallet', 'Bank, vault, loans'], ['storage', 'Storage', 'Bag and chests'], ['quests', 'Quests', 'Claim rewards'], ['league', 'League', 'Table and bouts']]
 const QUICK = [['characters', 'Characters', 'Browse every hero'], ['shop', 'Shop', 'Gear and items']]
 const skel = '<div class="wl-skel"></div>'
 const pct = (a, b) => (b > 0 ? Math.min(100, Math.round((a / b) * 100)) : 0)
@@ -170,6 +172,8 @@ function buildWelcome(host) {
     <div class="wl-sec"><h3>Your Pokémon</h3><a href="#/pokemon">Battle ›</a></div><div id="wlTeam"></div>
     <div class="wl-sec"><h3>Quick access</h3></div>
     <div class="wl-quick">${QUICK.map(([r, t, x]) => `<a href="#/${r}"><b>${t}</b><span>${x}</span></a>`).join('')}</div>
+    <div class="wl-sec"><h3>Hub</h3><a href="#/hub">Open hub ›</a></div>
+    <div class="wl-quick">${HUB.map(([r, t, x]) => `<a href="#/hub/${r}"><b>${t}</b><span>${x}</span></a>`).join('')}</div>
     <div class="wl-sec"><h3>Cards</h3><a href="#/cards">View all ›</a></div><div id="wlCards"></div>
     <div class="wl-sec"><h3>Ranks</h3><a href="#/leaderboard">Full board ›</a></div><div id="wlTop"></div>
     <div id="wlPremium" class="wl-end"></div>`
@@ -229,6 +233,7 @@ function onRoute() {
   if (r === 'welcome') renderWelcome()
   else if (r === 'pokemon') renderPokemon()
   else if (r === 'settings') renderSettings({ pickAvatar })
+  else if (r === 'hub') renderHub()
 }
 window.addEventListener('hashchange', onRoute)
 onRoute()

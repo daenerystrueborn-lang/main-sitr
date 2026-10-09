@@ -5,7 +5,7 @@
   var AUTH_ROUTES = { login: 1, signup: 1 }
   var TITLES = {
     welcome: 'Welcome', characters: 'Characters', shop: 'Shop', pokemon: 'Pokémon',
-    profile: 'Profile', season: 'Season', leaderboard: 'Ranks', cards: 'Cards', premium: 'Premium', settings: 'Settings'
+    hub: 'Hub', profile: 'Profile', season: 'Season', leaderboard: 'Ranks', cards: 'Cards', premium: 'Premium', settings: 'Settings'
   }
   var I = function (d) { return '<svg viewBox="0 0 24 24">' + d + '</svg>' }
   var ICON = {
@@ -54,7 +54,11 @@
       brand.insertAdjacentElement('afterend', t)
       var back = document.createElement('button'); back.className = 'app-back'; back.setAttribute('aria-label', 'Back')
       back.innerHTML = '<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>'
-      back.addEventListener('click', function () { go('welcome') })
+      back.addEventListener('click', function () {
+        var h = location.hash.replace(/^#\/?/, '').split('?')[0].split('/')
+        if (h[0] === 'hub' && h.length > 1 && h[h.length - 1] !== '') { location.hash = '#/' + h.slice(0, -1).join('/'); return }
+        go('welcome')
+      })
       brand.insertAdjacentElement('afterend', back)
     }
 

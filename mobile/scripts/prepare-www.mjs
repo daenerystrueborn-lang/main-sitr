@@ -76,7 +76,7 @@ const patch = (from, to, label) => {
   appJs = appJs.replace(from, to)
 }
 patch("  404: { view: 'view-404', title: 'Not found' },",
-  "  welcome: { view: 'view-welcome', title: 'Welcome', auth: true },\n  pokemon: { view: 'view-pokemon', title: 'Pokemon', auth: true },\n  404: { view: 'view-404', title: 'Not found' },",
+  "  welcome: { view: 'view-welcome', title: 'Welcome', auth: true },\n  pokemon: { view: 'view-pokemon', title: 'Pokemon', auth: true },\n  hub: { view: 'view-hub', title: 'Hub', auth: true },\n  404: { view: 'view-404', title: 'Not found' },",
   'routes table')
 patch("const next = pendingRoute ?? 'profile'", "const next = pendingRoute ?? 'welcome'", 'post-login landing')
 
@@ -173,11 +173,12 @@ html = html
   .replace('</head>', '<link rel="stylesheet" href="assets/app/play.css">\n</head>')
   .replace('</body>', `<main class="view" id="view-welcome"><div class="page" id="welcomeRoot"></div></main>
 <main class="view" id="view-pokemon"><div class="page" id="pokemonRoot"></div></main>
+<main class="view" id="view-hub"><div class="page" id="hubRoot"></div></main>
 <script src="assets/app/shell.js"></script>
 <script type="module" src="assets/app/play.js"></script>
 </body>`)
 
-for (const needle of ['assets/css/fonts.css', 'assets/app/shell.css', 'assets/app/play.css', 'assets/app/shell.js', 'assets/app/play.js', 'appSplash', 'view-welcome', 'view-pokemon', 'is-app']) {
+for (const needle of ['assets/css/fonts.css', 'assets/app/shell.css', 'assets/app/play.css', 'assets/app/shell.js', 'assets/app/play.js', 'appSplash', 'view-welcome', 'view-hub', 'view-pokemon', 'is-app']) {
   if (!html.includes(needle)) throw new Error(`index.html injection failed: ${needle}`)
 }
 if (html.includes('fonts.googleapis.com')) throw new Error('Google Fonts link still present')
