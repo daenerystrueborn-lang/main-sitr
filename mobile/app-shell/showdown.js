@@ -39,10 +39,15 @@ document.addEventListener('error', (e) => {
   if (next) t.src = next
 }, true)
 
-/* ── battle backdrops (play.pokemonshowdown.com/fx/bg-*) ──
-   Each biome has several candidates so battles vary; the loader tries .png then .jpg,
-   and a type-coloured gradient shows until (or if) an image loads. */
-export const bgUrls = (n) => [`${SD}/fx/bg-${n}.png`, `${SD}/fx/bg-${n}.jpg`]
+/* ── battle backdrops ──
+   Location art is served from the Pokémon Showdown client repository on GitHub,
+   with the live Showdown CDN as a fallback. A type-coloured gradient shows until
+   (or if) an image loads. */
+const SHOWDOWN_FX_GITHUB = 'https://raw.githubusercontent.com/smogon/pokemon-showdown-client/master/play.pokemonshowdown.com/fx'
+export const bgUrls = (n) => [
+  `${SHOWDOWN_FX_GITHUB}/bg-${n}.png`, `${SHOWDOWN_FX_GITHUB}/bg-${n}.jpg`,
+  `${SD}/fx/bg-${n}.png`, `${SD}/fx/bg-${n}.jpg`,
+]
 export const REGION_BG = { kanto: ['route', 'meadow', 'forest'], johto: ['meadow', 'forest', 'route'], hoenn: ['beachshore', 'orassea', 'orasforest', 'orasdesert'], sinnoh: ['mountain', 'orasmountain', 'route'], unova: ['city', 'route', 'river'], kalos: ['forest', 'meadow', 'city'], alola: ['beach', 'beachshore', 'forest'], galar: ['river', 'meadow', 'city'], paldea: ['desert', 'mountain', 'meadow'] }
 export const TYPE_BG = { grass: ['forest', 'meadow', 'orasforest'], bug: ['forest', 'orasforest'], water: ['river', 'beachshore', 'orassea', 'deepsea'], fire: ['volcanocave', 'orasdesert'], ice: ['icecave', 'mountain'], rock: ['earthycave', 'mountain'], ground: ['desert', 'orasdesert', 'earthycave'], electric: ['thunderplains', 'city'], steel: ['city', 'earthycave'], fighting: ['leaderwallace', 'city', 'mountain'], dark: ['dampcave', 'city'], ghost: ['dampcave', 'library'], poison: ['dampcave', 'forest'], psychic: ['space', 'library', 'skypillar'], flying: ['skypillar', 'mountain', 'meadow'], dragon: ['skypillar', 'mountain', 'volcanocave'], fairy: ['meadow', 'orasforest'], normal: ['route', 'meadow', 'city'] }
 const loaded = new Map()

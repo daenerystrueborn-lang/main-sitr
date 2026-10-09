@@ -62,7 +62,7 @@
     ;['view-login', 'view-signup'].forEach(function (id) {
       var wrap = document.querySelector('#' + id + ' .auth-wrap'); if (!wrap) return
       var hero = document.createElement('div'); hero.className = 'app-hero'
-      hero.innerHTML = '<div class="mark"><img src="assets/img/login-art.jpg" alt=""></div><h1>Astral</h1><p>Dungeons, cards and companions</p>'
+      hero.innerHTML = '<div class="mark"><img src="assets/img/logo.png" alt=""></div><h1>Astral</h1><p>Dungeons, cards and companions</p>'
       wrap.insertBefore(hero, wrap.firstChild)
     })
   }

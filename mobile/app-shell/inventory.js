@@ -2,6 +2,7 @@
    Works on touch and mouse. The site's own markup is never edited: this enhances it after the profile renders. */
 import { API_BASE } from '../js/api.js'
 import { esc, num, toast } from '../js/ui.js'
+import * as FB from './feedback.js'
 
 const SLOTS = [['helmet', 'Helmet'], ['shoulders', 'Shoulders'], ['chest', 'Chest'], ['gloves', 'Gloves'], ['belt', 'Belt'],
   ['legs', 'Legs'], ['boots', 'Boots'], ['shield', 'Shield'], ['cape', 'Cape']]
@@ -40,7 +41,7 @@ function art(url) {
   return `${API_BASE}${s.startsWith('/') ? '' : '/'}${s}`
 }
 
-const uid = () => { try { return window.__astralMe?.uid ?? localStorage.getItem('astral:token')?.slice(-12) ?? 'me' } catch { return 'me' } }
+const uid = () => { const m = window.__astralMe; return String(m?.uid ?? m?.id ?? m?.name ?? 'me') }
 const read = (k, d) => { try { return JSON.parse(localStorage.getItem(`astral:inv:${k}:${uid()}`) || 'null') ?? d } catch { return d } }
 const write = (k, v) => { try { localStorage.setItem(`astral:inv:${k}:${uid()}`, JSON.stringify(v)) } catch {} }
 
@@ -147,7 +148,7 @@ function enhance() {
     document.body.appendChild(ghost)
     src.classList.add('dragging')
     drag = { src, kind, idx, item, slot: slotOf(item), ghost, sc: scroller(grid), y: e.clientY, raf: 0 }
-    try { navigator.vibrate?.(14) } catch {}
+    FB.pick()
     panel.classList.toggle('dnd-armor', !!drag.slot && !server)
     move(e)
     const tick = () => {
@@ -179,14 +180,14 @@ function enhance() {
     const t = document.elementFromPoint(e.clientX, e.clientY)
     const inv = t?.closest('.inv-slot'), ar = t?.closest('.ar-slot')
     if (d.kind === 'inv' && ar && !server) {
-      if (d.slot === ar.dataset.slot) { equip[ar.dataset.slot] = keyOf(d.item); write('equip', equip); paint(); toast(`${d.item.name} equipped.`) }
-      else toast(d.slot ? `That goes in the ${LABEL[d.slot]} slot.` : 'That is not armor.')
+      if (d.slot === ar.dataset.slot) { equip[ar.dataset.slot] = keyOf(d.item); write('equip', equip); paint(); FB.equip(); toast(`${d.item.name} equipped.`) }
+      else { FB.error(); toast(d.slot ? `That goes in the ${LABEL[d.slot]} slot.` : 'That is not armor.') }
     } else if (d.kind === 'inv' && inv && inv !== d.src) {
       const kids = [...grid.querySelectorAll('.inv-slot')]
       kids.indexOf(d.src) < kids.indexOf(inv) ? inv.after(d.src) : inv.before(d.src)
-      saveOrder()
+      saveOrder(); FB.drop()
     } else if (d.kind === 'slot' && !server && (inv || t?.closest('.inv-grid'))) {
-      const s = d.src.dataset.slot; delete equip[s]; write('equip', equip); paint()
+      const s = d.src.dataset.slot; delete equip[s]; write('equip', equip); paint(); FB.drop()
     }
   }
 

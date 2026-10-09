@@ -1,6 +1,9 @@
 /* Game settings for this phone (not the website's account settings). Saved in localStorage. */
 const KEY = 'astral:prefs'
-export const DEF = { lite: true, sprites: 'battle', speed: 'normal', effects: true, weather: true, backgrounds: true }
+export const DEF = { lite: true, sprites: 'battle', speed: 'normal', effects: true, weather: true, backgrounds: true,
+  haptics: true, sounds: true, volume: 'mid',
+  notifDaily: false, notifHour: '19', notifSeason: false, notifHurt: false,
+  lock: false, lockAfter: '1m' }
 export const P = { ...DEF }
 try { Object.assign(P, JSON.parse(localStorage.getItem(KEY) || '{}')) } catch {}
 

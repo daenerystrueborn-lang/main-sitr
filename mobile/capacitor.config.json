@@ -3,10 +3,23 @@
   "appName": "Astral",
   "webDir": "www",
   "backgroundColor": "#000000",
-  "server": { "androidScheme": "https" },
-  "android": { "allowMixedContent": false },
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false
+  },
   "plugins": {
-    "CapacitorHttp": { "enabled": true },
-    "StatusBar": { "style": "DARK", "backgroundColor": "#000000" }
+    "CapacitorHttp": {
+      "enabled": true
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#000000"
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_astral",
+      "iconColor": "#D4AF37"
+    }
   }
 }

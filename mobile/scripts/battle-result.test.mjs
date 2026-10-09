@@ -29,7 +29,7 @@ test('Continue clears the result guard before returning to the Pokémon page', (
     summary: { result: 'caught', caught: 'Pikachu' },
     token: 0,
   }
-  const render = new Function('S', '$', 'num', 'esc', 'spriteImg', 'speciesOf', 'onExit',
+  const render = new Function('S', '$', 'num', 'esc', 'spriteImg', 'speciesOf', 'onExit', 'FB',
     `${drawResultSource}; return drawResult`)(
       state,
       $,
@@ -38,6 +38,7 @@ test('Continue clears the result guard before returning to the Pokémon page', (
       () => '<img>',
       () => ({}),
       onExit,
+      { result() {} },
     )
 
   render()

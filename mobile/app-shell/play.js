@@ -7,6 +7,12 @@ import { renderPokemon } from './pokemon.js'
 import { renderSettings } from './settings.js'
 import './prefs.js'
 import './inventory.js'
+import './feedback.js'
+import './binder.js'
+import './holo.js'
+import './share.js'
+import './lock.js'
+import * as notify from './notify.js'
 
 /* ── Pokémon avatar (stored on this device) ── */
 const AV_KEY = 'astral:pk-avatar'
@@ -203,7 +209,7 @@ async function renderWelcome() {
 
   const jobs = [
     api.me().then(r => { W.err = null; patchWelcome('p', slimPlayer(r.player)) }).catch(e => { if (!W.d.p) { W.err = e?.message || 'Could not load your profile.'; paintWelcome() } }),
-    api.season().then(sv => patchWelcome('sv', slimSeason(sv))).catch(() => patchWelcome('sv', W.d.sv ?? null)),
+    api.season().then(sv => { const x = slimSeason(sv); patchWelcome('sv', x); notify.seasonEnds(x.endsAt) }).catch(() => patchWelcome('sv', W.d.sv ?? null)),
     pk.overview().then(o => patchWelcome('team', slimTeam(o))).catch(() => patchWelcome('team', W.d.team ?? null)),
     api.leaderboard('level', 5).then(b => patchWelcome('board', slimBoard(b))).catch(() => patchWelcome('board', W.d.board ?? null)),
     refreshCards(),

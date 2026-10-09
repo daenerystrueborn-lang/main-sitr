@@ -11,5 +11,6 @@
           </div>
         </div>
         ${characterPrice(c) ? `<p class="cc-price">${esc(characterPrice(c))}</p>` : ''}
+        <button type="button" class="btn btn-secondary btn-sm cc-share" data-share="character">Share image</button>
       </div>
       

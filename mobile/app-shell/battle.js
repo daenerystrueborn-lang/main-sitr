@@ -2,6 +2,7 @@
 import { $, $$, pk, esc, num, typeChip, TYPE_COLOR, hpClass, pctOf, sleep } from './core.js'
 import { toast } from '../js/ui.js'
 import { P, speedMul } from './prefs.js'
+import * as FB from './feedback.js'
 import { spriteImg, loadBg, REGION_BG, TYPE_BG, itemIcon } from './showdown.js'
 
 const S = { b: null, bag: [], panel: 'main', mega: false, locked: false, busy: false, summary: null, skip: false, token: 0,
@@ -176,7 +177,7 @@ async function play(events, tok) {
         if (ev.hpPct != null) {
           const before = Number($(`#plate${side === 'me' ? 'Me' : 'Foe'} .pk-hp i`)?.style.width.replace('%', '')) || 100
           setHp(side, ev.hpPct, ev.hp?.cur, ev.hp?.max)
-          if (ev.hpPct < before) restart(spOf(side), 'hit', 520)
+          if (ev.hpPct < before) { restart(spOf(side), 'hit', 520); FB.hit(false) }
         }
         await wait(520); break
       case 'heal':
@@ -185,7 +186,7 @@ async function play(events, tok) {
       case 'faint':
         restart(spOf(side), 'faint'); await wait(750); setSprite(side, null); setPlate(side, null); break
       case 'effect':
-        if (ev.kind === 'super' || ev.kind === 'crit') flash(ev.kind === 'crit' ? 'flash' : 'shake')
+        if (ev.kind === 'super' || ev.kind === 'crit') { flash(ev.kind === 'crit' ? 'flash' : 'shake'); FB.hit(true) }
         await wait(380); break
       case 'status':
         floatText(side, String(ev.status ?? '').toUpperCase(), '#f0d585')
@@ -328,6 +329,7 @@ function speciesOf(name) {
 function drawResult() {
   const b = S.b, sm = S.summary ?? {}, cmd = $('#pkCmd')
   const res = sm.result ?? b.result ?? 'over'
+  FB.result(res, (sm.levelUps ?? []).length)
   const title = { won: 'Victory!', lost: 'Defeated…', fled: 'Got away safely', caught: 'Gotcha!' }[res] ?? 'Battle over'
   const ups = new Map((sm.levelUps ?? []).map(x => [x.name, x.to]))
   const rows = (sm.exp ?? []).map(x => {
@@ -349,5 +351,12 @@ function drawResult() {
       ${caught ? `<div class="pk-caught">${spriteImg(caught, {})}<span>Caught ${esc(caught)}!</span></div>` : ''}
       ${rows}${evos}${extra.map(l => `<div class="pk-xtra">${esc(l)}</div>`).join('')}</div>
     <button class="pk-big gold pk-wide" id="pkDone">Continue</button>`
-  $('#pkDone').addEventListener('click', () => { S.b = null; S.summary = null; ++S.token; onExit() })
+  const done = $('#pkDone')
+  done?.addEventListener('click', () => {
+    S.b = null; S.summary = null; ++S.token
+    // renderPokemon intentionally keeps a visible result screen in place while #pkDone exists.
+    // Remove it before asking the Pokémon page to render again, or Continue becomes a no-op.
+    cmd.replaceChildren()
+    onExit()
+  })
 }

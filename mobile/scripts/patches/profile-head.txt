@@ -27,6 +27,7 @@
         <div class="profile-actions">
           <a class="btn btn-secondary btn-sm" href="#/settings" data-route="settings">Settings</a>
           <a class="btn btn-ghost btn-sm" href="#/leaderboard" data-route="leaderboard">Boards</a>
+          <button type="button" class="btn btn-ghost btn-sm" data-share="profile">Share</button>
         </div>
       </div>
     </div>
