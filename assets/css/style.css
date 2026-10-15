@@ -125,15 +125,6 @@ button{font-family:inherit;}
 .platform-tab.is-active{background:var(--grad-1);color:#0a0805;}
 .platform-tab.is-soon{opacity:.85;}
 
-/* Download-the-app button in the header. The label collapses on narrow
-   screens so it doesn't fight the nav pill for width, leaving the arrow
-   glyph alone as an icon button. */
-.nav-download{flex-shrink:0;}
-@media (max-width:980px){
-  .nav-download span{display:none;}
-  .nav-download{padding:0;width:36px;height:36px;border-radius:999px;}
-}
-
 /* ===== SEASON HERO (full-bleed art) =====
     The art IS the background - no still image behind it, nothing letterboxed
    in a frame, just the picture bleeding edge to edge with a flat dark scrim

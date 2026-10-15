@@ -803,14 +803,6 @@ function ensureMeta() {
 
 /* ─────────────────────────────── page: home ───────────────────────────── */
 
-/**
- * Where the APK comes from. The build is hosted on MediaFire, so this is a
- * plain file link - swap the URL here when a new APK is uploaded.
- *
- * One constant, three consumers: the hero's App tab, the header button and the
- * mobile drawer link. Change it here only.
- */
-const APP_DOWNLOAD_URL = 'https://www.mediafire.com/file/ku97joe1145m7aj/astral+(1).apk/file'
 const APP_RELEASES_URL = 'https://github.com/northernblader-sys/astral-bot/releases/latest'
 
 /**
@@ -838,9 +830,6 @@ const PLATFORMS = {
     live: true,
     sub: 'Dungeon raids, Pokemon battles and your empire, playable on your phone with the same character you use in chat.',
     actions: () => `
-      <a class="btn btn-primary" href="${attr(APP_DOWNLOAD_URL)}" target="_blank" rel="noopener">
-        <svg class="icon" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></svg> Download the app
-      </a>
       <a class="btn btn-secondary" href="${attr(APP_RELEASES_URL)}" target="_blank" rel="noopener">
         <svg class="icon" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg> Release notes
       </a>`,
@@ -865,14 +854,6 @@ function setHeroPlatform(key) {
   // Replacing this innerHTML also replaces #heroPlay, so paintAvatar() has to
   // run after it, never before - see the call order in boot().
   if (actions) actions.innerHTML = platform.actions()
-}
-
-/** Points every download affordance at the one release URL. */
-function wireDownloadLinks() {
-  const nav = $('#navDownload')
-  if (nav) nav.href = APP_DOWNLOAD_URL
-  const drawer = $('#drawerDownload')
-  if (drawer) drawer.href = APP_DOWNLOAD_URL
 }
 
 function wirePlatformSwitch() {
@@ -2717,7 +2698,6 @@ function wireShell() {
   $('#modalX')?.addEventListener('click', closeModal)
   $('#modalScrim')?.addEventListener('click', closeModal)
   wirePlatformSwitch()
-  wireDownloadLinks()
 
   $('#avatarBtn')?.addEventListener('click', () => {
     goTo(isSignedIn() ? 'profile' : 'login')
