@@ -1186,11 +1186,20 @@ body{
     padding:7px 5px;
     font-size:11.5px;
   }
+  /* Keep the two primary hero actions side by side on mobile; the desktop
+     buttons are naturally sized, so don't turn them into full-width rows. */
   #view-home .hero-actions{
-    flex-direction:column;
+    flex-direction:row;
+    flex-wrap:nowrap;
     gap:8px;
   }
-  #view-home .hero-actions .btn{width:100%;min-height:44px;}
+  #view-home .hero-actions .btn{
+    width:auto;
+    min-height:44px;
+    padding-inline:10px;
+    gap:6px;
+    font-size:12px;
+  }
   .hero-trust{
     gap:9px 13px;
     margin-top:16px;
@@ -1225,6 +1234,12 @@ body{
     min-height:40px;
   }
   #view-home .grid-4{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:10px;
+  }
+  /* The global small-screen grid collapses to one column, but the character
+     roster should stay a two-up collection on phones. */
+  #view-characters #charGrid{
     grid-template-columns:repeat(2,minmax(0,1fr));
     gap:10px;
   }
