@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <title>Astral</title>
+  <script>
+    window.ASTRAL_API_BASE = __API_BASE__;
+    window.ASTRAL_BUILD = __BUILD__;
+    if (__OPEN__) window.ASTRAL_PREVIEW_OPEN = 1;
+  </script>
+  <style>
+    html,body{margin:0;background:#000;color:#f5f3ee;font-family:Inter,system-ui,sans-serif;}
+    #splash{position:fixed;inset:0;z-index:99999;display:grid;place-items:center;background:radial-gradient(ellipse at 50% 40%,#15110a 0%,#000 64%);}
+    #splash img{width:64px;animation:sp 1.4s ease-in-out infinite;}
+    @keyframes sp{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.08);opacity:1}}
+  </style>
+</head>
+<body>
+  <div id="splash"><img src="./app-logo.png" alt="" /></div>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+</html>
