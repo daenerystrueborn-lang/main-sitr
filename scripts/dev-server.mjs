@@ -12,7 +12,9 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+// Serve root: defaults to the site repo root; set SERVE_DIR to preview the
+// mobile app bundle instead (SERVE_DIR=mobile/www node scripts/dev-server.mjs).
+const ROOT = path.resolve(process.env.SERVE_DIR || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'))
 const PORT = Number(process.env.PORT) || 4321
 
 const TYPES = {

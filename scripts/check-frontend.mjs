@@ -2,11 +2,15 @@
  * check-frontend.mjs - static wiring check for the Vercel bundle.
  *
  * node_modules isn't installed and there's no browser here, so this stands in
- * for "open it and click everything": it confirms the three files actually
- * agree with each other. The bugs it catches are the ones that produce a
- * silently dead button rather than an error - a $('#typo') that returns null,
- * a class the stylesheet never defines, an import of a name that isn't
- * exported.
+ * for "open it and click everything": it confirms the files actually agree
+ * with each other. The bugs it catches are the ones that produce a silently
+ * dead button rather than an error - a $('#typo') that returns null, a class
+ * the stylesheet never defines, an import of a name that isn't exported, a
+ * route pointing at a view nobody renders.
+ *
+ * After the screen rebuild it walks the whole assets/js tree (core/, screens/,
+ * wiring.js), since markup, ids and routes now live per-screen module rather
+ * than in index.html.
  *
  * Run: node scripts/check-frontend.mjs
  */
@@ -22,11 +26,19 @@ const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8')
 
 const html = read('index.html')
 const css = read('assets/css/style.css')
-const js = {
-  'assets/js/api.js': read('assets/js/api.js'),
-  'assets/js/ui.js': read('assets/js/ui.js'),
-  'assets/js/app.js': read('assets/js/app.js'),
-}
+
+// Every JS module, keyed by its posix path from the repo root.
+const js = {}
+;(function walk(dir) {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name)
+    if (e.isDirectory()) walk(p)
+    else if (/\.(?:js|mjs)$/.test(e.name)) {
+      const rel = path.relative(ROOT, p).split(path.sep).join('/')
+      js[rel] = fs.readFileSync(p, 'utf8')
+    }
+  }
+})(path.join(ROOT, 'assets/js'))
 const allJs = Object.values(js).join('\n')
 
 let problems = 0
@@ -37,7 +49,7 @@ const ok = (msg) => console.log(`  ok   ${msg}`)
 
 const htmlIds = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]))
 
-// Pages render their own markup, so an id can legitimately live in a JS
+// Screens render their own markup, so an id can legitimately live in a JS
 // template instead of index.html. Collect those too - only ids that exist in
 // neither place are real breakage.
 const jsRenderedIds = new Set([...allJs.matchAll(/\bid="([^"$`]+)"/g)].map(m => m[1]))
@@ -109,14 +121,20 @@ function exportsOf(file) {
   return names
 }
 
+// './x.js' from assets/js/core/this.js -> assets/js/core/x.js
+const resolveSpec = (fromFile, spec) =>
+  path.posix.normalize(path.posix.join(path.posix.dirname(fromFile), spec))
+
 let importProblems = 0
+let importCount = 0
 for (const [file, src] of Object.entries(js)) {
   for (const m of src.matchAll(/import\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/g)) {
     const spec = m[2]
     if (!spec.startsWith('.')) continue
-    const target = 'assets/js/' + path.basename(spec)
+    importCount++
+    const target = resolveSpec(file, spec)
     const names = exportsOf(target)
-    if (!names) { fail(`${file} imports from missing ${spec}`); importProblems++; continue }
+    if (!names) { fail(`${file} imports from missing ${spec} (resolved ${target})`); importProblems++; continue }
     for (const part of m[1].split(',')) {
       const name = part.trim().split(/\s+as\s+/)[0].trim()
       if (name && !names.has(name)) {
@@ -126,40 +144,47 @@ for (const [file, src] of Object.entries(js)) {
     }
   }
 }
-if (!importProblems) ok('all cross-module imports resolve to real exports')
+if (!importProblems) ok(`all ${importCount} cross-module imports resolve to real exports`)
 
 /* ── 4. every api.* call the app makes exists on the client ────────────── */
 
 const apiMethods = new Set(
   [...js['assets/js/api.js'].matchAll(/^\s{2}([A-Za-z0-9_]+):\s*(?:async\s*)?\(/gm)].map(m => m[1]),
 )
-const called = new Set([...js['assets/js/app.js'].matchAll(/\bapi\.([A-Za-z0-9_]+)\(/g)].map(m => m[1]))
+const called = new Set([...allJs.matchAll(/\bapi\.([A-Za-z0-9_]+)\(/g)].map(m => m[1]))
 const missingMethods = [...called].filter(m => !apiMethods.has(m)).sort()
-if (missingMethods.length) fail(`app.js calls api.${missingMethods.join(', api.')} - not defined in api.js`)
-else ok(`all ${called.size} api.* methods called by app.js exist`)
+if (missingMethods.length) fail(`JS calls api.${missingMethods.join(', api.')} - not defined in api.js`)
+else ok(`all ${called.size} api.* methods called by the frontend exist`)
 
 /* ── 5. routes, views and nav links line up ────────────────────────────── */
 
 const routeNames = new Set(
-  [...js['assets/js/app.js'].matchAll(/^\s{2}([A-Za-z0-9_]+):\s*\{\s*view:/gm)].map(m => m[1]),
+  [...allJs.matchAll(/^\s{2}([A-Za-z0-9_]+):\s*\{\s*view:/gm)].map(m => m[1]),
 )
-const viewIds = new Set([...html.matchAll(/class="view[^"]*"\s+id="([^"]+)"/g)].map(m => m[1]))
+// Views are markup now - in index.html (chrome) or in screen templates.
+const viewIds = new Set([
+  ...[...html.matchAll(/class="view[^"]*"\s+id="([^"]+)"/g)].map(m => m[1]),
+  ...[...allJs.matchAll(/class="view[^"]*"\s+id="([^"]+)"/g)].map(m => m[1]),
+])
 const declaredViews = new Set(
-  [...js['assets/js/app.js'].matchAll(/view:\s*'([^']+)'/g)].map(m => m[1]),
+  [...allJs.matchAll(/view:\s*'([^']+)'/g)].map(m => m[1]),
 )
 
 const orphanViews = [...declaredViews].filter(v => !viewIds.has(v)).sort()
-if (orphanViews.length) fail(`routes point at views not in index.html: ${orphanViews.join(', ')}`)
-else ok(`all ${declaredViews.size} route views exist as <section class="view">`)
+if (orphanViews.length) fail(`routes point at views nobody renders: ${orphanViews.join(', ')}`)
+else ok(`all ${declaredViews.size} route views exist as a .view element`)
 
-const navTargets = new Set([...html.matchAll(/data-route="([^"]*)"/g)].map(m => m[1]).filter(Boolean))
+const navTargets = new Set([
+  ...[...html.matchAll(/data-route="([^"]*)"/g)].map(m => m[1]),
+  ...[...allJs.matchAll(/data-route="([^"]*)"/g)].map(m => m[1]),
+].filter(Boolean))
 const badNav = [...navTargets].filter(r => !routeNames.has(r)).sort()
 if (badNav.length) fail(`data-route values with no route: ${badNav.join(', ')}`)
 else ok(`all ${navTargets.size} data-route links resolve to a route`)
 
 /* ── 5b. the cards page is a browsable collection, never a shop ────────── */
 
-const cardsView = html.match(/<main class="view" id="view-cards">([\s\S]*?)<\/main>/)?.[1] ?? ''
+const cardsView = allJs.match(/id="view-cards">([\s\S]*?)<\/main>/)?.[1] ?? ''
 const cardsSections = [...cardsView.matchAll(/<section\b/g)].length
 if (!cardsView || !/<h2>Browse the collection<\/h2>/.test(cardsView) || cardsSections !== 1
   || /cardTierGrid|cardBalance|data-buytier/.test(cardsView)) {
@@ -181,9 +206,14 @@ const assets = new Set([
   // bug in prose, and an example url('…') inside a comment is not an asset.
   // Left in, it reported the literal ellipsis as a file missing from disk.
   ...[...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/url\(['"]?((?!data:|https?:)[^'")]+)['"]?\)/g)].map(m => m[1]),
+  // Screen templates (season hero, mode art) carry root-relative paths too.
+  // `${...}` template expressions are skipped - they resolve at runtime.
+  ...[...allJs.matchAll(/(?:src|href)="((?!https?:|data:|#|mailto:|\$)[^"$]+)"/g)].map(m => m[1]),
+  ...[...allJs.matchAll(/url\('((?!data:|https?:|\$)[^']+?)'\)/g)].map(m => m[1]),
 ])
 const missingAssets = []
 for (const a of assets) {
+  if (a.startsWith('#') || a.startsWith('mailto:') || a.startsWith('data:')) continue
   const rel = a.startsWith('../') ? path.join('assets/css', a) : a
   if (!fs.existsSync(path.join(ROOT, rel))) missingAssets.push(a)
 }
@@ -206,9 +236,9 @@ try {
   const vercel = JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8'))
   for (const k of Object.keys(vercel)) if (!VERCEL_TOP.has(k)) badKeys.push(`top-level "${k}"`)
   for (const [i, h] of (vercel.headers ?? []).entries())
-    for (const k of Object.keys(h)) if (!VERCEL_HEADER.has(k)) badKeys.push(`headers[${i}] "${k}"`)
+    for (const k of Object.keys(h)) if (!VERCEL_HEADER.has(k)) badKeys.push(`headers[${i}]: "${k}"`)
   for (const [i, r] of (vercel.rewrites ?? []).entries())
-    for (const k of Object.keys(r)) if (!VERCEL_REWRITE.has(k)) badKeys.push(`rewrites[${i}] "${k}"`)
+    for (const k of Object.keys(r)) if (!VERCEL_REWRITE.has(k)) badKeys.push(`rewrites[${i}]: "${k}"`)
 
   if (badKeys.length) fail(`vercel.json has properties the schema rejects: ${badKeys.join(', ')}`)
   else ok('vercel.json uses only schema-valid properties')

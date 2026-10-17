@@ -67,53 +67,88 @@ for (const f of fs.readdirSync(path.join(mobile, 'armor'))) {
 // Splash logo: the site's sun (favicon.png), spun by splash.css.
 fs.copyFileSync(path.join(site, 'assets/img/favicon.png'), path.join(www, 'assets/img/app-logo.png'))
 
-// 4b) router patches on the bundled copy of app.js (the site's own file is never touched).
+// 4b) patches on the bundled copies of the site's JS (the site's own files are never touched).
+//     The screen rebuild split the old app.js, so every patch now names the module it lives in.
 //     Each anchor is asserted, so a site change that breaks one fails the build instead of shipping a broken app.
-const appJsPath = path.join(www, 'assets/js/app.js')
-let appJs = fs.readFileSync(appJsPath, 'utf8')
 // The site source may already contain a change (it is merged back into the site repo), so every patch first checks
 // whether its result is already there. patch() is for things the app cannot work without and fails the build when the
 // anchor is gone; soft() is for nice-to-haves and just warns, so a site refactor never blocks a release.
-const patch = (from, to, label) => {
-  if (appJs.includes(to)) return
-  if (!appJs.includes(from)) throw new Error(`app.js patch anchor not found: ${label}`)
-  appJs = appJs.replace(from, () => to)
+const edit = (rel) => {
+  const filePath = path.join(www, 'assets/js', rel)
+  let src = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n')
+  const patch = (from, to, label) => {
+    if (src.includes(to)) return
+    if (!src.includes(from)) throw new Error(`${rel} patch anchor not found: ${label}`)
+    src = src.replace(from, () => to)
+  }
+  const soft = (from, to, label) => {
+    if (src.includes(to)) return
+    if (!src.includes(from)) { console.warn(`[prepare-www] skipped "${label}": the site code it hooks into has changed`); return }
+    src = src.replace(from, () => to)
+  }
+  const between = (startMarker, endMarker, file, label, doneMarker) => {
+    if (doneMarker && src.includes(doneMarker)) return
+    const a = src.indexOf(startMarker)
+    if (a < 0) throw new Error(`${rel} patch anchor not found: ${label} (start)`)
+    const b = src.indexOf(endMarker, a + startMarker.length)
+    if (b < 0) throw new Error(`${rel} patch anchor not found: ${label} (end)`)
+    src = src.slice(0, a) + fs.readFileSync(path.join(here, 'patches', file), 'utf8') + src.slice(b)
+  }
+  return { patch, soft, between, save: () => fs.writeFileSync(filePath, src) }
 }
-const soft = (from, to, label) => {
-  if (appJs.includes(to)) return
-  if (!appJs.includes(from)) { console.warn(`[prepare-www] skipped "${label}": the site code it hooks into has changed`); return }
-  appJs = appJs.replace(from, () => to)
-}
-patch("  404: { view: 'view-404', title: 'Not found' },",
-  "  welcome: { view: 'view-welcome', title: 'Welcome', auth: true },\n  pokemon: { view: 'view-pokemon', title: 'Pokemon', auth: true },\n  hub: { view: 'view-hub', title: 'Hub', auth: true },\n  404: { view: 'view-404', title: 'Not found' },",
+
+const routerSrc = edit('core/router.js')
+routerSrc.patch("  404: { view: 'view-404', title: 'Not found' },",
+  "  welcome: { view: 'view-welcome', title: 'Welcome', auth: true },\n  pokemon: { view: 'view-pokemon', title: 'Pokemon', auth: true },\n  hub: { view: 'view-hub', title: 'Hub', auth: true },\n  dungeon: { view: 'view-dungeon', title: 'Dungeon', auth: true },\n  404: { view: 'view-404', title: 'Not found' },",
   'routes table')
-patch("const next = pendingRoute ?? 'profile'", "const next = pendingRoute ?? 'welcome'", 'post-login landing')
+if (process.env.PREVIEW_OPEN) {
+  // Guest preview: the shell's login gate is open (window.ASTRAL_PREVIEW_OPEN),
+  // so the router must not bounce these back to #/login - otherwise the shell
+  // sends you to Welcome and the router immediately returns you to sign-in.
+  // Production (no PREVIEW_OPEN) keeps auth: true on all of them.
+  routerSrc.patch(
+    "  welcome: { view: 'view-welcome', title: 'Welcome', auth: true },\n  pokemon: { view: 'view-pokemon', title: 'Pokemon', auth: true },\n  hub: { view: 'view-hub', title: 'Hub', auth: true },\n  dungeon: { view: 'view-dungeon', title: 'Dungeon', auth: true },",
+    "  welcome: { view: 'view-welcome', title: 'Welcome' },\n  pokemon: { view: 'view-pokemon', title: 'Pokemon' },\n  hub: { view: 'view-hub', title: 'Hub' },\n  dungeon: { view: 'view-dungeon', title: 'Dungeon' },",
+    'preview: open app-only routes')
+  // Settings is a bottom tab in the app; without a player the site half of the
+  // screen fails silently and the app's own settings UI draws instead.
+  routerSrc.patch(
+    "  settings: { view: 'view-settings', title: 'Settings', load: loadSettings, auth: true },",
+    "  settings: { view: 'view-settings', title: 'Settings', load: loadSettings },",
+    'preview: open the settings tab')
+}
+routerSrc.save()
+
+const sessionSrc = edit('core/session.js')
+sessionSrc.patch("const next = pendingRoute ?? 'profile'", "const next = pendingRoute ?? 'welcome'", 'post-login landing')
+sessionSrc.save()
 
 // 4b-2) character modal becomes a 2:3 card + info (no banner, no round pfp); profile header gets edit buttons.
-appJs = appJs.replace(/\r\n/g, '\n')
-const between = (startMarker, endMarker, file, label, doneMarker) => {
-  if (doneMarker && appJs.includes(doneMarker)) return
-  const a = appJs.indexOf(startMarker)
-  if (a < 0) throw new Error(`app.js patch anchor not found: ${label} (start)`)
-  const b = appJs.indexOf(endMarker, a + startMarker.length)
-  if (b < 0) throw new Error(`app.js patch anchor not found: ${label} (end)`)
-  appJs = appJs.slice(0, a) + fs.readFileSync(path.join(here, 'patches', file), 'utf8') + appJs.slice(b)
-}
-between("${c.image ? `<div class=\"pd-banner\" style=\"background-image:url('${attr(c.image)}')\"></div>` : ''}",
+const charsSrc = edit('screens/characters.js')
+charsSrc.between("${c.image ? `<div class=\"pd-banner\" style=\"background-image:url('${attr(c.image)}')\"></div>` : ''}",
   '<div class="pd-body">', 'character-card.txt', 'character modal', 'class="cc-wrap"')
-between('<div class="profile-banner"${p.bannerUrl',
-  '<section class="section">\n      <div class="stat-row reveal">', 'profile-head.txt', 'profile header', 'profile-pfp-edit')
-soft('${characterPrice(c) ? `<p class="cc-price">${esc(characterPrice(c))}</p>` : \'\'}',
+charsSrc.soft('${characterPrice(c) ? `<p class="cc-price">${esc(characterPrice(c))}</p>` : \'\'}',
   '${characterPrice(c) ? `<p class="cc-price">${esc(characterPrice(c))}</p>` : \'\'}\n        <button type="button" class="btn btn-secondary btn-sm cc-share" data-share="character">Share image</button>',
   'share button on character card')
-soft('state.inv = (p.inventory ?? []).slice(0, 24)', 'state.inv = (p.inventory ?? []).slice(0, 24)\n  window.__astralInv = state.inv\n  window.__astralMe = p', 'expose inventory for drag and drop')
-soft('const c = out.card ?? {}\n    if (out.player) state.me = out.player', 'const c = out.card ?? {}\n    if (out.player) state.me = out.player\n    window.dispatchEvent(new CustomEvent(\'astral:pull\', { detail: c }))', 'announce card pulls')
-soft('<button class="btn btn-primary btn-block" id="pullDone">Nice</button>', '<button class="btn btn-secondary btn-block" data-share="pull" style="margin-bottom:8px">Share this pull</button>\n          <button class="btn btn-primary btn-block" id="pullDone">Nice</button>', 'share button on pull reveal')
-soft("const box = inputEl?.closest('.img-upload')", "const box = inputEl?.closest('.img-upload') ?? $('#profileWrap')", 'upload busy box')
-soft("toast(kind === 'banner' ? 'Banner updated.' : 'Profile picture updated.')\n    await loadSettings()",
+charsSrc.save()
+
+const profileSrc = edit('screens/profile.js')
+profileSrc.between('<div class="profile-banner"${p.bannerUrl',
+  '<section class="section">\n      <div class="stat-row reveal">', 'profile-head.txt', 'profile header', 'profile-pfp-edit')
+profileSrc.soft('state.inv = (p.inventory ?? []).slice(0, 24)', 'state.inv = (p.inventory ?? []).slice(0, 24)\n  window.__astralInv = state.inv\n  window.__astralMe = p', 'expose inventory for drag and drop')
+profileSrc.save()
+
+const settingsSrc = edit('screens/settings.js')
+settingsSrc.soft("const box = inputEl?.closest('.img-upload')", "const box = inputEl?.closest('.img-upload') ?? $('#profileWrap')", 'upload busy box')
+settingsSrc.soft("toast(kind === 'banner' ? 'Banner updated.' : 'Profile picture updated.')\n    await loadSettings()",
   "toast(kind === 'banner' ? 'Banner updated.' : 'Profile picture updated.')\n    await (location.hash.startsWith('#/profile') ? loadProfile() : loadSettings())",
   'reload after upload')
-fs.writeFileSync(appJsPath, appJs)
+settingsSrc.save()
+
+// Dropped soft patches - their anchors left the site source before this rebuild, so they had
+// warned and skipped on every build anyway: "announce card pulls" (astral:pull event) and
+// "share button on pull reveal" (id="pullDone"). The pull UI lives in the mobile app shell now.
+
 
 // 4c) api.js: stale-while-revalidate GET cache (persisted), so pages open instantly from saved data and refresh behind the scenes. Any write wipes it.
 const apiPath = path.join(www, 'assets/js/api.js')
@@ -187,11 +222,20 @@ html = html
   .replace('</body>', `<main class="view" id="view-welcome"><div class="page" id="welcomeRoot"></div></main>
 <main class="view" id="view-pokemon"><div class="page" id="pokemonRoot"></div></main>
 <main class="view" id="view-hub"><div class="page" id="hubRoot"></div></main>
+<main class="view" id="view-dungeon"><div class="page" id="dungeonRoot"></div></main>
 <script src="assets/app/shell.js"></script>
 <script type="module" src="assets/app/play.js"></script>
 </body>`)
 
-for (const needle of ['assets/css/fonts.css', 'assets/app/shell.css', 'assets/app/play.css', 'assets/app/shell.js', 'assets/app/play.js', 'appSplash', 'view-welcome', 'view-hub', 'view-pokemon', 'is-app']) {
+// Preview walk-through: build with PREVIEW_OPEN=1 to inject the guest flag that opens
+// the app's login gate (see shell.js/play.js window.ASTRAL_PREVIEW_OPEN). The CI APK
+// build never sets it, so the shipped app keeps its login-first flow.
+if (process.env.PREVIEW_OPEN) {
+  html = html.replace('</head>', '<script>window.ASTRAL_PREVIEW_OPEN=1</script>\n</head>')
+  if (!html.includes('ASTRAL_PREVIEW_OPEN')) throw new Error('index.html injection failed: ASTRAL_PREVIEW_OPEN')
+}
+
+for (const needle of ['assets/css/fonts.css', 'assets/app/shell.css', 'assets/app/play.css', 'assets/app/shell.js', 'assets/app/play.js', 'appSplash', 'view-welcome', 'view-hub', 'view-pokemon', 'view-dungeon', 'is-app']) {
   if (!html.includes(needle)) throw new Error(`index.html injection failed: ${needle}`)
 }
 if (html.includes('fonts.googleapis.com')) throw new Error('Google Fonts link still present')

@@ -3,9 +3,17 @@
 (function () {
   var TOKEN_KEY = 'astral:token'
   var AUTH_ROUTES = { login: 1, signup: 1 }
+  // Preview builds only (prepare-www injects window.ASTRAL_PREVIEW_OPEN): the login
+  // gate stays open so the app can be walked through without an account. The shipped
+  // APK never sets it, so production keeps the login-first flow.
+  var OPEN = !!window.ASTRAL_PREVIEW_OPEN
   var TITLES = {
-    welcome: 'Welcome', characters: 'Characters', shop: 'Shop', pokemon: 'Pokémon',
-    hub: 'Hub', profile: 'Profile', season: 'Season', leaderboard: 'Ranks', cards: 'Cards', premium: 'Premium', settings: 'Settings'
+    welcome: 'Welcome', dungeon: 'Dungeon', shop: 'Shop', pokemon: 'Pokémon',
+    hub: 'Hub', profile: 'Profile', season: 'Season', leaderboard: 'Ranks', cards: 'Cards', premium: 'Premium', settings: 'Settings',
+    characters: 'Shop',   // no standalone Characters page in the app - #/characters opens the Shop
+    'hub/league': 'League', 'hub/quests': 'Quests', 'hub/wallet': 'Wallet',
+    'hub/storage': 'Storage', 'hub/skills': 'Skills', 'hub/achievements': 'Achievements',
+    'hub/guilds': 'Guilds', 'hub/empires': 'Realms'
   }
   var I = function (d) { return '<svg viewBox="0 0 24 24">' + d + '</svg>' }
   var ICON = {
@@ -19,9 +27,13 @@
     premium: I('<path d="M3 8l4 4 5-7 5 7 4-4-2 11H5z"/>'),
     settings: I('<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1L7 17M17 7l2.1-2.1"/>'),
     welcome: I('<circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.6M12 19.4V22M2 12h2.6M19.4 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/>'),
-    pokemon: I('<circle cx="12" cy="12" r="9"/><path d="M3 12h5.5M15.5 12H21"/><circle cx="12" cy="12" r="3.2"/>')
+    pokemon: I('<circle cx="12" cy="12" r="9"/><path d="M3 12h5.5M15.5 12H21"/><circle cx="12" cy="12" r="3.2"/>'),
+    // Dungeon gate: an arched door with a keyhole.
+    dungeon: I('<rect x="5" y="3" width="14" height="18" rx="7"/><path d="M12 8.5V12"/><circle cx="12" cy="15.2" r="1.4"/>')
   }
-  var TABS = ['welcome', 'characters', 'shop', 'pokemon', 'settings']   // Season, Cards, Ranks, Premium and Profile open from the Welcome page
+  var TABS = ['welcome', 'dungeon', 'shop', 'pokemon', 'settings']   // Season, Cards, Ranks, Premium and Profile open from the Welcome page
+  // Which full hash path each tab owns (the Dungeon tab is its own screen).
+  var TARGET = { welcome: 'welcome', dungeon: 'dungeon', shop: 'shop', pokemon: 'pokemon', settings: 'settings' }
 
   var body = document.body
   var first = true
@@ -29,8 +41,10 @@
   try { if (JSON.parse(localStorage.getItem('astral:prefs') || '{}').lite !== false) body.classList.add('lite') } catch (e) { body.classList.add('lite') }
 
   function route() { return (location.hash.replace(/^#\/?/, '').split('?')[0].split('/')[0]) || 'home' }
+  function path() { return (location.hash.replace(/^#\/?/, '').split('?')[0]) || 'home' }
   function signedIn() { try { return !!localStorage.getItem(TOKEN_KEY) } catch (e) { return false } }
   function go(name) { location.replace('#/' + name); sync() }   // replace: tab hops don't pile up in history
+  function target(tab) { return TARGET[tab] || tab }
 
   function build() {
     var tabs = document.createElement('nav')
@@ -43,7 +57,8 @@
 
     tabs.addEventListener('click', function (e) {
       var b = e.target.closest('[data-tab]'); if (!b) return
-      if (route() !== b.dataset.tab) go(b.dataset.tab)
+      var t = target(b.dataset.tab)
+      if (path() !== t) go(t)
       else window.scrollTo({ top: 0, behavior: 'smooth' })
     })
 
@@ -76,22 +91,28 @@
 
     if (first) {
       first = false
-      // Launch: signed out -> login. Signed in -> Welcome.
-      if (!s && !AUTH_ROUTES[r]) { go('login'); return }
+      // Launch: signed in -> Welcome. Signed out -> login, unless this is a preview
+      // build (OPEN): open the app instead - home/auth routes become Welcome, any
+      // other deep link stands as-is.
       if (s && (r === 'home' || AUTH_ROUTES[r])) { go('welcome'); return }
+      if (!s) {
+        if (OPEN) { if (r === 'home' || AUTH_ROUTES[r]) go('welcome'); return }
+        go('login'); return
+      }
     } else if (s && r === 'home') {            // the site's landing page has no place in the app
       go('welcome'); return
-    } else if (!s && !AUTH_ROUTES[r]) {       // signed out / token lost mid-session
+    } else if (!s && !AUTH_ROUTES[r] && !OPEN) {       // signed out / token lost mid-session
       go('login'); return
     }
 
-    body.classList.toggle('app-auth', !s || !!AUTH_ROUTES[r])
-    body.classList.toggle('app-sub', TABS.indexOf(r) < 0)   // a page opened from Welcome: show the back arrow
+    body.classList.toggle('app-auth', (!s && !OPEN) || !!AUTH_ROUTES[r])
+    var here = path()
+    body.classList.toggle('app-sub', TABS.every(function (t) { return here !== target(t) }))   // a page opened from a tab: show the back arrow
     document.querySelectorAll('[data-tab]').forEach(function (b) {
-      b.classList.toggle('is-active', b.dataset.tab === r)
+      b.classList.toggle('is-active', here === target(b.dataset.tab))
     })
     var title = document.getElementById('appTitle')
-    if (title) title.textContent = TITLES[r] || ''
+    if (title) title.textContent = TITLES[here] || TITLES[r] || ''
   }
 
   /* Splash: stays up (covering the site's home view) until the first real screen is ready. */

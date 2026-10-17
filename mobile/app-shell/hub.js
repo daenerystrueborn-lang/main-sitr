@@ -350,7 +350,7 @@ async function matchSheet(id) {
 /* ── router + events ── */
 const SCREENS = { wallet, storage, quests, achievements, guilds, empires, league }
 export function renderHub() {
-  if (!signedIn()) return
+  if (!signedIn() && !window.ASTRAL_PREVIEW_OPEN) return   // preview builds walk the hub too
   const host = $('#hubRoot'); if (!host) return
   root = host
   const [, screen = '', arg = ''] = location.hash.replace(/^#\/?/, '').split('?')[0].split('/').map(decodeURIComponent)

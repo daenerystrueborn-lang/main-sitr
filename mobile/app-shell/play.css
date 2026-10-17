@@ -274,11 +274,24 @@
 .wl-sec{display:flex;align-items:baseline;justify-content:space-between;margin:20px 2px 10px;}
 .wl-sec h3{margin:0;font:800 16px 'Space Grotesk',sans-serif;}
 .wl-sec a{font-size:12.5px;font-weight:700;color:var(--gold);}
-.wl-quick{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.wl-quick a{display:flex;flex-direction:column;gap:3px;padding:16px 14px;border-radius:16px;background:linear-gradient(145deg,var(--bg-2),var(--bg-3));border:1px solid var(--border);color:var(--text);}
-.wl-quick a:active{transform:scale(.97);border-color:var(--gold);}
-.wl-quick b{font:800 15px 'Space Grotesk',sans-serif;}
-.wl-quick span{font-size:11.5px;color:var(--text-muted);}
+/* Discord-style list rows: one column, label + hint + chevron */
+.wl-list{display:grid;gap:8px;}
+.wl-list a{display:flex;align-items:center;gap:12px;padding:13px 14px;border-radius:14px;background:var(--bg-2);border:1px solid var(--border);color:var(--text);}
+.wl-list a:active{transform:scale(.99);border-color:var(--gold);}
+.wl-list b{font:800 14.5px 'Space Grotesk',sans-serif;}
+.wl-list span{flex:1;min-width:0;font-size:12px;color:var(--text-muted);}
+.wl-list i{color:var(--text-subtle);font-style:normal;font-size:16px;}
+
+/* ── Gaming-app home: mode tiles + hero PLAY button ─────────────────────── */
+.gm-modes{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.gm-mode{display:flex;flex-direction:column;gap:3px;padding:15px 14px 13px;border-radius:16px;background:linear-gradient(160deg,var(--bg-2),var(--bg-3));border:1px solid var(--border);color:var(--text);}
+.gm-mode:active{transform:scale(.97);border-color:var(--gold);}
+.gm-ico{width:36px;height:36px;display:grid;place-items:center;margin-bottom:6px;border-radius:11px;background:rgb(212 175 55 / 10%);color:var(--gold);}
+.gm-ico svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
+.gm-mode b{font:800 15px 'Space Grotesk',sans-serif;}
+.gm-mode small{font-size:11.5px;color:var(--text-muted);}
+.wl-play{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:14px;height:46px;border-radius:13px;background:linear-gradient(180deg,#e8c651,var(--gold));color:#17130a;font:900 14.5px 'Space Grotesk',sans-serif;letter-spacing:.1em;text-align:center;box-shadow:0 10px 24px rgb(212 175 55 / 22%);}
+.wl-play b{font-size:15px;letter-spacing:0;}
 .wl-board{display:grid;gap:6px;}
 .wl-board a{display:grid;grid-template-columns:26px 34px 1fr auto;gap:10px;align-items:center;padding:8px 12px;border-radius:14px;background:var(--bg-2);border:1px solid var(--border);color:var(--text);font-size:13.5px;}
 .wl-board a.you{border-color:var(--gold);}
@@ -345,6 +358,22 @@
 
 /* Welcome: three random mini cards (rotate every 5 minutes) */
 .wl-mini{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+/* horizontal content strips: heroes, shop picks (feed rhythm, thumb-scroll) */
+.wl-cast{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+.wl-cast::-webkit-scrollbar{display:none;}
+.wl-cast a{flex:0 0 108px;display:flex;flex-direction:column;gap:5px;padding:9px;border-radius:15px;background:var(--bg-2);border:1px solid var(--border);color:var(--text);min-width:0;}
+.wl-cast a:active{border-color:var(--gold);transform:scale(.98);}
+.wl-cast .art{position:relative;aspect-ratio:4/5;border-radius:11px;overflow:hidden;display:grid;place-items:center;background:linear-gradient(160deg,var(--bg-3),#050505);border:1px solid rgb(212 175 55 / 22%);}
+.wl-cast .art img{width:100%;height:100%;object-fit:cover;}
+.wl-cast .art em{font:800 26px 'Space Grotesk',sans-serif;font-style:normal;color:rgb(212 175 55 / 65%);}
+.wl-cast .stars{font-size:10px;letter-spacing:1.5px;color:var(--gold);}
+.wl-cast b{font:700 12.5px Inter,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.wl-cast small{font-size:11px;color:var(--gold);}
+/* live world numbers */
+.wl-world{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.wl-world div{padding:13px 12px;border-radius:15px;background:var(--bg-2);border:1px solid var(--border);}
+.wl-world b{display:block;font:900 24px/1.1 'Space Grotesk',sans-serif;color:var(--gold);letter-spacing:-.5px;}
+.wl-world span{display:block;margin-top:3px;font-size:11px;color:var(--text-muted);}
 .wl-mc{display:flex;flex-direction:column;gap:6px;min-width:0;color:var(--text);text-align:center;font-size:11.5px;animation:wlmc .45s cubic-bezier(.2,.8,.2,1) both;}
 .wl-mc:nth-child(2){animation-delay:.07s}.wl-mc:nth-child(3){animation-delay:.14s}
 .wl-mc:active{transform:scale(.97);}

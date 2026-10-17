@@ -148,6 +148,15 @@ html.is-locked body > *:not(#appLock){visibility:hidden;}
 body.lite .hb-skel{animation:none;}
 .hb-raw{margin:18px 0 0;font-size:11px;color:var(--text-subtle);}.hb-raw summary{cursor:pointer;}.hb-raw pre{max-height:240px;overflow:auto;padding:10px;border-radius:12px;background:var(--bg-2);white-space:pre-wrap;word-break:break-all;}
 .hb-sh{margin:0 0 6px;font:800 18px 'Space Grotesk',Inter,sans-serif;}
+
+/* ── Dungeon screen ─────────────────────────────────────────────────────── */
+.dg-hero{display:flex;gap:10px;margin:0 0 12px;}
+.dg-main{flex:1;min-width:0;padding:16px 14px;border-radius:18px;background:linear-gradient(155deg,rgb(212 175 55 / 10%),transparent 55%),var(--bg-2);border:1px solid rgb(212 175 55 / 35%);}
+.dg-kicker{display:block;font:700 10px Inter,sans-serif;letter-spacing:1px;text-transform:uppercase;color:var(--gold);}
+.dg-num{display:block;margin:4px 0 3px;font:900 44px/1 'Space Grotesk',sans-serif;letter-spacing:-1px;}
+.dg-sub{display:block;font-size:11.5px;line-height:1.45;color:var(--text-muted);}
+.dg-hero .hb-stat{flex:0 0 132px;align-self:stretch;display:flex;flex-direction:column;justify-content:center;}
+.dg-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
 .hb-qty{display:flex;gap:8px;margin:12px 0;}.hb-qty input{flex:1;min-width:0;height:44px;text-align:center;border-radius:12px;border:1px solid var(--border);background:var(--bg-3);color:var(--text);font:700 16px Inter,sans-serif;}
 .hb-qty button{height:44px;min-width:46px;padding:0 12px;border-radius:12px;border:1px solid var(--border);background:var(--bg-2);color:var(--text);font:800 16px Inter,sans-serif;}
 .hb-notes p{margin:6px 0;font-size:12.5px;color:var(--gold);}

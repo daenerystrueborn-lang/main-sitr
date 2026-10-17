@@ -13,6 +13,8 @@ import './holo.js'
 import './share.js'
 import './lock.js'
 import { renderHub } from './hub.js'
+import { renderDungeon } from './dungeon.js'
+import { resolveArt } from '../js/core/shared.js'
 import * as notify from './notify.js'
 
 /* ── Pokémon avatar (stored on this device) ── */
@@ -70,47 +72,38 @@ const slimSeason = (sv) => (!sv?.active ? { active: false } : { active: true, nu
   tierCount: sv.season.tierCount, endsAt: sv.runtime?.endsAt ?? 0, pl: sv.player ? { tier: sv.player.tier, points: sv.player.points, premium: !!sv.player.premiumPass } : null })
 const slimTeam = (o) => (o.needsStarter ? { starter: true } : { party: (o.party ?? []).map(m => ({ name: m.name, nickname: m.nickname, dexId: m.dexId, shiny: m.shiny, level: m.level, hp: m.hp, maxHp: m.maxHp, fainted: m.fainted })) })
 const slimBoard = (b) => (b?.rows ?? []).map(r => ({ uid: r.uid, position: r.position, name: r.name, level: r.level, avatarUrl: r.avatarUrl ?? null }))
-const listOf = (r) => (Array.isArray(r) ? r : r && typeof r === 'object' ? (Object.values(r).find(Array.isArray) ?? []) : [])
-const CARD_MS = 5 * 60 * 1000
-const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]] } return a }
-// Three random cards from the catalog. Page count comes from the tier pool sizes; falls back to the first few pages.
-async function fetchRandomCards() {
-  let pages = 0
-  try {
-    const total = listOf(await api.cardPrices()).reduce((n, t) => n + (Number(t?.poolSize) || 0), 0)
-    if (total > 0) pages = Math.max(1, Math.ceil(total / 24))
-  } catch {}
-  const grab = async (pg) => { const out = await api.cardCatalog({ page: pg, limit: 24 }); return (out?.cards ?? []).filter(c => c && typeof c === 'object') }
-  const pg = 1 + Math.floor(Math.random() * (pages || 5))
-  let list = []
-  try { list = await grab(pg) } catch {}
-  if (list.length < 3 && pg !== 1) { try { list = await grab(1) } catch {} }
-  return shuffle(list).slice(0, 3).map(c => ({ name: String(c.title ?? c.name ?? 'Card'), img: c.imageUrl ?? c.image ?? null, tier: c.tier ?? null }))
-}
-async function refreshCards(force = false) {
-  if (!W.d) return
-  if (!force && W.d.cards?.length >= 3 && Date.now() - (W.d.cardsAt ?? 0) < CARD_MS) return
-  if (W.cardsBusy) return
-  W.cardsBusy = true
-  try {
-    const c = await fetchRandomCards()
-    if (c.length) { patchWelcome('cards', c); patchWelcome('cardsAt', Date.now()) }
-  } catch {} finally {
-    W.cardsBusy = false
-    if (W.d.cards === undefined) patchWelcome('cards', null)
-  }
-}
-setInterval(() => { if (route() === 'welcome' && signedIn()) refreshCards() }, 30000)
 
-const HUB = [['wallet', 'Wallet', 'Bank, vault, loans'], ['storage', 'Storage', 'Bag and chests'], ['quests', 'Quests', 'Claim rewards'], ['league', 'League', 'Table and bouts']]
-const QUICK = [['characters', 'Characters', 'Browse every hero'], ['shop', 'Shop', 'Gear and items']]
+
+/* Home "game modes": where a player picks what to DO - the launcher pattern,
+   not a portal link grid. */
+const M = (d) => `<svg viewBox="0 0 24 24">${d}</svg>`
+const MODES = [
+  ['dungeon', 'Dungeon', 'Floors and runs', M('<rect x="5" y="3" width="14" height="18" rx="7"/><path d="M12 8.5V12"/><circle cx="12" cy="15.2" r="1.4"/>')],
+  ['hub/league', 'League', 'Table and bouts', M('<path d="M7 4h10v4a5 5 0 0 1-10 0z"/><path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3M12 13v4M8 20h8M10 17h4"/>')],
+  ['hub/quests', 'Quests', 'Claim rewards', M('<path d="M6 3h12v18l-6-4-6 4z"/><path d="M9 8h6M9 11h4"/>')],
+  ['cards', 'Cards', 'Collect them all', M('<rect x="4" y="3" width="13" height="18" rx="2"/><path d="M20 7v12a2 2 0 0 1-2 2"/>')],
+]
 const skel = '<div class="wl-skel"></div>'
 const pct = (a, b) => (b > 0 ? Math.min(100, Math.round((a / b) * 100)) : 0)
+
+/* Section helper: header + body, or nothing at all when there is no body -
+   so a section that has no data (guest, API hiccup) leaves no orphan header. */
+const sec = (title, body, link) => !body ? '' : `<div class="wl-sec"><h3>${title}</h3>${link ? `<a href="${link[0]}">${link[1]}</a>` : ''}</div>${body}`
 
 const SECTIONS = {
   wlHello(d) {
     const p = d.p
-    if (!p) return W.err ? `<div class="wl-empty">${esc(W.err)}<br><button class="btn btn-gold btn-sm" data-retry style="margin-top:10px">Try again</button></div>` : skel
+    if (!p) {
+      // Preview guest (no session): a calm branded header instead of a
+      // profile error with a retry button - this is the app's home, not a form.
+      if (!signedIn() && window.ASTRAL_PREVIEW_OPEN) {
+        return `<div class="wl-hello">
+          <span class="wl-avatar"><i style="font-style:normal">A</i></span>
+          <div class="wl-who"><div class="wl-sub">Welcome to</div><h1 class="wl-name">Astral</h1>
+            <div class="wl-chips"><span class="wl-chip">Preview</span></div></div></div>`
+      }
+      return W.err ? `<div class="wl-empty">${esc(W.err)}<br><button class="btn btn-gold btn-sm" data-retry style="margin-top:10px">Try again</button></div>` : skel
+    }
     const h = new Date().getHours()
     const hello = h < 5 ? 'Still up' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
     return `<div class="wl-hello" data-go="profile" role="link" aria-label="Open your profile">
@@ -130,26 +123,58 @@ const SECTIONS = {
         <h2>Season ${esc(s.number)}: ${esc(s.name)}</h2>${s.description ? `<p>${esc(s.description)}</p>` : ''}
         ${pl ? `<div class="wl-tier"><span>Tier ${num(pl.tier)} / ${num(s.tierCount)}</span><span>${num(pl.points)} pts · ${pl.premium ? 'Premium' : 'Free'} pass</span></div>
           <div class="xp-track"><div class="xp-fill" style="width:${pct(pl.tier, s.tierCount)}%"></div></div>` : ''}
-        <span class="wl-more">More on the season <b>→</b></span></div></a>`
+        <span class="wl-play">PLAY NOW <b>→</b></span></div></a>`
   },
   wlStats(d) {
     const p = d.p; if (!p) return ''
     return `<div class="wl-stats"><div><b>${num(p.solars)}</b><span>Solars</span></div><div><b>${num(p.gems)}</b><span>Gems</span></div><div><b>${num(p.heroes)}</b><span>Heroes</span></div></div>`
   },
-  wlTeam(d) {
+  wlSquad(d) {
     const t = d.team
-    if (t === undefined) return skel
-    if (!t) return '<div class="wl-empty">Couldn’t load your team.</div>'
-    if (t.starter) return '<a class="wl-cta" href="#/pokemon"><b>Choose your starter Pokémon</b><span>Begin your journey ›</span></a>'
-    return `<div class="pk-strip">${t.party.map(m => `<a class="pk-chip ${m.fainted ? 'faint' : ''}" href="#/pokemon">
-      ${spriteImg(m.name, { dex: m.dexId, shiny: m.shiny, list: true })}<b>${esc(m.nickname ?? m.name)}</b><small>Lv ${num(m.level)}</small>${hpBar(m.hp, m.maxHp)}</a>`).join('')}</div>`
+    if (t === undefined) return sec('Your squad', skel, ['#/pokemon', 'Party ›'])
+    if (!t) return (!signedIn() && window.ASTRAL_PREVIEW_OPEN) ? '' : sec('Your squad', '<div class="wl-empty">Couldn’t load your team.</div>', ['#/pokemon', 'Party ›'])
+    if (t.starter) return sec('Your squad', '<a class="wl-cta" href="#/pokemon"><b>Choose your starter Pokémon</b><span>Begin your journey ›</span></a>')
+    return sec('Your squad', `<div class="pk-strip">${t.party.map(m => `<a class="pk-chip ${m.fainted ? 'faint' : ''}" href="#/pokemon">
+      ${spriteImg(m.name, { dex: m.dexId, shiny: m.shiny, list: true })}<b>${esc(m.nickname ?? m.name)}</b><small>Lv ${num(m.level)}</small>${hpBar(m.hp, m.maxHp)}</a>`).join('')}</div>`, ['#/pokemon', 'Party ›'])
   },
-  wlCards(d) {
-    const c = d.cards
-    if (c === undefined) return skel
-    if (!c?.length) return '<a class="wl-cta wl-cta-soft" href="#/cards"><b>Cards</b><span>Browse the collection ›</span></a>'
-    return `<div class="wl-mini">${c.map(x => `<a class="wl-mc" href="#/cards">
-      <span class="wl-mc-art">${x.img ? `<img src="${esc(x.img)}" alt="" loading="lazy" decoding="async">` : `<em>${esc(initials(x.name))}</em>`}${x.tier != null && x.tier !== '' ? `<i class="wl-mc-tier">${esc(x.tier)}</i>` : ''}</span><b>${esc(x.name)}</b></a>`).join('')}</div>`
+  wlHeroes(d) {
+    const r = d.roster
+    if (r === undefined) return sec('Top heroes', skel, ['#/shop', 'All heroes ›'])
+    if (!r?.length) return ''
+    return sec('Top heroes', `<div class="wl-cast">${r.map(c => {
+      const k = Math.max(1, Math.min(6, Number(c.stars) || 1))
+      const art = resolveArt(c.img)
+      return `<a href="#/shop"><span class="art">${art ? `<img src="${esc(art)}" alt="" loading="lazy" decoding="async">` : '<em>✦</em>'}</span>
+        <span class="stars">${'★'.repeat(k)}</span><b>${esc(c.name)}</b></a>`
+    }).join('')}</div>`, ['#/shop', 'All heroes ›'])
+  },
+  wlPicks(d) {
+    const p = d.picks
+    if (p === undefined) return sec('Shop picks', skel, ['#/shop', 'Open shop ›'])
+    if (!p?.length) return ''
+    return sec('Shop picks', `<div class="wl-cast">${p.map(x => {
+      const art = resolveArt(x.img)
+      return `<a href="#/shop"><span class="art">${art ? `<img src="${esc(art)}" alt="" loading="lazy" decoding="async">` : '<em>✦</em>'}</span>
+        <b>${esc(x.name)}</b><small>${num(x.price)} solars</small></a>`
+    }).join('')}</div>`, ['#/shop', 'Open shop ›'])
+  },
+  wlPulls(d) {
+    const c = d.pulls
+    if (c === undefined) return sec('Fresh pulls', skel, ['#/cards', 'All cards ›'])
+    if (!c?.length) return ''
+    return sec('Fresh pulls', `<div class="wl-mini">${c.map(x => `<a class="wl-mc" href="#/cards">
+      <span class="wl-mc-art">${x.img ? `<img src="${esc(x.img)}" alt="" loading="lazy" decoding="async">` : `<em>${esc(initials(x.name))}</em>`}${x.tier != null && x.tier !== '' ? `<i class="wl-mc-tier">${esc(x.tier)}</i>` : ''}</span><b>${esc(x.name)}</b></a>`).join('')}</div>`, ['#/cards', 'All cards ›'])
+  },
+  wlWorld(d) {
+    const w = d.world
+    if (w === undefined) return sec('The world right now', skel)
+    if (!w) return ''
+    return sec('The world right now', `<div class="wl-world">
+      <div><b>${num(w.players)}</b><span>players in the game</span></div>
+      <div><b>${num(w.dungeons)}</b><span>dungeons cleared</span></div>
+      <div><b>${num(w.floor)}</b><span>deepest floor</span></div>
+      <div><b>${num(w.cmd)}</b><span>commands today</span></div>
+    </div>`, ['#/leaderboard', 'Ranks ›'])
   },
   wlTop(d) {
     const rows = d.board
@@ -168,14 +193,17 @@ const SECTIONS = {
 function buildWelcome(host) {
   W.html = {}
   host.innerHTML = `
-    <div id="wlHello"></div><div id="wlSeason"></div><div id="wlStats"></div>
-    <div class="wl-sec"><h3>Your Pokémon</h3><a href="#/pokemon">Battle ›</a></div><div id="wlTeam"></div>
-    <div class="wl-sec"><h3>Quick access</h3></div>
-    <div class="wl-quick">${QUICK.map(([r, t, x]) => `<a href="#/${r}"><b>${t}</b><span>${x}</span></a>`).join('')}</div>
-    <div class="wl-sec"><h3>Hub</h3><a href="#/hub">Open hub ›</a></div>
-    <div class="wl-quick">${HUB.map(([r, t, x]) => `<a href="#/hub/${r}"><b>${t}</b><span>${x}</span></a>`).join('')}</div>
-    <div class="wl-sec"><h3>Cards</h3><a href="#/cards">View all ›</a></div><div id="wlCards"></div>
-    <div class="wl-sec"><h3>Ranks</h3><a href="#/leaderboard">Full board ›</a></div><div id="wlTop"></div>
+    <div id="wlHello"></div>
+    <div id="wlStats"></div>
+    <div id="wlSeason"></div>
+    <div class="wl-sec"><h3>Game modes</h3><a href="#/hub">Hub ›</a></div>
+    <div class="gm-modes">${MODES.map(([r, t, x, ic]) => `<a class="gm-mode" href="#/${r}"><span class="gm-ico">${ic}</span><b>${t}</b><small>${x}</small></a>`).join('')}</div>
+    <div id="wlSquad"></div>
+    <div id="wlHeroes"></div>
+    <div id="wlPicks"></div>
+    <div id="wlPulls"></div>
+    <div id="wlWorld"></div>
+    <div class="wl-sec"><h3>Top ranked</h3><a href="#/leaderboard">Full board ›</a></div><div id="wlTop"></div>
     <div id="wlPremium" class="wl-end"></div>`
   if (host._wired) return
   host._wired = true
@@ -216,7 +244,27 @@ async function renderWelcome() {
     api.season().then(sv => { const x = slimSeason(sv); patchWelcome('sv', x); notify.seasonEnds(x.endsAt) }).catch(() => patchWelcome('sv', W.d.sv ?? null)),
     pk.overview().then(o => patchWelcome('team', slimTeam(o))).catch(() => patchWelcome('team', W.d.team ?? null)),
     api.leaderboard('level', 5).then(b => patchWelcome('board', slimBoard(b))).catch(() => patchWelcome('board', W.d.board ?? null)),
-    refreshCards(),
+    // Public, session-less feeds - these are what keep the home feed alive for
+    // guests and cold starts (world numbers, hero strip, shop picks, pulls).
+    api.stats().then(s => patchWelcome('world', s && {
+      players: s.players, dungeons: s.dungeonsConquered, cmd: s.commandsToday,
+      floor: s.deepestFloor, lvl: s.highestLevel, heroes: s.charactersAvailable,
+    })).catch(() => patchWelcome('world', W.d.world ?? null)),
+    api.characters().then(c => {
+      const rows = [...(c.characters ?? [])]
+        .sort((a, b) => (b.stars ?? 0) - (a.stars ?? 0) || String(a.name).localeCompare(String(b.name)))
+        .slice(0, 8)
+      patchWelcome('roster', rows.map(x => ({ id: x.id, name: x.name, stars: x.stars ?? 1, img: x.image ?? null })))
+    }).catch(() => patchWelcome('roster', W.d.roster ?? null)),
+    api.shop().then(sh => {
+      const shelves = sh?.shelves ?? []
+      const shelf = shelves.find(s => s.key !== 'heroes') ?? shelves[0]
+      const rows = (shelf?.groups ?? []).flatMap(g => g.rows ?? []).slice(0, 6)
+      patchWelcome('picks', rows.map(r => ({ id: r.id, name: r.name, img: r.image ?? null, price: r.buyPrice ?? 0 })))
+    }).catch(() => patchWelcome('picks', W.d.picks ?? null)),
+    api.cardCatalog({ page: 1, limit: 8 }).then(o => patchWelcome('pulls',
+      (o?.cards ?? []).slice(0, 8).map(c => ({ name: String(c.title ?? c.name ?? 'Card'), img: c.imageUrl ?? c.image ?? null, tier: c.tier ?? null }))))
+      .catch(() => patchWelcome('pulls', W.d.pulls ?? null)),
   ]
   await Promise.allSettled(jobs)
   host.dataset.ready = '1'                           // also lifts the splash if the very first load failed
@@ -228,12 +276,14 @@ window.addEventListener('astral:data', () => { if (route() === 'welcome') { W.ag
 
 /* ── routing + warm-up ── */
 function onRoute() {
-  if (!signedIn()) return
+  // Preview builds (window.ASTRAL_PREVIEW_OPEN) render app pages without a session too.
+  if (!signedIn() && !window.ASTRAL_PREVIEW_OPEN) return
   const r = route()
   if (r === 'welcome') renderWelcome()
   else if (r === 'pokemon') renderPokemon()
   else if (r === 'settings') renderSettings({ pickAvatar })
   else if (r === 'hub') renderHub()
+  else if (r === 'dungeon') renderDungeon()
 }
 window.addEventListener('hashchange', onRoute)
 onRoute()
