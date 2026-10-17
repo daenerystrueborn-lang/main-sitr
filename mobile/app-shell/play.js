@@ -74,14 +74,14 @@ const slimTeam = (o) => (o.needsStarter ? { starter: true } : { party: (o.party 
 const slimBoard = (b) => (b?.rows ?? []).map(r => ({ uid: r.uid, position: r.position, name: r.name, level: r.level, avatarUrl: r.avatarUrl ?? null }))
 
 
-/* Home "game modes": where a player picks what to DO - the launcher pattern,
-   not a portal link grid. */
+/* Home "game modes": launcher cards with real art - horizontal peek carousel
+   (next card cut at the edge, the mobile-app pattern), not a portal grid. */
 const M = (d) => `<svg viewBox="0 0 24 24">${d}</svg>`
 const MODES = [
-  ['dungeon', 'Dungeon', 'Floors and runs', M('<rect x="5" y="3" width="14" height="18" rx="7"/><path d="M12 8.5V12"/><circle cx="12" cy="15.2" r="1.4"/>')],
-  ['hub/league', 'League', 'Table and bouts', M('<path d="M7 4h10v4a5 5 0 0 1-10 0z"/><path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3M12 13v4M8 20h8M10 17h4"/>')],
-  ['hub/quests', 'Quests', 'Claim rewards', M('<path d="M6 3h12v18l-6-4-6 4z"/><path d="M9 8h6M9 11h4"/>')],
-  ['cards', 'Cards', 'Collect them all', M('<rect x="4" y="3" width="13" height="18" rx="2"/><path d="M20 7v12a2 2 0 0 1-2 2"/>')],
+  ['dungeon', 'Dungeon', 'Floors and runs', 'assets/img/modes/dungeon.jpg', M('<rect x="5" y="3" width="14" height="18" rx="7"/><path d="M12 8.5V12"/><circle cx="12" cy="15.2" r="1.4"/>')],
+  ['hub/league', 'League', 'Table and bouts', 'assets/img/modes/arena.jpg', M('<path d="M7 4h10v4a5 5 0 0 1-10 0z"/><path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3M12 13v4M8 20h8M10 17h4"/>')],
+  ['hub/quests', 'Quests', 'Claim rewards', 'assets/img/modes/battlepass.jpg', M('<path d="M6 3h12v18l-6-4-6 4z"/><path d="M9 8h6M9 11h4"/>')],
+  ['cards', 'Cards', 'Collect them all', 'assets/img/modes/characters.jpg', M('<rect x="4" y="3" width="13" height="18" rx="2"/><path d="M20 7v12a2 2 0 0 1-2 2"/>')],
 ]
 const skel = '<div class="wl-skel"></div>'
 const pct = (a, b) => (b > 0 ? Math.min(100, Math.round((a / b) * 100)) : 0)
@@ -197,7 +197,7 @@ function buildWelcome(host) {
     <div id="wlStats"></div>
     <div id="wlSeason"></div>
     <div class="wl-sec"><h3>Game modes</h3><a href="#/hub">Hub ›</a></div>
-    <div class="gm-modes">${MODES.map(([r, t, x, ic]) => `<a class="gm-mode" href="#/${r}"><span class="gm-ico">${ic}</span><b>${t}</b><small>${x}</small></a>`).join('')}</div>
+    <div class="gm-modes">${MODES.map(([r, t, x, art, ic]) => `<a class="gm-mode" href="#/${r}" style="background-image:linear-gradient(180deg,rgb(6 6 8 / 12%),rgb(6 6 8 / 84%) 76%),url('${art}')"><span class="gm-ico">${ic}</span><b>${t}</b><small>${x}</small></a>`).join('')}</div>
     <div id="wlSquad"></div>
     <div id="wlHeroes"></div>
     <div id="wlPicks"></div>

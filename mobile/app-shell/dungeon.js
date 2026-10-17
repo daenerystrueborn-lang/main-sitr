@@ -49,27 +49,33 @@ export async function renderDungeon() {
   const floor = own ? dg.deepestFloor : s.deepestFloor
 
   host.innerHTML = `
-    <div class="dg-hero">
-      <div class="dg-main">
-        <span class="dg-kicker">${own ? 'Your deepest floor' : 'Deepest floor on record'}</span>
-        <b class="dg-num">${n0(floor)}</b>
-        <span class="dg-sub">${own
-          ? `You conquered ${n0(dg.conquered)} runs · record to beat: ${n0(s.deepestFloor)}`
-          : 'Clear runs in the chat to put your name on it'}</span>
+    <div class="dg-banner" style="background-image:linear-gradient(180deg,rgb(0 0 0 / 4%),rgb(0 0 0 / 78%) 88%),url('assets/img/modes/dungeon.jpg')">
+      <span class="dg-bn-kicker">The crawl</span>
+      <h2>Dungeon runs</h2>
+    </div>
+    <div class="dg-sheet">
+      <span class="dg-kicker">${own ? 'Your deepest floor' : 'Deepest floor on record'}</span>
+      <b class="dg-num">${n0(floor)}</b>
+      <p class="dg-sub">${own
+        ? `You conquered ${n0(dg.conquered)} runs · record to beat: ${n0(s.deepestFloor)}`
+        : 'Clear runs in the chat to put your name on it'}</p>
+      <div class="dg-tiles">
+        <div class="dg-tile"><b>${n0(dg.conquered)}</b><span>Yours</span></div>
+        <div class="dg-tile"><b>${n0(s.deepestFloor)}</b><span>Record</span></div>
+        <div class="dg-tile"><b>${n0(s.dungeonsConquered)}</b><span>All-time</span></div>
       </div>
-      ${stat('Runs conquered', n0(dg.conquered), own ? 'Yours so far' : 'Start your first run')}
     </div>
     <div class="hb-grid3">
-      ${stat('Dungeons cleared', n0(s.dungeonsConquered), 'Across every chat')}
       ${stat('Highest level', n0(s.highestLevel), 'Server-wide')}
-      ${stat('Characters', n0(s.charactersAvailable), 'Collect them in the Shop')}
+      ${stat('Players', n0(s.players), 'In the game')}
+      ${stat('Characters', n0(s.charactersAvailable), 'In the Shop')}
     </div>
     <section class="hb-card">
       <h4>How runs work</h4>
       <p class="hb-sub">Dungeon runs are played in the WhatsApp chat - this screen keeps score: floors cleared, rewards won and the records to beat.</p>
       <div class="dg-links">
-        <a class="btn btn-primary btn-sm" href="#/leaderboard">Floor leaders</a>
-        <a class="btn btn-secondary btn-sm" href="#/season">Season rewards</a>
+        <a class="btn btn-primary" href="#/leaderboard">Floor leaders</a>
+        <a class="btn btn-secondary" href="#/season">Season rewards</a>
       </div>
     </section>`
 }

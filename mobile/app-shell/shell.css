@@ -6,6 +6,8 @@ body.is-app{
   -webkit-user-select:none;user-select:none;
   overscroll-behavior:none;
   padding-bottom:calc(104px + max(env(safe-area-inset-bottom,0px),14px));
+  /* app depth: a warm gold pool at the top fading to black - not a flat site page */
+  background:radial-gradient(130% 55% at 50% -8%, #17130a 0%, #0a0a0a 52%, #070707 100%) fixed;
 }
 body.is-app input,body.is-app textarea{-webkit-user-select:text;user-select:text;}
 body.is-app a,body.is-app button{touch-action:manipulation;}
@@ -28,8 +30,12 @@ body.is-app .nav-shell::before{display:none;}
 body.is-app .nav-inner{pointer-events:auto;}
 body.is-app .nav-right > a.icon-btn[href="#/settings"]{display:inline-flex !important;}
 body.is-app .app-title{
-  flex:1;margin-left:6px;font:700 17px/1 'Space Grotesk',Inter,system-ui,sans-serif;
-  letter-spacing:.2px;color:var(--text);
+  /* centered app-bar title (hotel-booking pattern): brand + back on the left,
+     actions on the right, screen name dead center */
+  position:absolute;left:50%;top:27px;transform:translateX(-50%);max-width:44vw;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font:800 15.5px/1 'Space Grotesk',Inter,system-ui,sans-serif;
+  letter-spacing:.4px;color:var(--text);
 }
 body.is-app .page,
 body.is-app .page[style]{padding-top:14px !important;padding-bottom:28px;}
