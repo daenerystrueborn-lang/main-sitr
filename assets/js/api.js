@@ -211,7 +211,20 @@ export function isOnline() { return online }
  * `timeoutMs` guards against a hung VPS: without it a dead API leaves spinners
  * running forever, which reads as a broken site rather than a brief outage.
  */
-async function request(path, { method = 'GET', body = null, timeoutMs = 12_000, auth = true } = {}) {
+export function newIdempotencyKey() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID()
+  const bytes = new Uint8Array(16)
+  if (!globalThis.crypto?.getRandomValues) throw new Error('Secure random generation is unavailable.')
+  globalThis.crypto.getRandomValues(bytes)
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
+}
+
+export async function request(path, { method = 'GET', body = null, timeoutMs = 12_000, auth = true, idempotencyKey = null } = {}) {
+  // A caller can retain this key for an exact retry. No automatic write retries.
+  const mutating = !['GET', 'HEAD'].includes(method)
+  const mutationKey = mutating ? idempotencyKey || newIdempotencyKey() : null
+  const serializedBody = body ? JSON.stringify(body) : undefined
+  const retryBody = serializedBody ? JSON.parse(serializedBody) : null
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
 
@@ -223,19 +236,24 @@ async function request(path, { method = 'GET', body = null, timeoutMs = 12_000, 
       signal: controller.signal,
       headers: {
         Accept: 'application/json',
-        ...(body ? { 'Content-Type': 'application/json' } : {}),
+        ...(body || mutating ? { 'Content-Type': 'application/json' } : {}),
+        ...(mutationKey ? { 'Idempotency-Key': mutationKey } : {}),
         ...(auth && token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: body ? JSON.stringify(body) : undefined,
+      body: serializedBody,
     })
   } catch (err) {
     clearTimeout(timer)
     setOnline(false)
     const aborted = err?.name === 'AbortError'
-    throw new ApiError(
+    const failure = new ApiError(
       aborted ? 'The server took too long to respond.' : 'Cannot reach the server.',
       { status: 0, code: aborted ? 'timeout' : 'network' },
     )
+    // Exact network retries reuse the original body and mutation key. Never
+    // automatically retry combat, purchases or reward claims.
+    failure.retry = () => request(path, { method, body: retryBody, timeoutMs, auth, idempotencyKey: mutationKey })
+    throw failure
   }
   clearTimeout(timer)
   setOnline(true)
@@ -247,7 +265,7 @@ async function request(path, { method = 'GET', body = null, timeoutMs = 12_000, 
     try { payload = JSON.parse(text) } catch { payload = { error: text } }
   }
 
-  if (!res.ok) {
+  if (!res.ok || payload?.ok === false) {
     // The API reports failures as { ok:false, error }. Older/proxy errors may
     // use `message`, and Cloudflare can return HTML - hence the fallbacks.
     const message = payload?.error ?? payload?.message ?? `Request failed (${res.status})`
@@ -256,7 +274,7 @@ async function request(path, { method = 'GET', body = null, timeoutMs = 12_000, 
       for (const fn of authListeners) { try { fn() } catch {} }
     }
     throw new ApiError(message, {
-      status: res.status,
+      status: res.ok ? 400 : res.status,
       code: payload?.code ?? null,
       retryAfterMs: payload?.retryAfterMs ?? null,
       body: payload,
@@ -379,7 +397,7 @@ export const api = {
    * in for the account (and its real number) in the next two calls. 404s with
    * `found: false` when no character goes by that name.
    */
-  lookupAccount: (username) => post('/auth/lookup', { username }),
+  lookupAccount: (name) => post('/auth/lookup', { name }),
 
   /**
    * Sends the 6-digit code to the account's WhatsApp DM.

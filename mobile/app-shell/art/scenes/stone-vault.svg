@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
+<defs>
+ <linearGradient id="wall" x2="0" y2="1"><stop stop-color="#080e1a"/><stop offset="1" stop-color="#26334b"/></linearGradient>
+ <linearGradient id="floor" x2="0" y2="1"><stop stop-color="#394054"/><stop offset="1" stop-color="#0b1520"/></linearGradient>
+ <radialGradient id="glow"><stop stop-color="#ffba52" stop-opacity=".5"/><stop offset="1" stop-color="#ffba52" stop-opacity="0"/></radialGradient>
+ <radialGradient id="vignette"><stop offset=".35" stop-color="#030814" stop-opacity="0"/><stop offset="1" stop-color="#030814" stop-opacity=".85"/></radialGradient>
+ <pattern id="bricks" width="160" height="96" patternUnits="userSpaceOnUse"><path d="M0 0h160v96H0z" fill="none" stroke="#060c17" stroke-width="4"/><path d="M0 48h160M80 0v48M40 48v48M120 48v48" stroke="#080f1c" stroke-width="3"/><path d="M2 3h156M2 51h156" stroke="#66758b" opacity=".14"/></pattern>
+</defs>
+<path fill="url(#wall)" d="M0 0h960v540H0z"/><path fill="url(#bricks)" d="M0 0h960v365H0z"/>
+<path d="M365 356V178a115 115 0 0 1 230 0v178" fill="#080e19" stroke="#39465b" stroke-width="20"/>
+<path d="M380 356V180a100 100 0 0 1 200 0v176" fill="#050b14" stroke="#111e30" stroke-width="10"/>
+<path d="M405 335V200a75 75 0 0 1 150 0v135" fill="#0d1727"/><path d="M436 332V216a44 44 0 0 1 88 0v116" fill="#050a13"/>
+<path d="M75 0h54v365H75zM831 0h54v365h-54z" fill="#1a2739" stroke="#0b1422" stroke-width="5"/>
+<path d="M67 84h70v16H67zM823 84h70v16h-70zM67 330h70v35H67zM823 330h70v35h-70z" fill="#344057" stroke="#101b2b" stroke-width="3"/>
+<path d="M0 355h960v185H0z" fill="url(#floor)"/>
+<g stroke="#080f1b" stroke-width="3" opacity=".65"><path d="M0 381h960M0 423h960M0 477h960M0 538h960"/><path d="M200 355 0 540M340 355 240 540M480 355v185M620 355 720 540M760 355 960 540"/></g>
+<ellipse cx="235" cy="241" rx="160" ry="175" fill="url(#glow)"/><ellipse cx="725" cy="241" rx="160" ry="175" fill="url(#glow)"/>
+<g fill="#29202a" stroke="#0b111a" stroke-width="4"><path d="m220 244 9 57h14l9-57zM708 244l9 57h14l9-57z"/></g>
+<g fill="#ffb84f"><path d="M224 248c-18-26 10-33 9-60 21 26 25 48 9 60zM712 248c-18-26 10-33 9-60 21 26 25 48 9 60z"/></g>
+<g fill="#ffe8a2"><path d="M231 249c-8-15 7-21 7-32 8 19 6 26 1 32zM719 249c-8-15 7-21 7-32 8 19 6 26 1 32z"/></g>
+<path d="M0 0h960v540H0z" fill="url(#vignette)"/>
+</svg>
