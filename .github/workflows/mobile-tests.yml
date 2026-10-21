@@ -1,0 +1,30 @@
+name: Mobile UI tests
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['mobile/**', 'assets/js/api.js', '.github/workflows/mobile-tests.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20, 22]
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - name: Test and bundle mobile app
+        run: npm test

@@ -2,10 +2,11 @@
   "name": "astral-android",
   "version": "1.0.0",
   "private": true,
-  "description": "Astral Android app - the site wrapped in Capacitor",
+  "description": "Astral Android app with a standalone floating-navigation interface",
   "scripts": {
     "prepare:www": "node scripts/prepare-www.mjs",
-    "sync": "npm run prepare:www && npx cap sync android"
+    "sync": "npm run prepare:www && npx cap sync android",
+    "test": "node --test scripts/*.test.mjs"
   },
   "dependencies": {
     "@aparajita/capacitor-biometric-auth": "8.0.2",
@@ -20,7 +21,6 @@
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^6.2.0",
-    "@fontsource-variable/inter": "^5.1.0",
-    "@fontsource-variable/space-grotesk": "^5.1.0"
+    "linkedom": "^0.18.13"
   }
 }

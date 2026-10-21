@@ -1,0 +1,154 @@
+/* Keep the supplied phone presentation in browser previews. On-device, the
+   operating system supplies the status bar, cutout and gesture indicator. */
+.native-app body { display: block; background: var(--screen); }
+.native-app .phone { width: 100%; height: 100%; border-radius: 0; box-shadow: none; }
+.native-app .island, .native-app .status, .native-app .home-ind { display: none; }
+.native-app .nav-wrap { padding: 0 26px max(16px, env(safe-area-inset-bottom, 0px)); }
+.native-app .view { padding-top: max(16px, env(safe-area-inset-top, 0px)); }
+.native-app #v-home { padding-top: max(16px, env(safe-area-inset-top, 0px)); }
+.native-app .phone.land { width: 100%; height: 100%; border-radius: 0; }
+@media (max-width: 440px) and (orientation: portrait) {
+  .native-app .phone.land { width: 100vh; height: 100vw; }
+}
+button:focus-visible, [role="button"]:focus-visible, a:focus-visible, input:focus-visible {
+  outline: 2px solid var(--gold); outline-offset: 3px;
+}
+
+/* API-backed content uses the supplied design's typography and glass surfaces. */
+.phone { isolation:isolate; }
+.api-overlay { position:absolute; inset:0; z-index:1000; isolation:isolate; background:rgba(0,0,0,.75); display:flex; align-items:flex-end; }
+.api-overlay[hidden] { display:none; }
+.api-sheet { position:relative; flex:none; box-shadow:0 -20px 60px rgba(0,0,0,.6); width:100%; max-height:90%; overflow:auto; padding:28px 20px max(28px,env(safe-area-inset-bottom)); background:#141416; border:1px solid var(--glass-line,rgba(255,255,255,.12)); border-radius:28px 28px 0 0; }
+.api-sheet h2 { font-family:var(--f-ui); margin:0 40px 20px 0; }
+.api-sheet p { color:var(--muted); line-height:1.6; margin:12px 0; }
+.api-close { position:absolute; right:16px; top:16px; font-size:24px; }
+.api-sheet label { display:block; margin:16px 0; color:var(--muted); font-size:14px; }
+.api-sheet input, .api-sheet select { display:block; width:100%; padding:14px; margin-top:8px; color:var(--ink); background:#09090a; border:1px solid var(--line); border-radius:12px; font:inherit; }
+.api-sheet .gbtn { margin:8px 0; width:100%; }
+.api-sheet .pm-cta { margin-top:16px; }
+.api-sheet code { display:block; overflow-wrap:anywhere; padding:16px; background:#09090a; border-radius:12px; }
+.api-link { text-decoration:none; margin-top:20px; display:flex; }
+#api-error { color:#ffb3a7; }
+.api-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:16px 0; }
+.api-card { min-width:0; padding:14px; margin-bottom:12px; border:1px solid var(--glass-line); border-radius:18px; background:var(--glass); }
+.api-card h3 { font-family:var(--f-ui); font-size:16px; margin:10px 0; overflow-wrap:anywhere; }
+.api-card p { color:var(--muted); font-size:13px; line-height:1.5; margin:8px 0; }
+.api-card img { width:100%; height:130px; object-fit:contain; border-radius:12px; }
+.api-card .pbtn { margin-top:12px; width:100%; }
+.av img { width:100%; height:100%; object-fit:cover; border-radius:inherit; }
+.pf-inv .sq { overflow:hidden; color:var(--ink); font:inherit; }
+.pf-inv .sq img { width:70%; height:60%; object-fit:contain; }
+.pf-inv .sq span { display:block; font-size:10px; }
+#v-home .season, #v-home .box { display:grid; place-items:center; color:var(--muted); font-size:14px; }
+#v-home .tcard { display:grid; place-items:center; color:var(--muted); font-size:12px; }
+#v-home .ranks { color:var(--muted); padding:16px; font-size:13px; }
+#v-leaderboard .lb-list .lb-row { width:100%; color:var(--ink); font:inherit; text-align:left; }
+
+.lb-player-name { font-family:var(--f-ui); font-size:13px; margin-bottom:12px; overflow-wrap:anywhere; }
+
+/* Populate the reference's existing shop tiles, never a replacement card grid. */
+#v-shop .dimg img, #v-shop .pic img, #v-shop .bimg img { width:100%; height:100%; object-fit:contain; }
+#v-shop .deal > b { display:block; font-family:var(--f-ui); font-size:14px; margin:10px 0 6px; }
+#v-shop .deal > p, #v-shop .btx p { font-size:12px; line-height:1.4; color:var(--muted); margin:6px 0; }
+#shop-retry { margin:0 0 16px; }
+.pm-description, .pm-faq details > p { font-family:var(--f-body); color:var(--muted); font-size:13px; line-height:1.5; margin-top:8px; }
+
+/* Feature flags must beat the reference's explicit flex/grid declarations. */
+[hidden] { display:none !important; }
+#v-home .season img, #v-home .box img { width:100%; max-height:110px; object-fit:cover; }
+#v-home .season span, #v-home .box span { padding:10px; }
+#v-dg-prep .fx-r4 .sq { overflow:hidden; overflow-wrap:anywhere; font-size:11px; color:var(--ink); }
+#v-dg-combat .cb-act button { color:var(--ink); font-family:var(--f-ui); font-size:11px; text-transform:capitalize; }
+#v-dg-combat .cb-av img, #v-dg-combat .cb-ea img { width:100%; height:100%; object-fit:contain; }
+#combat-status { position:absolute; top:76px; left:32%; right:22%; margin:0; text-align:center; font-size:11px; pointer-events:none; }
+#combat-feed { position:absolute; left:28%; right:25%; bottom:12px; max-height:55px; overflow:auto; font-size:10px; color:var(--muted); }
+#combat-feed p { margin:3px 0; }
+#combat-leave { font-size:10px; color:var(--ink); }
+.combat-positions { font-size:11px; color:var(--muted); overflow-wrap:anywhere; }
+.api-sheet > img { display:block; max-width:100%; max-height:180px; object-fit:contain; margin:auto; }
+.api-sheet input[type="checkbox"] { display:inline-block; width:auto; margin-right:10px; }
+button:disabled { cursor:not-allowed; opacity:.5; }
+
+/* Dungeon art lives inside the supplied reference screen and control positions. */
+.dungeon-scene { background-size:cover; background-position:center; }
+#v-dg-combat .cb-bg { background-size:100% 100%; }
+#v-dg-combat .cb-gr { display:none; }
+#v-fight .fx-feat, #v-dg-prep > .feat { background-size:cover; background-position:center; }
+#v-fight .deals .dimg, #v-dg-list .fx-di { overflow:hidden; }
+#v-fight .deals .dimg > img, #v-dg-list .fx-di > img { width:100%; height:100%; object-fit:cover; }
+#v-fight .deals .dimg { position:relative; }
+#v-fight .deals .dimg > img { position:absolute; inset:0; }
+#v-fight .deals .off { position:relative; z-index:1; }
+#v-dg-combat .cb-stage { position:absolute; inset:0; pointer-events:none; }
+#v-dg-combat .cb-stage .fighter { width:100px; height:160px; border:0; border-radius:0; background:none; overflow:visible; box-shadow:none; transition:left .35s ease,top .35s ease; }
+.fighter-sprite { --frame-size:176px; position:absolute; bottom:0; left:50%; width:var(--frame-size); height:var(--frame-size); transform:translateX(-50%); background-image:var(--sheet); background-size:calc(var(--frames) * 100%) 100%; background-repeat:no-repeat; image-rendering:pixelated; filter:drop-shadow(0 8px 3px rgba(0,0,0,.6)); animation:dungeon-frames .9s steps(var(--frames)) infinite; }
+.fighter-enemy { transform:translateX(-50%) scaleX(-1); }
+.fighter-sprite.sprite-once { animation-duration:.65s; animation-iteration-count:1; }
+.fighter-sprite.sprite-still { animation:none; }
+@keyframes dungeon-frames { from { background-position:0 0; } to { background-position:calc(var(--frame-size) * var(--frames) * -1) 0; } }
+#v-dg-combat .fighter-name { position:absolute; top:100%; left:50%; transform:translateX(-50%); max-width:150px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:3px 8px; border:1px solid rgba(227,185,59,.25); border-radius:8px; background:rgba(5,10,19,.8); font-family:var(--f-ui); font-size:11px; color:#eee4c8; }
+.fighter-portrait { position:relative; width:100%; height:100%; min-height:40px; overflow:hidden; }
+.fighter-portrait .fighter-sprite { --frame-size:110px; bottom:-4px; filter:none; }
+#v-dg-combat .cb-av, #v-dg-combat .cb-ea { overflow:hidden; }
+#v-dg-combat .cb-hl, #v-dg-combat .cb-hr, #v-dg-combat .cb-top, #v-dg-combat .cb-side { z-index:3; }
+#v-dg-combat .cb-act, #v-dg-combat .cb-dpad { z-index:3; }
+#v-dg-combat .cb-act { max-width:66%; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
+#v-dg-combat .cb-act .cb-sk { width:58px; height:62px; }
+#v-dg-combat .cb-act button { display:flex; flex-direction:column; justify-content:center; gap:1px; padding:5px; }
+#v-dg-combat .cb-act button img, #combat-dodge img { width:28px; height:28px; object-fit:contain; }
+#v-dg-combat .cb-act .cb-atk img { width:38px; height:38px; }
+#v-dg-combat .cb-act button span { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10px; }
+#combat-dodge { position:absolute; left:126px; bottom:0; width:54px; height:54px; display:flex; flex-direction:column; justify-content:center; font:10px var(--f-ui); }
+#combat-status { z-index:4; top:88px; left:20%; right:20%; color:#d2d8e1; text-shadow:0 1px 3px #000; }
+#combat-feed { z-index:2; left:23%; right:32%; bottom:8px; max-height:36px; background:rgba(3,8,16,.45); border-radius:6px; padding:0 6px; }
+#v-dg-combat .combat-positions { position:absolute; top:110px; left:20%; right:20%; margin:0; font-size:10px; text-align:center; text-shadow:0 1px 3px #000; }
+@media (prefers-reduced-motion:reduce) {
+ .fighter-sprite { animation:none !important; }
+ #v-dg-combat .cb-stage .fighter { transition:none; }
+}
+#v-dg-combat .cb-av, #v-dg-combat .cb-ea { position:relative; }
+#v-dg-combat .cb-av > img, #v-dg-combat .cb-ea > img { position:absolute; inset:0; background:#111b28; }
+.character-art-preview { position:relative; height:145px; overflow:hidden; border-radius:16px; background:radial-gradient(ellipse at 50% 100%,#364057,transparent 65%); }
+.character-art-preview .fighter-sprite { --frame-size:192px; }
+#v-dg-combat .combat-enemy-name { min-width:0; flex:1; font-family:var(--f-ui); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#v-dg-combat .cb-en { gap:6px; }
+.dungeon-reward { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4px; gap:3px; }
+.dungeon-reward img { width:70%; max-height:48px; object-fit:contain; }
+.dungeon-reward span { font:10px var(--f-ui); text-align:center; overflow-wrap:anywhere; color:var(--muted); }
+
+/* Dedicated account / delivery / verification screens, over the unchanged app. */
+#api-panel.auth-mode { align-items:stretch !important; background:#0a0c10 !important; overflow:hidden; border-radius:inherit; }
+#api-panel.auth-mode::before { content:""; position:absolute; inset:0; background:radial-gradient(ellipse at 100% 0,rgba(227,185,59,.12),transparent 60%); pointer-events:none; }
+#api-panel.auth-mode .api-sheet { height:100%; max-height:100% !important; border-radius:0 !important; padding:calc(32px + env(safe-area-inset-top,0px)) 24px 28px !important; background:transparent !important; box-sizing:border-box; }
+.auth-mode .api-close { top:18px; right:16px; }
+.auth-brand { display:flex; gap:12px; align-items:center; margin:28px 0 32px; font:800 25px var(--f-ui); letter-spacing:.14em; color:#f0d37b; }
+.auth-brand-sub { display:block; margin-top:5px; font:9px var(--f-ui); letter-spacing:.18em; color:#8c909a; }
+.auth-emblem { display:grid; place-items:center; width:46px; height:46px; border:1px solid #89713b; border-radius:14px; font-size:31px; background:linear-gradient(145deg,#302b1b,#101218); }
+.auth-mode h2 { margin:0 0 12px; padding-right:20px; font:700 29px/1.15 var(--f-ui); letter-spacing:-.04em; }
+.auth-mode .auth-brand { order:0; }
+.auth-progress { display:flex; gap:12px; margin:0 0 30px; padding:0; list-style:none; }
+.auth-progress li { flex:1; border-top:2px solid #292c32; padding-top:10px; color:#727681; font:11px var(--f-ui); }
+.auth-progress li b { font-size:10px; margin-right:5px; }
+.auth-progress li.on { border-color:var(--gold); color:#e7c65f; }
+.auth-subtitle { margin:0 0 26px !important; color:#adb1bc !important; font-size:14px !important; line-height:1.65 !important; }
+.auth-mode label { display:block; margin-bottom:9px; color:#e6e5e0; font:600 12px var(--f-ui); }
+.auth-mode input, .auth-mode select { width:100%; min-height:52px; box-sizing:border-box; margin:0 0 18px; padding:14px; border:1px solid #34363d; border-radius:13px; background:#14171d; color:#fff; font:16px var(--f-ui); }
+.auth-mode input:focus, .auth-mode select:focus { outline:2px solid #c9a945; outline-offset:2px; }
+.auth-mode input::placeholder { color:#666b77; }
+.auth-mode .pm-cta { width:100%; height:52px; margin:8px 0 12px; border-radius:13px; font:700 14px var(--f-ui); }
+.auth-mode .gbtn { width:100%; min-height:48px; margin:6px 0; border-radius:13px; font:13px var(--f-ui); }
+.auth-divider { display:flex; align-items:center; gap:14px; margin:24px 0 14px; color:#7c818c; font:9px var(--f-ui); letter-spacing:.12em; }
+.auth-divider::before, .auth-divider::after { content:""; flex:1; height:1px; background:#2a2d33; }
+.auth-mode .auth-help { margin:10px 0 18px; font-size:12px; line-height:1.7; color:#9198a5; }
+.auth-mode .auth-security { margin:28px 0 0; padding-top:18px; border-top:1px solid #252830; color:#727a87; font-size:11px; line-height:1.65; }
+.auth-mode .auth-back { border:0; padding:0; color:#a8aeba; background:transparent; font:13px var(--f-ui); cursor:pointer; }
+.auth-account { display:flex; align-items:center; gap:12px; border:1px solid #3d3826; border-radius:16px; padding:18px 14px; margin-bottom:20px; background:linear-gradient(135deg,#242115,#12151b); }
+.auth-account-avatar { flex-shrink:0; display:grid; place-items:center; width:44px; height:44px; border:1px solid #8e7639; border-radius:50%; color:#f1d57e; font:700 20px var(--f-ui); }
+.auth-account > div:nth-child(2) { min-width:0; flex:1; }
+.auth-account strong { display:block; overflow-wrap:anywhere; font:700 16px var(--f-ui); }
+.auth-account span:not(.auth-found) { display:block; margin-top:6px; color:#aeb2bc; font-size:12px; }
+.auth-found { color:#bbd69d; font:8px var(--f-ui); letter-spacing:.08em; }
+.auth-mode .auth-code { font-size:27px; text-align:center; letter-spacing:.3em; padding-left:22px; }
+.auth-mode #api-error { font-size:12px; line-height:1.6; color:#ffaaa3; }
+.auth-mode [aria-busy="true"] { cursor:progress; }
+@media (max-height:600px) { .auth-brand { margin:10px 0 20px; } .auth-progress { margin-bottom:20px; } }
