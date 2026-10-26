@@ -103,6 +103,46 @@ button{font-family:inherit;}
 .view.active{display:block;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
 
+/* ===== TOP LIGHT =====
+   A dim sun sitting above every page: a warm bloom that falls in from the top
+   edge, brightest just above the centre, and is completely gone before it
+   reaches the fold. Before this, every view except home opened onto flat
+   black - the only light in the design lived in the two hero photographs.
+
+   Home and season are excluded on purpose. Each already opens with a
+   full-bleed hero image, so a second light source would flatten the photo and
+   fight the vignette sitting on top of it.
+
+   Notes on how it is built:
+   - `fixed`, not absolute: the light stays where the sun would be as the page
+     scrolls, instead of sliding away with the first section.
+   - Three stacked light layers, in paint order: a thin seam where the light
+     enters, the sun's crest, its bloom, then the wide gold haze.
+   - The bottom mask is load-bearing. Without it the haze ends on a visible
+     horizontal edge, which reads as a banding bug rather than light.
+   - `isolation` on .view is what lets `z-index:-1` land above the page
+     background but behind every card and heading.
+
+   Keep the alphas low. Each tile in the grid is a solid surface, so this only
+   ever shows between and behind cards - past ~10% it stops being light and
+   starts looking like a stain on a black screen. */
+.view{position:relative;isolation:isolate;}
+.view:not(#view-home):not(#view-season)::before{
+  content:"";
+  position:fixed;
+  top:0;left:0;right:0;
+  height:min(66vh,600px);
+  z-index:-1;
+  pointer-events:none;
+  background:
+    linear-gradient(180deg,rgb(240 213 133 / 7%) 0,transparent 150px),
+    radial-gradient(ellipse 22% 26% at 50% -10%,rgb(255 240 208 / 26%),transparent 72%),
+    radial-gradient(ellipse 46% 66% at 50% 0%,rgb(255 240 208 / 12%),transparent 74%),
+    radial-gradient(ellipse 92% 95% at 50% 4%,rgb(212 175 55 / 9%),transparent 80%);
+  -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 42%,transparent 100%);
+  mask-image:linear-gradient(180deg,#000 0%,#000 42%,transparent 100%);
+}
+
 /* ===== HERO ===== */
 .hero{position:relative;width:100vw;margin-left:calc(50% - 50vw);margin-top:-64px;min-height:64svh;overflow:hidden;background-image:
   linear-gradient(180deg, rgb(0 0 0 / 55%) 0%, rgb(0 0 0 / 72%) 55%, rgb(0 0 0 / 92%) 100%),
