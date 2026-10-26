@@ -497,6 +497,107 @@ export const api = {
   markAllNotificationsRead: () => post('/notifications/read-all'),
   deleteNotification: (id) => del(`/notifications/${encodeURIComponent(id)}`),
   clearNotifications: () => del('/notifications'),
+
+  /* ── inventory / equipment ──────────────────────────────────────────────
+     The profile page reads the first 24 stacks off /me. The inventory manager
+     needs the real paged list plus the writes, so it talks to these instead.
+
+     `limit` is clamped by the server; the manager asks for 24 at a time so a
+     phone isn't asked to paint a 300-stack grid in one go. */
+  inventory: ({ category = '', cursor, limit = 24 } = {}) => {
+    const q = new URLSearchParams()
+    if (category) q.set('category', category)
+    if (cursor) q.set('cursor', cursor)
+    if (limit) q.set('limit', String(limit))
+    const qs = q.toString()
+    return get(`/me/inventory${qs ? `?${qs}` : ''}`)
+  },
+  inventoryItem: (instanceId) => get(`/me/inventory/${encodeURIComponent(instanceId)}`),
+  useItem: (instanceId) => post('/me/inventory/use', { itemInstanceId: instanceId }),
+  sellItem: (instanceId, qty = 1) => post('/me/inventory/sell', { itemInstanceId: instanceId, qty }),
+  discardItem: (instanceId, qty = 1) =>
+    post('/me/inventory/discard', { itemInstanceId: instanceId, qty, confirm: true }),
+
+  equipment: () => get('/me/equipment'),
+  equip: (instanceId, slot) => post('/me/equipment/equip', { itemInstanceId: instanceId, slot }),
+  unequip: (slot) => post('/me/equipment/unequip', { slot }),
+
+  /* ── storage ───────────────────────────────────────────────────────────
+     `move` covers chest ⇄ inventory in both directions. The server decides
+     what fits, so a slot count shown here is a preview, not a guarantee. */
+  storage: () => get('/storage'),
+  storageMove: ({ itemInstanceId, qty = 1, to }) =>
+    post('/storage/move', { itemInstanceId, qty, to }),
+  buyStorageChest: () => post('/storage/chest/buy'),
+  buyEnderChest: () => post('/storage/ender/buy'),
+
+  /* ── wallet ────────────────────────────────────────────────────────────
+     Solars live in three places: carried, banked and vaulted. Each write
+     returns the fresh balances, so the page repaints without a refetch. */
+  wallet: () => get('/wallet'),
+  walletLedger: () => get('/wallet/ledger'),
+  bankMove: (amount) => post('/wallet/bank', { amount }),
+  vaultMove: (amount) => post('/wallet/vault', { amount }),
+  takeLoan: (amount) => post('/wallet/loan', { amount }),
+  repayLoan: (amount) => post('/wallet/repay', { amount }),
+
+  /* ── guilds ────────────────────────────────────────────────────────────
+     `/guilds/me` is the only player-scoped read; everything else is public
+     and browsable signed out, same as the shop. */
+  guilds: (params = {}) => {
+    const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v != null && v !== ''))
+    const qs = q.toString()
+    return get(`/guilds${qs ? `?${qs}` : ''}`)
+  },
+  myGuild: () => get('/guilds/me'),
+  guild: (query) => get(`/guilds/${encodeURIComponent(query)}`),
+  guildBoard: (query) => get(`/guilds/${encodeURIComponent(query)}/board`),
+  guildShop: (query) => get(`/guilds/${encodeURIComponent(query)}/shop`),
+  guildImage: (query) => `${API_BASE}/api/guilds/${encodeURIComponent(query)}/image`,
+
+  /* ── empires ───────────────────────────────────────────────────────────── */
+  empires: (params = {}) => {
+    const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v != null && v !== ''))
+    const qs = q.toString()
+    return get(`/empires${qs ? `?${qs}` : ''}`)
+  },
+  myEmpire: () => get('/empires/me'),
+  empire: (query) => get(`/empires/${encodeURIComponent(query)}`),
+
+  /* ── progress ──────────────────────────────────────────────────────────── */
+  quests: () => get('/quests'),
+  claimQuest: (id) => post('/quests/claim', { id }),
+  achievements: () => get('/achievements'),
+  claimAchievement: (id) => post('/achievements/claim', { id }),
+  progress: () => get('/progress'),
+
+  /* ── pokémon ───────────────────────────────────────────────────────────
+     Only /meta is open upstream. The rest is player-scoped, so every call
+     here is made with the session token. */
+  pokemonMeta: () => get('/pokemon/meta'),
+  pokemonOverview: () => get('/pokemon/overview'),
+  pokemonMons: () => get('/pokemon/mons'),
+  pokemonMon: (id) => get(`/pokemon/mons/${encodeURIComponent(id)}`),
+  pokemonParty: () => get('/pokemon/party'),
+  pokemonDex: () => get('/pokemon/dex'),
+  pokemonBag: () => get('/pokemon/bag'),
+  pokemonShop: () => get('/pokemon/shop'),
+  pokemonBuy: (id, qty = 1) => post('/pokemon/shop/buy', { id, qty }),
+  pokemonHunt: () => post('/pokemon/hunt'),
+  pokemonHeal: () => post('/pokemon/heal'),
+  pokemonHold: (id, held) => post(`/pokemon/mons/${encodeURIComponent(id)}/${held ? 'hold' : 'unhold'}`),
+  pokemonMain: (id) => post(`/pokemon/mons/${encodeURIComponent(id)}/main`),
+  pokemonRename: (id, name) => post(`/pokemon/mons/${encodeURIComponent(id)}/rename`, { name }),
+  pokemonProtect: (id) => post(`/pokemon/mons/${encodeURIComponent(id)}/protect`),
+  pokemonFeed: (id) => post(`/pokemon/mons/${encodeURIComponent(id)}/feed`),
+  pokemonEvolve: (id) => post(`/pokemon/mons/${encodeURIComponent(id)}/evolve`),
+
+  /* ── events ────────────────────────────────────────────────────────────
+     The season page's event cards hand out fixed rewards (that is why they
+     are worth including at all). The claim is server-side and idempotent so
+     a card can't be tapped twice for two payouts - the UI only ever shows
+     what the server says was granted. */
+  claimEvent: (id) => post('/events/claim', { id }),
 }
 
 /* ──────────────────────────── image helpers ─────────────────────────────── */

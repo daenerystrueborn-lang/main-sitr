@@ -15,6 +15,7 @@ const ICON_PATHS = {
   calendar: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
   character: '<circle cx="12" cy="8" r="3.5"/><path d="M5 21a7 7 0 0 1 14 0M4 4l2 2M20 4l-2 2"/>',
   chat: '<path d="M20 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1.1-5.3A8.5 8.5 0 1 1 20 11.5z"/>',
+  chevron: '<path d="M9 5l7 7-7 7"/>',
   compass: '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2.1 4.9-4.9 2.1 2.1-4.9 4.9-2.1z"/>',
   dungeon: '<path d="M5 21V7l7-4 7 4v14M9 21v-5h6v5M3 21h18"/>',
   gem: '<path d="m3 9 4-5h10l4 5-9 11L3 9z"/><path d="M3 9h18M8 4l4 16 4-16"/>',

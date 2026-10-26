@@ -91,9 +91,46 @@
   <a class="drawer-link" href="#/cards" data-route="cards">Cards</a>
   <a class="drawer-link" href="#/premium" data-route="premium">Premium</a>
   <a class="drawer-link" href="#/profile" data-route="profile">Profile</a>
+  <!-- Everything below only exists on a phone; the desktop pill nav is the
+       whole site there and these routes bounce back to home. -->
+  <div class="drawer-group">On your phone</div>
+  <a class="drawer-link drawer-link-mobile" href="#/guilds" data-route="guilds">Guilds</a>
+  <a class="drawer-link drawer-link-mobile" href="#/empires" data-route="empires">Empires</a>
+  <a class="drawer-link drawer-link-mobile" href="#/wallet" data-route="wallet">Wallet</a>
+  <a class="drawer-link drawer-link-mobile" href="#/storage" data-route="storage">Storage</a>
+  <a class="drawer-link drawer-link-mobile" href="#/progress" data-route="progress">Progress</a>
+  <a class="drawer-link drawer-link-mobile" href="#/pokemon" data-route="pokemon">Pokémon</a>
   <a class="drawer-link" href="#/settings" data-route="settings">Settings</a>
   <a class="drawer-link" id="drawerAuth" href="#/login" data-route="login">Sign in</a>
 </div>
+
+<!-- ===== MOBILE FLOATING BAR =====
+     The curved desktop pill drops to the bottom of the screen on a phone, in
+     the shape people already know from every app they own. Only four routes
+     earn a slot - the rest live in the drawer, which "More" opens. Replaces
+     nothing on desktop: it is display:none above 820px. -->
+<nav class="mobile-bar" id="mobileBar" aria-label="Quick navigation">
+  <a class="mbar-slot" href="#/" data-route="home" data-mbar="home">
+    <span class="mbar-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9z"/></svg></span>
+    <span class="mbar-label">Home</span>
+  </a>
+  <a class="mbar-slot" href="#/leaderboard" data-route="leaderboard" data-mbar="leaderboard">
+    <span class="mbar-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 20V9M12 20V4M18 20v-7M3 20h18"/></svg></span>
+    <span class="mbar-label">Boards</span>
+  </a>
+  <a class="mbar-slot" href="#/shop" data-route="shop" data-mbar="shop">
+    <span class="mbar-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v14H4zM4 7l2-4h12l2 4M9 11h6"/></svg></span>
+    <span class="mbar-label">Shop</span>
+  </a>
+  <a class="mbar-slot" href="#/premium" data-route="premium" data-mbar="premium">
+    <span class="mbar-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.1 5.9L20 10l-4.5 4.2L16.8 20 12 16.7 7.2 20l1.3-5.8L4 10l5.9-1.1L12 3z"/></svg></span>
+    <span class="mbar-label">Premium</span>
+  </a>
+  <button class="mbar-slot" id="mbarMore" type="button" aria-label="More pages" aria-expanded="false">
+    <span class="mbar-ico"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></span>
+    <span class="mbar-label">More</span>
+  </button>
+</nav>
 
 <!-- ===== NOTIFICATION BOX ===== -->
 <div class="panel-backdrop" id="panelBackdrop"></div>
@@ -335,6 +372,12 @@
 <!-- SEASON -->
 <!-- ===================================================== -->
 <main class="view" id="view-season">
+  <!-- Phone-only header + event carousel. The photograph (and the season name
+       it carried) below is hidden on a phone, so the name lives here instead.
+       On desktop both are display:none and the hero is untouched. -->
+  <div class="mob-season-head" id="seasonHeadMob"></div>
+  <section class="mob-events" id="seasonEvents" aria-label="Season events"></section>
+
   <section class="hero season-hero">
     <!-- The art IS the background - no still frame in a box, nothing letterboxed,
          just the image bleeding edge to edge. aria-hidden because it carries no
@@ -467,6 +510,68 @@
         <button class="btn btn-secondary btn-sm" id="cardMore" style="display:none;">Load more</button>
       </div>
     </section>
+  </div>
+</main>
+
+<!-- ===================================================== -->
+<!-- MOBILE-ONLY PAGES
+     Guilds, Empires, Wallet, Storage, Progress and Pokémon are phone pages.
+     The bot exposes the endpoints, but the desktop site is deliberately left
+     as it was, so each route carries `mobile: true` and bounces to home on a
+     wide viewport (see routes in app.js).
+-->
+<!-- ===================================================== -->
+<main class="view mob-view" id="view-guilds">
+  <div class="page mob-page">
+    <header class="mob-head">
+      <div><h1>Guilds</h1><p>Ride with your people. Guild boards, shops and crests.</p></div>
+    </header>
+    <div id="guildRoot"></div>
+  </div>
+</main>
+
+<main class="view mob-view" id="view-empires">
+  <div class="page mob-page">
+    <header class="mob-head">
+      <div><h1>Empires</h1><p>Territory, citizens and the long game.</p></div>
+    </header>
+    <div id="empireRoot"></div>
+  </div>
+</main>
+
+<main class="view mob-view" id="view-wallet">
+  <div class="page mob-page">
+    <header class="mob-head">
+      <div><h1>Wallet</h1><p>Carried, banked and vaulted - move solars around.</p></div>
+    </header>
+    <div id="walletRoot"></div>
+  </div>
+</main>
+
+<main class="view mob-view" id="view-storage">
+  <div class="page mob-page">
+    <header class="mob-head">
+      <div><h1>Storage</h1><p>Everything you aren't carrying, kept safe.</p></div>
+    </header>
+    <div id="storageRoot"></div>
+  </div>
+</main>
+
+<main class="view mob-view" id="view-progress">
+  <div class="page mob-page">
+    <header class="mob-head">
+      <div><h1>Progress</h1><p>Quests, achievements and everything you've unlocked.</p></div>
+    </header>
+    <div id="progressRoot"></div>
+  </div>
+</main>
+
+<main class="view mob-view" id="view-pokemon">
+  <div class="page mob-page">
+    <header class="mob-head">
+      <div><h1>Pokémon</h1><p>Catch, train and battle alongside your team.</p></div>
+    </header>
+    <div id="pokemonRoot"></div>
   </div>
 </main>
 
