@@ -298,18 +298,66 @@ section.hero.season-hero::before{content:none;}
 .tab-panel{display:none;}
 .tab-panel.active{display:block;animation:fadeIn .2s ease;}
 
-.inv-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;}
-@media (max-width:700px){.inv-grid{grid-template-columns:repeat(4,1fr);}}
-.inv-slot{aspect-ratio:1;border:1px solid var(--border);border-radius:var(--r);background:var(--bg-2);display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;transition:var(--transition);position:relative;}
-.inv-slot:hover{border-color:var(--gold);background:var(--bg-3);}
-/* Slots are <button>s now (keyboard-reachable, announced as controls), so the
-   UA's own button chrome has to be cleared or it fights the tile styling. */
-.inv-slot{padding:0;font-family:inherit;color:inherit;-webkit-appearance:none;appearance:none;overflow:hidden;}
-.inv-img{width:76%;height:76%;object-fit:contain;transition:transform var(--dur) var(--ease-out);}
-.inv-slot:hover .inv-img{transform:scale(1.08);}
-.inv-slot.rare{border-color:rgb(245 243 238 / 35%);box-shadow:inset 0 0 0 1px rgb(245 243 238 / 12%);}
-.inv-slot.epic{border-color:rgb(212 175 55 / 55%);box-shadow:inset 0 0 0 1px rgb(212 175 55 / 25%);}
-.inv-slot .qty{position:absolute;bottom:2px;right:4px;font-size:9px;font-weight:800;color:var(--text-muted);}
+/* ===== ITEMS =====
+   Inventory and shop share ONE tile: art panel on top, the item's name under
+   it, and a one-line meta strip last. The old inventory was a bare 1:1 square
+   that showed the plate and nothing else - you couldn't tell two swords apart
+   without hovering - and clicking one opened a header shaped like a player
+   profile (round avatar overlapping a banner). Items are their own thing now. */
+.inv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(136px,1fr));gap:12px;}
+@media (max-width:620px){.inv-grid{grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:10px;}}
+
+.item-card{display:flex;flex-direction:column;width:100%;min-width:0;padding:8px;text-align:left;
+  border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bg-2);
+  font:inherit;color:inherit;-webkit-appearance:none;appearance:none;cursor:pointer;
+  transition:transform var(--dur) var(--ease-out),border-color var(--dur) var(--ease-out),box-shadow var(--dur) var(--ease-out);}
+.item-card:hover{transform:translateY(-3px);border-color:rgb(212 175 55 / 45%);box-shadow:var(--shadow);}
+.item-card:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+/* A tile with nothing to open (the shop card, whose action is its own Buy
+   button) must not promise a click it won't honour. */
+.item-card.is-static,div.item-card{cursor:default;}
+.item-card.is-static:hover,div.item-card:hover{transform:none;border-color:var(--border);box-shadow:none;}
+
+.item-card-art{position:relative;display:grid;place-items:center;width:100%;aspect-ratio:1;
+  padding:0;overflow:hidden;border:1px solid var(--border-soft);border-radius:var(--r);
+  background:radial-gradient(circle at 50% 28%,rgb(212 175 55 / 11%),var(--bg-3) 72%);
+  font:inherit;color:inherit;-webkit-appearance:none;appearance:none;}
+button.item-card-art{cursor:pointer;transition:border-color var(--dur) var(--ease-out);}
+button.item-card-art:hover{border-color:rgb(212 175 55 / 45%);}
+button.item-card-art:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+.item-card-img{width:84%;height:84%;object-fit:contain;
+  transition:transform var(--dur-slow) var(--ease-out);filter:drop-shadow(0 8px 14px rgb(0 0 0 / 45%));}
+.item-card:hover .item-card-img{transform:scale(1.06);}
+.item-art-ph{display:grid;place-items:center;width:100%;height:100%;color:var(--text-subtle);}
+.item-art-ph svg{width:34%;height:34%;}
+.item-card-qty{position:absolute;right:6px;bottom:6px;padding:1px 7px;border-radius:999px;
+  font-size:10px;font-weight:800;letter-spacing:.02em;background:rgb(0 0 0 / 68%);
+  color:var(--text);border:1px solid var(--border);}
+.item-card-art .rarity-pill{position:absolute;top:6px;left:6px;margin:0;}
+.item-card-name{display:block;margin:9px 0 0;font-size:12.5px;font-weight:700;line-height:1.35;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.item-card-sub{display:block;margin:2px 0 0;font-size:10.5px;font-weight:600;letter-spacing:.02em;
+  color:var(--text-subtle);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.item-card-desc{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  margin-top:6px;font-size:11.5px;line-height:1.5;color:var(--text-subtle);}
+.item-card.is-rare{border-color:rgb(96 165 250 / 42%);}
+.item-card.is-epic{border-color:rgb(168 85 247 / 45%);}
+.item-card.is-legendary{border-color:rgb(212 175 55 / 55%);box-shadow:inset 0 0 0 1px rgb(212 175 55 / 12%);}
+
+/* Item details: a big plate over its own name - the collectible-card
+   treatment characters already get, not the banner + round avatar header. */
+.item-sheet{display:flex;flex-direction:column;align-items:center;padding:20px 18px 0;text-align:center;}
+.item-sheet-art{position:relative;display:grid;place-items:center;width:min(214px,64%);aspect-ratio:1;
+  border:1px solid rgb(212 175 55 / 30%);border-radius:var(--r-xl);overflow:hidden;
+  background:radial-gradient(circle at 50% 26%,rgb(212 175 55 / 16%),var(--bg-3) 74%);}
+.item-sheet-img{width:84%;height:84%;object-fit:contain;filter:drop-shadow(0 12px 22px rgb(0 0 0 / 55%));}
+.item-sheet.is-rare .item-sheet-art{border-color:rgb(96 165 250 / 48%);}
+.item-sheet.is-epic .item-sheet-art{border-color:rgb(168 85 247 / 50%);}
+.item-sheet.is-legendary .item-sheet-art{border-color:rgb(212 175 55 / 62%);}
+.item-sheet-head{padding:14px 4px 0;max-width:100%;}
+.item-sheet-head .rarity-pill{margin-bottom:8px;}
+.item-sheet-head h3{font-size:20px;font-weight:800;line-height:1.25;overflow-wrap:anywhere;}
+.item-sheet-sub{margin-top:5px;font-size:12.5px;color:var(--text-muted);overflow-wrap:anywhere;}
 
 /* ===== PRICING / PREMIUM ===== */
 .pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:stretch;}
@@ -380,7 +428,7 @@ button.perk-card{width:100%;text-align:left;font:inherit;color:inherit;-webkit-a
 .perk-card:not([data-char]):not([data-item]):not(a):not(button){cursor:default;}
 .perk-card:not([data-char]):not([data-item]):not(a):not(button):hover{
   transform:none;border-color:var(--border);box-shadow:none;}
-.perk-card:focus-visible,.inv-slot:focus-visible,.tier-node:focus-visible{
+.perk-card:focus-visible,.item-card:focus-visible,.tier-node:focus-visible{
   outline:2px solid var(--gold);outline-offset:2px;}
 
 /* Rarity / display-tag badge. `tag` is a marketing label (legendary, special)
@@ -408,13 +456,16 @@ button.perk-card{width:100%;text-align:left;font:inherit;color:inherit;-webkit-a
 .shop-group{margin-bottom:30px;}
 .shop-group-head{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
   color:var(--text-subtle);margin-bottom:13px;padding-bottom:7px;border-bottom:1px solid var(--border-soft);}
-.shop-card{display:flex;flex-direction:column;}
-.shop-img{width:100%;aspect-ratio:1;object-fit:contain;background:var(--bg-3);
-  border-radius:var(--r);margin-bottom:11px;padding:10px;
-  transition:transform var(--dur-slow) var(--ease-out);}
-.shop-card:hover img{transform:scale(1.05);}
+/* Shop tiles are item cards too: the same art-over-name shape as the profile
+   inventory, so an item looks like the same object in both places. Only the
+   footer differs (price + Buy instead of rarity · type). */
+.shop-card{display:flex;flex-direction:column;gap:0;padding:9px;}
+/* Shop names can run long ("Greater Healing Draught"), so they wrap to two
+   lines here instead of being clipped to one like an inventory tile. */
+.shop-card .item-card-name{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  white-space:normal;overflow:hidden;}
 .shop-price{display:flex;align-items:baseline;justify-content:space-between;gap:8px;
-  margin:11px 0;font-size:13px;font-weight:700;}
+  margin:10px 0;font-size:13px;font-weight:700;}
 .shop-price .gold{color:var(--gold);}
 .shop-price s{font-weight:400;margin-left:5px;}
 /* Pushes the Buy button to a common baseline so a row of cards with unequal
@@ -913,8 +964,7 @@ textarea:focus-visible,[tabindex]:focus-visible{
   .feature-card:hover .feature-icon,
   .feature-card.art:hover::before,
   .perk-card:hover img,
-  .inv-slot:hover .inv-img,
-  .shop-card:hover img,
+  .item-card:hover .item-card-img,
   .card-tile:hover img,
   .card-tile:hover video{transform:none;}
   .xp-fill{transition:none;}
