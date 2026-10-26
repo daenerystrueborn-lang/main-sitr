@@ -12,6 +12,13 @@ import {
   toast, busy, skeletonRows, skeletonCards,
   emptyState, openModal, closeModal, initials, bar, copyText, initMotion, iconSvg,
 } from './ui.js'
+import {
+  resolveArt, itemAccent, itemMeta, itemArt, itemSheetHtml, statBonusTiles, itemCard,
+} from './items.js'
+import {
+  isMobileView, mountSeasonEvents, openInventoryManager, paintMobileBar,
+  loadGuilds, loadEmpires, loadWallet, loadStoragePage, loadProgress, loadPokemon,
+} from './mobile-pages.js'
 
 /** astral's checkmark, used in every `.plan-features` list. */
 const CHECK = '<span class="check"><svg class="icon check-icon" viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span>'
@@ -72,6 +79,15 @@ const routes = {
   settings: { view: 'view-settings', title: 'Settings', load: loadSettings, auth: true },
   login: { view: 'view-login', title: 'Sign in', load: loadAuthMeta },
   signup: { view: 'view-signup', title: 'Join', load: loadAuthMeta },
+  // Phone-only. The bot exposes these endpoints, but the desktop site is
+  // deliberately unchanged, so `mobile: true` makes render() send a wide
+  // viewport back to home instead of showing a page with no way in.
+  guilds: { view: 'view-guilds', title: 'Guilds', load: loadGuilds, mobile: true },
+  empires: { view: 'view-empires', title: 'Empires', load: loadEmpires, mobile: true },
+  wallet: { view: 'view-wallet', title: 'Wallet', load: loadWallet, mobile: true, auth: true },
+  storage: { view: 'view-storage', title: 'Storage', load: loadStoragePage, mobile: true, auth: true },
+  progress: { view: 'view-progress', title: 'Progress', load: loadProgress, mobile: true, auth: true },
+  pokemon: { view: 'view-pokemon', title: 'Pokémon', load: loadPokemon, mobile: true, auth: true },
   404: { view: 'view-404', title: 'Not found' },
 }
 
@@ -97,11 +113,17 @@ async function render() {
     }
   }
 
+  // Phone-only routes have no entry point on a wide screen, so a hand-typed
+  // URL there lands on home rather than a page that can't be navigated back
+  // into. Checked before the view swap so nothing flashes.
+  if (route_mobile_bounce(name)) name = 'home'
+
   const route = routes[name]
   current = name
 
   for (const v of $$('.view')) v.classList.toggle('active', v.id === route.view)
   document.title = route.title
+  paintMobileBar(name)
 
   for (const link of $$('[data-route]')) {
     link.classList.toggle('is-active', link.dataset.route === name)
@@ -172,6 +194,17 @@ function toggleDrawer() {
   const open = $('#drawer')?.classList.toggle('open')
   $('#scrim')?.classList.toggle('open', open)
   $('#menuToggle')?.setAttribute('aria-expanded', String(!!open))
+}
+
+/**
+ * True when the current hash is a phone-only page on a wide viewport.
+ * Kept separate from render() so the rule reads in one place: everything
+ * marked `mobile: true` exists only below the 820px breakpoint.
+ */
+function route_mobile_bounce(name) {
+  if (!routes[name]?.mobile || isMobileView()) return false
+  toast('That page lives in the mobile app view')
+  return true
 }
 
 /** Nav avatar doubles as the sign-in affordance when signed out. */
@@ -1262,66 +1295,8 @@ async function openCharacter(id) {
 }
 
 /* ── item cards ─────────────────────────────────────────────────────────
-   Inventory tiles, shop tiles and the item modal all render the same thing:
-   the plate on top, then the name, then a small meta line. Nothing about an
-   item borrowed the player-profile layout (round avatar + banner) any more. */
-
-/** Rarity → the accent class shared by `.item-card` / `.item-sheet`. */
-function itemAccent(rarity) {
-  const key = String(rarity ?? '').trim().toLowerCase()
-  if (key === 'legendary' || key === 'mythic' || key === 'exotic') return 'is-legendary'
-  if (key === 'epic' || key === 'special') return 'is-epic'
-  if (key === 'rare') return 'is-rare'
-  return ''
-}
-
-/** Rarity/type/slot, as the one line printed under an item's name. */
-function itemMeta(item) {
-  const parts = [
-    item?.rarity && titleCase(item.rarity),
-    item?.type && titleCase(item.type),
-    item?.slot && `${titleCase(item.slot)} slot`,
-  ].filter(Boolean)
-  return [...new Set(parts)].join(' · ')
-}
-
-/**
- * The art block, shared by every tile and the modal. A missing or dead plate
- * falls back to the inventory glyph in place, so a broken image never leaves a
- * hole in the card.
- */
-function itemArt(image, cls = 'item-card-img') {
-  const src = resolveArt(image)
-  const fallback = `<span class="item-art-ph">${iconSvg('inventory', 'inventory-icon')}</span>`
-  if (!src) return fallback
-  return `<img class="${attr(cls)}" src="${attr(src)}" alt="" loading="lazy"
-               data-fb="${attr(fallback)}"
-               onerror="this.insertAdjacentHTML('afterend', this.dataset.fb); this.remove()">`
-}
-
-/** Plate + name header used by every item modal (inventory and shop). */
-function itemSheetHtml(item, qty = 0) {
-  const meta = itemMeta(item)
-  return `
-    <div class="item-sheet ${itemAccent(item?.rarity)}">
-      <div class="item-sheet-art">
-        ${itemArt(item?.image, 'item-sheet-img')}
-        ${qty > 1 ? `<span class="item-card-qty">×${num(qty)}</span>` : ''}
-      </div>
-      <div class="item-sheet-head">
-        ${item?.rarity ? `<span class="rarity-pill r-${attr(String(item.rarity).toLowerCase())}">${esc(titleCase(item.rarity))}</span>` : ''}
-        <h3>${esc(item?.name ?? 'Item')}</h3>
-        ${meta ? `<p class="item-sheet-sub">${esc(meta)}</p>` : ''}
-      </div>
-    </div>`
-}
-
-function statBonusTiles(bonuses) {
-  return Object.entries(bonuses ?? {})
-    .map(([k, v]) => `<div class="pd-stat"><div class="pd-stat-k">${esc(String(k).toUpperCase())}</div>
-      <div class="pd-stat-v">${v > 0 ? '+' : ''}${num(v)}</div></div>`)
-    .join('')
-}
+   Tiles and the item modal are drawn by items.js so the profile grid, the shop
+   and the mobile inventory manager can't drift apart. */
 
 /**
  * Item detail, opened from an inventory tile.
@@ -1348,7 +1323,24 @@ function openItem(item) {
 
 let seasonTimer = null
 
+/**
+ * The phone season header. The hero photograph carries the season name and
+ * description on desktop; on a phone the carousel replaces that hero, so this
+ * keeps the name where the heading used to be instead of dropping it.
+ */
+function paintSeasonHeadMob(title, desc) {
+  const host = $('#seasonHeadMob')
+  if (!host) return
+  host.innerHTML = `
+    <h1 class="mob-season-title">${esc(title)}</h1>
+    ${desc ? `<p class="mob-season-desc">${esc(desc)}</p>` : ''}`
+}
+
 async function loadSeason() {
+  // Phone-only carousel. Mounting is idempotent, so revisiting the page leaves
+  // the reader on whichever slide they were looking at.
+  mountSeasonEvents()
+
   const tiersHost = $('#seasonTiers')
   if (tiersHost) tiersHost.innerHTML = skeletonRows(6)
 
@@ -1358,14 +1350,17 @@ async function loadSeason() {
     $('#seasonName').textContent = 'No active season'
     $('#seasonDesc').textContent = 'The next season has not started yet - check back soon.'
     $('#seasonClock').textContent = ''
+    paintSeasonHeadMob('No active season', 'The next season has not started yet - check back soon.')
     $('#seasonMine').innerHTML = ''
     if (tiersHost) tiersHost.innerHTML = `<div style="flex:1">${emptyState('season', 'Between seasons', 'Rewards and the battle pass return when the next season opens.')}</div>`
     return
   }
 
   const s = out.season
-  $('#seasonName').textContent = `Season ${s.number}: ${s.name}`
+  const seasonTitle = `Season ${s.number}: ${s.name}`
+  $('#seasonName').textContent = seasonTitle
   $('#seasonDesc').textContent = s.description ?? ''
+  paintSeasonHeadMob(seasonTitle, s.description ?? '')
 
   const clock = $('#seasonClock')
   if (clock) {
@@ -1651,16 +1646,6 @@ function paintShopBalance() {
     </div>`
 }
 
-/**
- * resolveArt() exists because item plates are served by the bot itself at
- * `<publicApiUrl>/assets/items/<id>.png`.
- *
- * If that config is ever blank the API emits a root-relative path instead, and
- * a root-relative src on this page resolves against the VERCEL SITE, which has
- * no /assets/items - so every plate 404s. Anything that isn't already absolute
- * is therefore re-based onto the API host. A dead plate is replaced by the
- * inventory glyph in place (see itemArt), never left as a hole in the card.
- */
 /** Character `ability` is { name, flavor }, not a string; printing it raw gave "[object Object]". */
 function abilityName(a) {
   if (!a) return ''
@@ -1674,18 +1659,6 @@ function abilityText(a) {
 
 /** Upstream card records without a series come through as the literal 'Unknown'. */
 const hasSeries = (v) => { const t = String(v ?? '').trim(); return !!t && t.toLowerCase() !== 'unknown' }
-
-function resolveArt(url) {
-  const s = String(url ?? '').trim()
-  if (!s) return ''
-  // Item plates are served by the bot itself at /assets/items/<id>.png, but the
-  // catalog data still names dead hosts (play.astral.qzz.io, animeastral.qzz.io).
-  // Keep the path, swap the host for the live API, or every plate 404s.
-  const plate = /^(?:https?:)?\/\/[^/]+(\/assets\/items\/[^?#]+)/i.exec(s)
-  if (plate) return `${API_BASE}${plate[1]}`
-  if (/^(https?:)?\/\//i.test(s) || s.startsWith('data:')) return s
-  return `${API_BASE}${s.startsWith('/') ? '' : '/'}${s}`
-}
 
 function paintShopShelf() {
   const grid = $('#shopGrid')
@@ -2017,6 +1990,10 @@ async function loadPremium() {
 
 /* ────────────────────────────── page: profile ─────────────────────────── */
 
+/** Inventory capacity, wherever the bot chooses to spell it this week. */
+const inventoryCap = (p) =>
+  Number(p?.counts?.inventoryCap ?? p?.inventoryCap ?? p?.storage?.capacity ?? 0) || 0
+
 async function loadProfile() {
   const host = $('#profileWrap')
   if (!host) return
@@ -2044,20 +2021,8 @@ async function loadProfile() {
   // keyboard-reachable and announced as a control; `data-item` keys it into
   // state.inv for the delegated click handler.
   state.inv = (p.inventory ?? []).slice(0, 24)
-  const inv = state.inv.map((i, idx) => {
-    const qty = Number(i.qty ?? i.quantity ?? 0)
-    const meta = itemMeta(i)
-    return `
-    <button type="button" class="item-card ${itemAccent(i.rarity)}"
-         data-item="${attr(String(idx))}" title="${attr(i.name)}" aria-label="${attr(i.name)}">
-      <span class="item-card-art">
-        ${itemArt(i.image)}
-        ${qty > 1 ? `<span class="item-card-qty">×${num(qty)}</span>` : ''}
-      </span>
-      <span class="item-card-name">${esc(i.name)}</span>
-      ${meta ? `<span class="item-card-sub">${esc(meta)}</span>` : ''}
-    </button>`
-  }).join('')
+  // Same card the shop and the mobile manager draw - see items.js.
+  const inv = state.inv.map((i, idx) => itemCard(i, { attrs: `data-item="${attr(String(idx))}"` })).join('')
 
   host.innerHTML = `
     <div class="profile-banner"${p.bannerUrl ? ` style="background-image:url('${attr(p.bannerUrl)}');background-size:cover;background-position:center;"` : ''}></div>
@@ -2154,12 +2119,23 @@ async function loadProfile() {
         </button>
       </section>` : ''}
 
-    ${inv ? `<section class="section">
+    ${inv ? `<section class="section" id="profileInventory">
       <div class="section-head">
-        <div><h2>Inventory</h2><p>The first 24 items you're carrying</p></div>
-        <span class="badge badge-lvl">${num(p.counts.inventory)} items</span>
+        <div>
+          <h2>Inventory</h2>
+          <p>${num(p.counts.inventory)}${inventoryCap(p) ? ` / ${num(inventoryCap(p))}` : ''} stacks carried</p>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" id="openInventory">
+          ${iconSvg('inventory', 'inline-icon')} Manage
+        </button>
       </div>
       <div class="inv-grid reveal">${inv}</div>
+      <p class="subtext" style="margin-top:12px">
+        ${inventoryCap(p)
+          ? `Capacity comes from the bot${p.premium?.active ? ' - Premium space is active.' : '.'}`
+          : `Free accounts carry 30 stacks; Premium lifts that to 50.`}
+        Tap <strong>Manage</strong> to equip gear, move stacks to storage or switch your PvP set.
+      </p>
     </section>` : ''}`
 }
 
@@ -2676,6 +2652,13 @@ function wireGlobalClicks() {
       return
     }
 
+    // Profile → the inventory manager (items, loadout, PvP).
+    if (t.closest('#openInventory')) {
+      e.preventDefault()
+      openInventoryManager()
+      return
+    }
+
     // Shop card art → the same item sheet the inventory opens, with a Buy
     // button in it. The row is read out of the payload already on screen.
     const shopView = t.closest('[data-shopview]')
@@ -2782,6 +2765,11 @@ function wireShell() {
   $('#bellBtn')?.addEventListener('click', (e) => { e.stopPropagation(); togglePanel() })
   $('#panelBackdrop')?.addEventListener('click', closePanel)
   $('#menuToggle')?.addEventListener('click', toggleDrawer)
+  // "More" on the floating bar is the same drawer: one menu, two handles.
+  $('#mbarMore')?.addEventListener('click', () => {
+    toggleDrawer()
+    $('#mbarMore')?.setAttribute('aria-expanded', String($('#drawer')?.classList.contains('open')))
+  })
   $('#scrim')?.addEventListener('click', closeDrawer)
   $('#readAllBtn')?.addEventListener('click', markAllRead)
   $('#clearNotesBtn')?.addEventListener('click', clearNotes)

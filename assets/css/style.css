@@ -1581,3 +1581,372 @@ html.no-motion .gold-fx{animation:none;background:var(--grad-1);-webkit-backgrou
   .home-group-card{gap:12px;padding:11px;}
   .home-group-thumb{width:72px;height:88px;flex-basis:72px;}
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   MOBILE EXPERIENCE (≤ 820px)
+   Mirrors assets/js/mobile-pages.js. Above the breakpoint none of this
+   exists: the desktop site keeps its curved pill nav, its hero photograph and
+   its regular page set, unchanged.
+
+   Three things live down here:
+     1. the floating bottom bar that replaces the pill nav on a phone;
+     2. the season event carousel that replaces the season hero on a phone;
+     3. the phone-only pages (Guilds, Empires, Wallet, Storage, Progress,
+        Pokémon) and the inventory manager that opens from the profile.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Drawer group heading + the phone-only links inside it. */
+.drawer-group{padding:10px 13px 6px;font-size:10px;font-weight:800;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--text-subtle);}
+@media (min-width:821px){.drawer-link-mobile,.drawer-group{display:none;}}
+
+/* ── floating bottom bar ────────────────────────────────────────────────── */
+.mobile-bar{display:none;}
+
+@media (max-width:820px){
+  .mobile-bar{
+    position:fixed;left:50%;bottom:calc(10px + env(safe-area-inset-bottom,0px));
+    transform:translateX(-50%);
+    z-index:95;
+    display:flex;align-items:stretch;gap:2px;
+    width:min(calc(100vw - 24px),460px);
+    padding:6px;
+    border:1px solid rgb(212 175 55 / 18%);
+    border-radius:22px;
+    background:rgb(10 10 10 / 88%);
+    -webkit-backdrop-filter:blur(22px) saturate(1.2);
+    backdrop-filter:blur(22px) saturate(1.2);
+    box-shadow:0 14px 34px rgb(0 0 0 / 62%),0 0 0 1px rgb(255 255 255 / 4%) inset;
+    /* Sits above the page but below the modal (120) and toasts (200). */
+  }
+  /* Every page needs room under it or the last card hides behind the bar. */
+  .view.active{padding-bottom:96px;}
+
+  .mbar-slot{
+    position:relative;flex:1 1 0;min-width:0;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    padding:8px 2px 6px;
+    border:0;border-radius:17px;background:none;
+    color:var(--text-muted);font:inherit;font-size:10.5px;font-weight:700;
+    text-decoration:none;cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+    transition:color .18s ease,background .18s ease,transform .12s ease;
+  }
+  .mbar-slot:active{transform:scale(.94);}
+  .mbar-ico{display:flex;align-items:center;justify-content:center;width:22px;height:22px;}
+  .mbar-ico .icon{width:21px;height:21px;stroke-width:1.7;}
+  .mbar-label{line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+  .mbar-slot.is-active{color:var(--gold);background:rgb(212 175 55 / 12%);}
+  /* A hairline gold cap over the active slot: reads as "you are here" while
+     still letting the bar sit flat against the page. */
+  .mbar-slot.is-active::before{
+    content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);
+    width:18px;height:2px;border-radius:2px;background:var(--gold);
+  }
+  .mbar-slot:focus-visible{outline:2px solid var(--gold);outline-offset:-2px;}
+}
+
+/* ── season: the event carousel replaces the hero on a phone ───────────── */
+.mob-events{display:none;}
+
+@media (max-width:820px){
+  .mob-events{display:block;padding:16px 0 4px;}
+  /* The photograph used to be the whole above-the-fold on a phone. The
+     carousel says three things instead of one, so the photo steps aside. */
+  #view-season .season-hero{display:none;}
+}
+
+.ev-slider{position:relative;}
+.ev-track{
+  display:flex;gap:12px;
+  overflow-x:auto;overflow-y:hidden;
+  scroll-snap-type:x mandatory;
+  scrollbar-width:none;-ms-overflow-style:none;
+  padding:0 20px 6px;
+  /* One slide per "page" of the scroller, with the next one peeking in so it
+     is obvious there is more to swipe. */
+  scroll-padding-left:20px;
+}
+.ev-track::-webkit-scrollbar{display:none;}
+.ev-track:focus-visible{outline:2px solid var(--gold);outline-offset:4px;border-radius:var(--r-lg);}
+
+.ev-slide{
+  flex:0 0 min(86%,360px);
+  scroll-snap-align:center;
+  display:flex;flex-direction:column;
+  border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;
+  background:linear-gradient(160deg,var(--bg-2),#070707);
+}
+.ev-media{position:relative;aspect-ratio:16/10;overflow:hidden;background:var(--bg-3);}
+.ev-media img{width:100%;height:100%;object-fit:cover;object-position:center 22%;display:block;}
+.ev-veil{position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(to top,rgb(0 0 0 / 92%) 0%,rgb(0 0 0 / 30%) 38%,transparent 68%);}
+.ev-badge{
+  position:absolute;top:10px;left:10px;z-index:1;
+  padding:4px 10px;border-radius:999px;
+  font-size:9.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--gold);background:rgb(0 0 0 / 62%);border:1px solid rgb(212 175 55 / 45%);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+}
+.ev-body{padding:4px 15px 16px;margin-top:-26px;position:relative;z-index:1;display:flex;flex-direction:column;gap:8px;}
+.ev-title{font-size:20px;font-weight:800;line-height:1.15;}
+.ev-desc{font-size:12.5px;line-height:1.55;color:var(--text-muted);}
+.ev-rewards{display:flex;flex-wrap:wrap;gap:7px;margin-top:2px;}
+.ev-reward{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:5px 11px;border-radius:999px;
+  font-size:12px;font-weight:800;color:var(--gold);
+  background:rgb(212 175 55 / 12%);border:1px solid rgb(212 175 55 / 32%);
+}
+.ev-cta{align-self:flex-start;margin-top:4px;}
+
+.ev-dots{display:flex;justify-content:center;gap:7px;padding:2px 0 10px;}
+.ev-dot{width:7px;height:7px;padding:0;border:0;border-radius:999px;background:rgb(255 255 255 / 20%);cursor:pointer;
+  transition:width .22s var(--ease-out),background .22s var(--ease-out);}
+.ev-dot.is-on{width:20px;background:var(--gold);}
+.ev-dot:focus-visible{outline:2px solid var(--gold);outline-offset:3px;}
+
+/* Full-bleed event preview sheet. */
+.ev-sheet,.guild-sheet{display:flex;flex-direction:column;}
+.ev-sheet-art{position:relative;aspect-ratio:4/5;max-height:56svh;overflow:hidden;background:var(--bg-3);}
+.ev-sheet-art img{width:100%;height:100%;object-fit:cover;object-position:center 20%;display:block;}
+.ev-sheet-art .ev-badge{top:12px;left:12px;}
+
+/* ── phone-only pages ──────────────────────────────────────────────────── */
+.mob-view{/* phone-only route; the router bounces these on a wide viewport */}
+.mob-page{padding-top:14px;}
+.mob-head{padding:8px 0 16px;}
+.mob-head h1{font-size:26px;font-weight:800;line-height:1.15;}
+.mob-head p{margin-top:6px;font-size:13px;line-height:1.5;color:var(--text-muted);}
+.mob-sec{margin-bottom:24px;}
+.sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px;}
+.sec-head h2{font-size:16px;font-weight:800;}
+.sec-head .subtext{font-size:11.5px;}
+.mgr-note{margin:10px 0 0;font-size:11.5px;line-height:1.5;color:var(--text-subtle);}
+
+/* ── guilds / empires ──────────────────────────────────────────────────── */
+.guild-list{display:flex;flex-direction:column;gap:10px;}
+.guild-card{
+  display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+  padding:10px;border:1px solid var(--border);border-radius:var(--r-lg);
+  background:var(--bg-2);font:inherit;color:inherit;cursor:pointer;
+  transition:transform var(--dur) var(--ease-out),border-color var(--dur) var(--ease-out),box-shadow var(--dur) var(--ease-out);
+}
+.guild-card:hover{transform:translateY(-2px);border-color:rgb(212 175 55 / 45%);box-shadow:var(--shadow);}
+.guild-card:active{transform:scale(.99);}
+.guild-card.is-mine{border-color:rgb(212 175 55 / 55%);box-shadow:inset 0 0 0 1px rgb(212 175 55 / 12%);}
+.guild-card:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+.guild-art{
+  position:relative;flex:0 0 62px;width:62px;height:62px;overflow:hidden;
+  border:1px solid var(--border-soft);border-radius:14px;
+  background:radial-gradient(circle at 50% 30%,rgb(212 175 55 / 14%),var(--bg-3) 72%);
+  display:grid;place-items:center;
+}
+.guild-art img{width:100%;height:100%;object-fit:cover;display:block;}
+.guild-art-ph{display:grid;place-items:center;width:100%;height:100%;color:var(--gold);opacity:.8;}
+.guild-body{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;}
+.guild-name{font-size:14px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.guild-tag{color:var(--gold);font-weight:800;}
+.guild-sub{font-size:11.5px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.guild-desc{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  margin-top:3px;font-size:11.5px;line-height:1.45;color:var(--text-subtle);}
+.guild-go{flex:0 0 auto;color:var(--text-subtle);display:flex;}
+.guild-go .icon{width:16px;height:16px;}
+.empire-card .guild-art{flex-basis:72px;width:72px;height:78px;border-radius:12px;}
+
+.guild-sheet-art{position:relative;aspect-ratio:16/9;overflow:hidden;background:var(--bg-3);}
+.guild-sheet-art img{width:100%;height:100%;object-fit:cover;display:block;}
+.guild-sheet-title{position:absolute;left:0;right:0;bottom:0;z-index:1;padding:14px 18px;}
+.guild-sheet-title h3{font-size:20px;font-weight:800;overflow-wrap:anywhere;}
+.guild-sheet-title p{margin-top:4px;font-size:12px;color:var(--gold);font-weight:700;}
+
+.stat-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px;}
+.stat-chip{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:999px;
+  border:1px solid var(--border);background:var(--bg-3);font-size:11.5px;color:var(--text-muted);}
+.stat-chip strong{color:var(--text);font-weight:800;}
+.chips-wrap{display:flex;flex-wrap:wrap;gap:7px;}
+.chip-sm{display:inline-flex;align-items:center;padding:5px 10px;border-radius:999px;
+  border:1px solid var(--border);background:var(--bg-3);font-size:11.5px;color:var(--text-muted);white-space:nowrap;}
+.lb-row.is-static{cursor:default;}
+
+.empire-hero{position:relative;border-radius:var(--r-xl);overflow:hidden;
+  border:1px solid rgb(212 175 55 / 22%);margin-bottom:22px;aspect-ratio:16/11;min-height:190px;}
+.empire-hero img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;
+  filter:saturate(.92) brightness(.85);}
+.empire-hero-body{position:absolute;inset:auto 0 0;z-index:1;padding:16px 16px 18px;}
+.empire-hero-body h2{margin-top:8px;font-size:21px;font-weight:800;line-height:1.15;}
+.empire-hero-body p{margin-top:6px;font-size:12.5px;line-height:1.5;color:var(--text-muted);}
+
+/* ── wallet ────────────────────────────────────────────────────────────── */
+.wallet-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:18px;}
+.wallet-card{display:flex;flex-direction:column;gap:3px;padding:13px 14px;
+  border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bg-2);}
+.wallet-ico{color:var(--gold);display:flex;margin-bottom:3px;}
+.wallet-k{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-subtle);}
+.wallet-v{font-size:19px;font-weight:800;font-family:'Space Grotesk',sans-serif;}
+.wallet-u{font-size:11px;color:var(--text-subtle);}
+.wallet-loan{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;
+  border-color:rgb(212 175 55 / 40%);}
+.wallet-form{display:flex;flex-direction:column;gap:8px;}
+.wallet-form label{font-size:11.5px;font-weight:700;color:var(--text-muted);}
+.wallet-form input{width:100%;padding:12px 13px;border-radius:var(--r);border:1px solid var(--border);
+  background:var(--bg-3);color:var(--text);font:inherit;font-size:15px;}
+.wallet-form input:focus{outline:none;border-color:var(--gold);}
+.wallet-btns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:2px;}
+.ledger{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--r-lg);
+  background:var(--bg-2);overflow:hidden;}
+.ledger-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 14px;
+  border-bottom:1px solid var(--border-soft);}
+.ledger-row:last-child{border-bottom:0;}
+.ledger-what{display:flex;flex-direction:column;gap:2px;font-size:12.5px;font-weight:700;min-width:0;}
+.ledger-what .subtext{font-weight:500;font-size:11px;}
+.ledger-amt{font-size:13px;font-weight:800;color:var(--gold);white-space:nowrap;}
+.ledger-amt.is-out{color:var(--text-subtle);}
+
+/* ── storage ───────────────────────────────────────────────────────────── */
+.storage-cards{display:flex;flex-direction:column;gap:10px;margin-bottom:22px;}
+.storage-card{display:flex;align-items:center;gap:12px;padding:13px 14px;
+  border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bg-2);}
+.storage-card>div{flex:1;min-width:0;}
+.storage-card strong{font-size:13.5px;}
+.storage-card .subtext{font-size:11.5px;margin-top:2px;}
+
+/* ── progress ──────────────────────────────────────────────────────────── */
+.quest-list{display:flex;flex-direction:column;gap:10px;}
+.quest-row{display:flex;align-items:flex-start;gap:11px;padding:12px;
+  border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bg-2);}
+.quest-ico{flex:0 0 auto;color:var(--gold);display:flex;margin-top:2px;}
+.quest-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
+.quest-body strong{font-size:13px;}
+.quest-body .subtext{font-size:11.5px;line-height:1.45;}
+.quest-bar{margin-top:6px;}
+.ach-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+.ach-card{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:13px;
+  border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bg-2);}
+.ach-card strong{font-size:12.5px;line-height:1.3;}
+.ach-card .subtext{font-size:11px;line-height:1.45;}
+.ach-ico{color:var(--gold);display:flex;}
+.ach-card.is-done{border-color:rgb(212 175 55 / 40%);background:rgb(212 175 55 / 6%);}
+
+/* ── pokémon ───────────────────────────────────────────────────────────── */
+.mon-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-bottom:12px;}
+.mon-summary>div{display:flex;flex-direction:column;align-items:center;gap:1px;padding:11px 6px;
+  border:1px solid var(--border);border-radius:var(--r);background:var(--bg-2);}
+.mon-summary strong{font-size:17px;font-weight:800;color:var(--gold);}
+.mon-summary span{font-size:10.5px;color:var(--text-subtle);}
+.mon-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-bottom:16px;}
+.mon-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+.mon-card{display:flex;flex-direction:column;gap:3px;width:100%;padding:8px;text-align:left;
+  border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bg-2);
+  font:inherit;color:inherit;cursor:pointer;-webkit-appearance:none;appearance:none;
+  transition:transform var(--dur) var(--ease-out),border-color var(--dur) var(--ease-out);}
+button.mon-card:hover{transform:translateY(-2px);border-color:rgb(212 175 55 / 45%);}
+.mon-card.is-dex{cursor:default;}
+.mon-art{position:relative;display:grid;place-items:center;width:100%;aspect-ratio:1;overflow:hidden;
+  border-radius:var(--r);background:radial-gradient(circle at 50% 30%,rgb(212 175 55 / 12%),var(--bg-3) 74%);}
+.mon-art img{width:84%;height:84%;object-fit:contain;}
+.mon-lv{position:absolute;right:6px;bottom:6px;padding:1px 7px;border-radius:999px;font-size:10px;
+  font-weight:800;background:rgb(0 0 0 / 68%);border:1px solid var(--border);}
+.mon-name{margin-top:8px;font-size:12.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mon-sub{font-size:10.5px;color:var(--text-subtle);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mon-held{margin-top:3px;font-size:10.5px;font-weight:700;color:var(--gold);}
+
+/* ── inventory manager (profile → Manage) ──────────────────────────────── */
+.mgr-head h3{font-size:19px;font-weight:800;}
+.mgr-cap{margin:12px 0 14px;padding:12px 13px;border:1px solid var(--border);
+  border-radius:var(--r-lg);background:var(--bg-2);}
+.mgr-cap-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
+.mgr-cap-top strong{font-size:14px;}
+.mgr-cap-top .subtext{font-weight:500;font-size:11.5px;}
+.mgr-cap-tag{padding:2px 9px;border-radius:999px;font-size:9.5px;font-weight:800;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--gold);background:rgb(212 175 55 / 12%);border:1px solid rgb(212 175 55 / 35%);}
+.mgr-cap-track{margin-top:9px;height:7px;border-radius:999px;background:var(--bg-4);overflow:hidden;}
+.mgr-cap-track i{display:block;height:100%;border-radius:inherit;background:var(--grad-1);
+  transition:width .5s var(--ease-out);}
+.mgr-tabs{display:flex;gap:5px;padding:4px;margin-bottom:14px;border-radius:999px;
+  border:1px solid var(--border);background:var(--bg-2);}
+.mgr-tab{flex:1 1 0;padding:8px 6px;border:0;border-radius:999px;background:none;
+  font:inherit;font-size:12.5px;font-weight:700;color:var(--text-muted);cursor:pointer;
+  transition:background .18s ease,color .18s ease;}
+.mgr-tab.is-on{background:var(--bg-4);color:var(--gold);}
+.mgr-tab:focus-visible{outline:2px solid var(--gold);outline-offset:-2px;}
+.mgr-body{min-height:120px;}
+.mgr-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+.filter-pills{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin-bottom:4px;
+  scrollbar-width:none;-ms-overflow-style:none;}
+.filter-pills::-webkit-scrollbar{display:none;}
+.filter-pill{flex:0 0 auto;padding:6px 13px;border-radius:999px;border:1px solid var(--border);
+  background:var(--bg-2);color:var(--text-muted);font:inherit;font-size:12px;font-weight:700;
+  cursor:pointer;transition:var(--transition);white-space:nowrap;}
+.filter-pill.is-on{background:rgb(212 175 55 / 14%);border-color:rgb(212 175 55 / 45%);color:var(--gold);}
+.filter-pill:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+
+.mgr-back{align-self:flex-start;margin-bottom:12px;padding:6px 12px;border-radius:999px;
+  border:1px solid var(--border);background:var(--bg-2);color:var(--text-muted);
+  font:inherit;font-size:12px;font-weight:700;cursor:pointer;}
+.mgr-back:hover{color:var(--text);border-color:var(--gold);}
+.mgr-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:16px;}
+
+.loadout-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px;}
+.loadout-slot{display:flex;flex-direction:column;align-items:center;gap:2px;width:100%;padding:8px;
+  border:1px dashed var(--border);border-radius:var(--r-lg);background:var(--bg-2);
+  font:inherit;color:inherit;cursor:pointer;-webkit-appearance:none;appearance:none;
+  transition:border-color var(--dur) var(--ease-out),transform var(--dur) var(--ease-out);}
+.loadout-slot.is-filled{border-style:solid;border-color:rgb(212 175 55 / 35%);}
+button.loadout-slot:hover{transform:translateY(-2px);border-color:var(--gold);}
+.loadout-slot:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+.loadout-grid.is-static .loadout-slot{cursor:default;}
+.loadout-art{display:grid;place-items:center;width:100%;aspect-ratio:1;overflow:hidden;
+  border-radius:var(--r);background:radial-gradient(circle at 50% 30%,rgb(212 175 55 / 10%),var(--bg-3) 74%);}
+.loadout-art .item-card-img{width:84%;height:84%;}
+.loadout-empty{display:grid;place-items:center;color:var(--text-subtle);opacity:.6;}
+.loadout-name{margin-top:7px;font-size:11.5px;font-weight:700;text-align:center;line-height:1.3;
+  width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.loadout-kind{font-size:10px;color:var(--text-subtle);letter-spacing:.02em;}
+
+.mgr-pvp{display:flex;flex-direction:column;}
+.mgr-pvp-head{display:flex;gap:11px;padding:12px 13px;border-radius:var(--r-lg);
+  border:1px solid rgb(212 175 55 / 30%);background:rgb(212 175 55 / 7%);}
+.mgr-pvp-head .inline-icon{flex:0 0 auto;color:var(--gold);margin-top:2px;}
+.mgr-pvp-head strong{font-size:12.5px;}
+.mgr-pvp-head .subtext{font-size:11.5px;line-height:1.5;margin-top:3px;}
+
+/* ── phones: two tiles per line, everywhere ─────────────────────────────
+   One card per line made every collection four scrolls long. Two-up is the
+   phone-native shape: the art still reads, the names are still whole. */
+@media (max-width:820px){
+  .grid-4,.grid-3,.grid-2{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;}
+  .inv-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+  .shop-card .item-card-desc{display:none;}
+  .pricing-grid{grid-template-columns:minmax(0,1fr);}
+}
+
+/* The bar's "More" opens the drawer; the drawer needs to sit above the bar. */
+@media (max-width:820px){
+  .drawer{top:auto;bottom:calc(84px + env(safe-area-inset-bottom,0px));right:12px;left:auto;
+    width:min(260px,calc(100vw - 24px));max-height:min(64svh,calc(100dvh - 120px));
+    transform-origin:bottom right;}
+  .mgr-body .item-card-name{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;
+    -webkit-box-orient:vertical;overflow:hidden;}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .mobile-bar,.mbar-slot,.ev-dot,.mgr-cap-track i{transition:none;}
+}
+
+/* The phone season header that stands in for the hidden hero's title. */
+.mob-season-head{display:none;}
+@media (max-width:820px){
+  .mob-season-head{display:block;padding:14px 20px 2px;}
+  .mob-season-title{font-size:24px;font-weight:800;line-height:1.15;}
+  .mob-season-desc{margin-top:6px;font-size:12.5px;line-height:1.5;color:var(--text-muted);}
+}
+
+/* Page switches on a phone are mostly taps on the bottom bar, so the arrival
+   animation is shorter and softer than the desktop one - long enough to read
+   as a change of place, short enough that a fast tapper never waits for it. */
+@media (max-width:820px){
+  .view{animation:viewInMob .26s var(--ease-out);}
+  @keyframes viewInMob{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+}
+html.no-motion .view,html.no-motion .ev-slide,html.no-motion .mobile-bar{animation:none;}
