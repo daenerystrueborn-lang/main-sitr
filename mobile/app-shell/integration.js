@@ -272,7 +272,7 @@ export function initialize({ api, API_BASE, onAuthLost, fileToDataUrl, mountFeat
   }
   function paintInventory() {
     const items = (player?.inventory || []).filter(i => invFilter === 'All' || String(i.type || i.category || '').toLowerCase().includes(invFilter.toLowerCase().replace(/s$/, '')))
-    $('.pf-inv').innerHTML = items.length ? items.map((i, idx) => `<button class="sq sm" data-inventory="${idx}" title="${esc(i.name)}">${image(i.image)}<span>${esc(i.name)} ×${num(i.qty || 1)}</span></button>`).join('') : '<p>No items in this category.</p>'
+    $('.pf-inv').innerHTML = items.length ? items.map((i, idx) => `<button class="inv-card" data-inventory="${idx}" title="${esc(i.name)}"><span class="inv-art">${image(i.image)}</span><span class="inv-name">${esc(i.name)}</span><span class="inv-qty">×${num(i.qty || 1)}</span></button>`).join('') : '<p>No items in this category.</p>'
     $$('.pf-inv [data-inventory]').forEach(el => { el.onclick = () => { const i = items[Number(el.dataset.inventory)]; message(i.name, i.description || `${i.rarity || 'Item'} · Quantity ${i.qty || 1}. Manage equipment in the bot.`) } })
   }
   function clearShopItems() {

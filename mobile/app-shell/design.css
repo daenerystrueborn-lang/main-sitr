@@ -286,7 +286,20 @@ h1{font-family:var(--f-title);font-size:24px;font-weight:700;letter-spacing:.02e
 .pf-slot{text-align:center}
 .pf-slot span{display:block;margin-top:8px;font-family:var(--f-ui);font-weight:500;font-size:12.5px;color:var(--muted)}
 .pf-pills{margin-bottom:12px}
-.pf-inv{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.pf-inv{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+/* Carried items are cards: art box on top, name under it, stack count last.
+   The old grid was four bare dashed squares with the name squeezed inside. */
+.inv-card{display:flex;flex-direction:column;width:100%;min-width:0;padding:8px;text-align:left;
+  border:1px solid var(--glass-line);border-radius:18px;background:var(--glass);
+  font:inherit;color:inherit;-webkit-appearance:none;appearance:none;cursor:pointer;
+  transition:transform .18s ease,border-color .18s ease}
+.inv-card:active{transform:scale(.98);border-color:rgba(227,185,59,.5)}
+.inv-art{position:relative;display:grid;place-items:center;width:100%;aspect-ratio:1;overflow:hidden;
+  border-radius:12px;background:radial-gradient(circle at 50% 28%,rgba(227,185,59,.12),rgba(255,255,255,.04) 72%)}
+.inv-art img{width:82%;height:82%;object-fit:contain}
+.inv-name{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  margin-top:8px;font-family:var(--f-ui);font-weight:600;font-size:12.5px;line-height:1.35;color:var(--ink)}
+.inv-qty{margin-top:3px;font-family:var(--f-ui);font-weight:500;font-size:11px;color:var(--muted)}
 .sheet-bg{position:absolute;inset:0;z-index:30;display:flex;align-items:flex-end;background:rgba(0,0,0,.6);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
 .sheet-bg[hidden]{display:none}
 .sheet{width:100%;padding:10px 16px calc(24px + env(safe-area-inset-bottom,0px));border-radius:30px 30px 0 0;border:1px solid var(--glass-line);border-bottom:0;background:#141416;animation:up .28s cubic-bezier(.4,0,.2,1)}

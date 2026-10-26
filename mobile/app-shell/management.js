@@ -9,7 +9,9 @@ export function createManagement(ui) {
   const button = (label, id, cls = 'gbtn') => `<button class="${cls}" id="${id}">${esc(label)}</button>`
   function equipmentLocked() { return ui.activeRun?.() || getPlayer()?.inBattle === true || getPlayer()?.inDungeon === true }
   function renderInventory() {
-    $('.pf-inv').innerHTML = items.map((i, idx) => `<button class="sq sm" data-stack="${idx}" title="${esc(i.name)}">${image(i.image || i.imageUrl)}<span>${esc(i.name)} ×${num(i.qty ?? i.quantity)}</span></button>`).join('') || '<p class="sub">No items in this category.</p>'
+    // Item cards, not bare squares: the plate sits in its own art box with the
+    // name and stack count under it, so two weapons are never indistinguishable.
+    $('.pf-inv').innerHTML = items.map((i, idx) => `<button class="inv-card" data-stack="${idx}" title="${esc(i.name)}"><span class="inv-art">${image(i.image || i.imageUrl)}</span><span class="inv-name">${esc(i.name)}</span><span class="inv-qty">×${num(i.qty ?? i.quantity ?? 1)}</span></button>`).join('') || '<p class="sub">No items in this category.</p>'
     $$('[data-stack]').forEach(el => { el.onclick = () => run('item', () => detail(stackId(items[Number(el.dataset.stack)]))) })
     let more = $('#inventory-more')
     if (!more) { more = document.createElement('button'); more.id = 'inventory-more'; more.className = 'gbtn'; $('.pf-inv').after(more) }

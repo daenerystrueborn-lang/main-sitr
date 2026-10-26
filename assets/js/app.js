@@ -1261,8 +1261,70 @@ async function openCharacter(id) {
   }
 }
 
+/* ── item cards ─────────────────────────────────────────────────────────
+   Inventory tiles, shop tiles and the item modal all render the same thing:
+   the plate on top, then the name, then a small meta line. Nothing about an
+   item borrowed the player-profile layout (round avatar + banner) any more. */
+
+/** Rarity → the accent class shared by `.item-card` / `.item-sheet`. */
+function itemAccent(rarity) {
+  const key = String(rarity ?? '').trim().toLowerCase()
+  if (key === 'legendary' || key === 'mythic' || key === 'exotic') return 'is-legendary'
+  if (key === 'epic' || key === 'special') return 'is-epic'
+  if (key === 'rare') return 'is-rare'
+  return ''
+}
+
+/** Rarity/type/slot, as the one line printed under an item's name. */
+function itemMeta(item) {
+  const parts = [
+    item?.rarity && titleCase(item.rarity),
+    item?.type && titleCase(item.type),
+    item?.slot && `${titleCase(item.slot)} slot`,
+  ].filter(Boolean)
+  return [...new Set(parts)].join(' · ')
+}
+
 /**
- * Item detail, opened from an inventory slot.
+ * The art block, shared by every tile and the modal. A missing or dead plate
+ * falls back to the inventory glyph in place, so a broken image never leaves a
+ * hole in the card.
+ */
+function itemArt(image, cls = 'item-card-img') {
+  const src = resolveArt(image)
+  const fallback = `<span class="item-art-ph">${iconSvg('inventory', 'inventory-icon')}</span>`
+  if (!src) return fallback
+  return `<img class="${attr(cls)}" src="${attr(src)}" alt="" loading="lazy"
+               data-fb="${attr(fallback)}"
+               onerror="this.insertAdjacentHTML('afterend', this.dataset.fb); this.remove()">`
+}
+
+/** Plate + name header used by every item modal (inventory and shop). */
+function itemSheetHtml(item, qty = 0) {
+  const meta = itemMeta(item)
+  return `
+    <div class="item-sheet ${itemAccent(item?.rarity)}">
+      <div class="item-sheet-art">
+        ${itemArt(item?.image, 'item-sheet-img')}
+        ${qty > 1 ? `<span class="item-card-qty">×${num(qty)}</span>` : ''}
+      </div>
+      <div class="item-sheet-head">
+        ${item?.rarity ? `<span class="rarity-pill r-${attr(String(item.rarity).toLowerCase())}">${esc(titleCase(item.rarity))}</span>` : ''}
+        <h3>${esc(item?.name ?? 'Item')}</h3>
+        ${meta ? `<p class="item-sheet-sub">${esc(meta)}</p>` : ''}
+      </div>
+    </div>`
+}
+
+function statBonusTiles(bonuses) {
+  return Object.entries(bonuses ?? {})
+    .map(([k, v]) => `<div class="pd-stat"><div class="pd-stat-k">${esc(String(k).toUpperCase())}</div>
+      <div class="pd-stat-v">${v > 0 ? '+' : ''}${num(v)}</div></div>`)
+    .join('')
+}
+
+/**
+ * Item detail, opened from an inventory tile.
  *
  * Everything shown is already in the stacked row `/api/me` sent, so unlike
  * openCharacter() this needs no fetch and no skeleton - the modal is populated
@@ -1270,20 +1332,11 @@ async function openCharacter(id) {
  */
 function openItem(item) {
   if (!item) return
-  const bonuses = Object.entries(item.statBonuses ?? {})
-    .map(([k, v]) => `<div class="pd-stat"><div class="pd-stat-k">${esc(k.toUpperCase())}</div><div class="pd-stat-v">${v > 0 ? '+' : ''}${num(v)}</div></div>`)
-    .join('')
+  const qty = Number(item.qty ?? item.quantity ?? 0)
+  const bonuses = statBonusTiles(item.statBonuses)
 
   openModal(`
-    <div class="pd-head">
-      <div class="pd-avatar">${item.image
-        ? `<img src="${attr(resolveArt(item.image))}" alt="" style="width:100%;height:100%;object-fit:contain">`
-        : iconSvg('inventory', 'inventory-icon')}</div>
-      <div class="pd-id">
-        <h3>${esc(item.name)}${item.qty > 1 ? ` <span class="badge badge-lvl">×${num(item.qty)}</span>` : ''}</h3>
-        <p class="pd-sub">${esc([item.rarity && titleCase(item.rarity), item.type && titleCase(item.type)].filter(Boolean).join(' · '))}</p>
-      </div>
-    </div>
+    ${itemSheetHtml(item, qty)}
     <div class="pd-body">
       ${item.description ? `<p class="subtext">${esc(item.description)}</p>` : ''}
       ${bonuses ? `<div class="pd-sec-title">Stat bonuses</div><div class="pd-stats">${bonuses}</div>` : ''}
@@ -1599,23 +1652,14 @@ function paintShopBalance() {
 }
 
 /**
- * Item artwork for a shop/inventory tile.
+ * resolveArt() exists because item plates are served by the bot itself at
+ * `<publicApiUrl>/assets/items/<id>.png`.
  *
- * Two separate bugs used to make the shop grid look glyph-only:
- *
- * 1. The path. Every plate in the bot's data/ points at
- *    `<publicApiUrl>/assets/items/<id>.png`, which the bot serves itself. If
- *    that config is ever blank the API emits a root-relative path instead, and
- *    a root-relative src on this page resolves against the VERCEL SITE, which
- *    has no /assets/items - so every plate 404s. resolveArt() re-bases
- *    anything that isn't already absolute onto the API host.
- *
- * 2. The failure mode. The old markup was `onerror="this.remove()"`, which
- *    deleted the broken <img> and put nothing in its place, so a failed plate
- *    was indistinguishable from an item that simply has no art - and there was
- *    no visual cue at all that something had gone wrong. It now swaps in the
- *    same glyph the no-art branch uses, the way the profile inventory already
- *    did (data-fb + insertAdjacentHTML).
+ * If that config is ever blank the API emits a root-relative path instead, and
+ * a root-relative src on this page resolves against the VERCEL SITE, which has
+ * no /assets/items - so every plate 404s. Anything that isn't already absolute
+ * is therefore re-based onto the API host. A dead plate is replaced by the
+ * inventory glyph in place (see itemArt), never left as a hole in the card.
  */
 /** Character `ability` is { name, flavor }, not a string; printing it raw gave "[object Object]". */
 function abilityName(a) {
@@ -1643,15 +1687,6 @@ function resolveArt(url) {
   return `${API_BASE}${s.startsWith('/') ? '' : '/'}${s}`
 }
 
-function shopArt(row) {
-  const src = resolveArt(row?.image)
-  const fallback = perkIcon('inventory')
-  if (!src) return fallback
-  return `<img src="${attr(src)}" alt="" loading="lazy" class="shop-img"
-               data-fb="${attr(fallback)}"
-               onerror="this.insertAdjacentHTML('afterend', this.dataset.fb); this.remove()">`
-}
-
 function paintShopShelf() {
   const grid = $('#shopGrid')
   if (!grid || !shopData) return
@@ -1675,15 +1710,17 @@ function paintShopShelf() {
         ${g.rows.map(row => {
           const price = priceOf(row)
           const locked = you && (you.level ?? 1) < (row.levelReq ?? 1)
-          const bonuses = Object.entries(row.statBonuses ?? {})
-            .map(([k, v]) => `${k.toUpperCase()} ${v > 0 ? '+' : ''}${v}`).join(' · ')
+          const meta = itemMeta(row)
           return `
-          <div class="perk-card shop-card reveal">
-            ${shopArt(row)}
-            ${row.rarity ? `<span class="rarity-pill r-${attr(String(row.rarity).toLowerCase())}">${esc(titleCase(row.rarity))}</span>` : ''}
-            <h4>${esc(row.name)}</h4>
-            ${row.description ? `<p>${esc(row.description)}</p>` : ''}
-            ${bonuses ? `<p class="subtext" style="margin-top:6px">${esc(bonuses)}</p>` : ''}
+          <div class="item-card shop-card is-static ${itemAccent(row.rarity)} reveal">
+            <button type="button" class="item-card-art" data-shopview="${attr(row.id)}"
+                    title="${attr(row.name)}" aria-label="View ${attr(row.name)}">
+              ${itemArt(row.image)}
+              ${row.rarity ? `<span class="rarity-pill r-${attr(String(row.rarity).toLowerCase())}">${esc(titleCase(row.rarity))}</span>` : ''}
+            </button>
+            <h4 class="item-card-name">${esc(row.name)}</h4>
+            ${meta ? `<span class="item-card-sub">${esc(meta)}</span>` : ''}
+            ${row.description ? `<p class="item-card-desc">${esc(row.description)}</p>` : ''}
             <div class="shop-price">
               <span class="gold">${num(price)} solars${discount ? ` <s class="subtext">${num(row.buyPrice)}</s>` : ''}</span>
               ${row.levelReq > 1 ? `<span class="subtext">Lv ${num(row.levelReq)}</span>` : ''}
@@ -1696,6 +1733,49 @@ function paintShopShelf() {
         }).join('')}
       </div>
     </div>`).join('')
+}
+
+/**
+ * Shop item detail - the same sheet an inventory item opens, plus the price and
+ * a Buy button. Cards carry `data-shopview` (their id), and the rows live in the
+ * shop payload already on screen, so this needs no fetch either.
+ */
+function openShopItem(row) {
+  if (!row) return
+  const you = shopData?.you
+  const discount = you?.discount ?? 0
+  const price = Math.max(1, Math.round((row.buyPrice ?? 0) * (1 - discount / 100)))
+  const locked = you && (you.level ?? 1) < (row.levelReq ?? 1)
+  const bonuses = statBonusTiles(row.statBonuses)
+
+  openModal(`
+    ${itemSheetHtml(row)}
+    <div class="pd-body">
+      ${row.description ? `<p class="subtext">${esc(row.description)}</p>` : ''}
+      ${bonuses ? `<div class="pd-sec-title">Stat bonuses</div><div class="pd-stats">${bonuses}</div>` : ''}
+      <div class="shop-price" style="margin-top:16px">
+        <span class="gold">${num(price)} solars${discount && row.buyPrice ? ` <s class="subtext">${num(row.buyPrice)}</s>` : ''}</span>
+        ${row.levelReq > 1 ? `<span class="subtext">Requires Lv ${num(row.levelReq)}</span>` : ''}
+      </div>
+      ${you
+        ? (locked
+          ? `<button class="btn btn-secondary btn-block" disabled>Requires level ${num(row.levelReq)}</button>`
+          : `<button class="btn btn-primary btn-block" id="shopItemBuy">Buy for ${num(price)} solars</button>`)
+        : `<a class="btn btn-primary btn-block" href="#/login" data-route="login">Sign in to buy</a>`}
+    </div>`)
+
+  const buy = $('#shopItemBuy')
+  if (buy) buy.onclick = async () => { closeModal(); await buyShopItem(row.id, row.name, price) }
+}
+
+/** Find a shop row by id across every shelf/group currently loaded. */
+function findShopRow(id) {
+  for (const shelf of shopData?.shelves ?? []) {
+    for (const group of shelf.groups ?? []) {
+      for (const row of group.rows ?? []) if (String(row.id) === String(id)) return row
+    }
+  }
+  return null
 }
 
 /** Buy flow, shared by the Buy button on every shop card. */
@@ -1959,24 +2039,25 @@ async function loadProfile() {
       <div class="pd-stat-v">#${num(v.position)}<span style="font-size:12px;color:var(--text-subtle)"> / ${num(v.of)}</span></div>
     </div>`).join('')
 
-  // Slots show the item's real plate (the same /assets/items/<id>.png the bot
-  // renders in chat) and fall back to the generic glyph only when there's no
-  // artwork or it fails to load - matching the `onerror` pattern used for
-  // season art. `.inv-slot` has always had `cursor:pointer`; `data-item` is
-  // what finally makes that true, via the delegated handler.
+  // Every carried item is a card: plate on top, name under it, then rarity ·
+  // type and the stack count. The tile is still a <button> so it stays
+  // keyboard-reachable and announced as a control; `data-item` keys it into
+  // state.inv for the delegated click handler.
   state.inv = (p.inventory ?? []).slice(0, 24)
-  const inv = state.inv.map((i, idx) => `
-    <button type="button"
-         class="inv-slot${i.rarity === 'rare' ? ' rare' : i.rarity === 'epic' || i.rarity === 'legendary' ? ' epic' : ''}"
-         data-item="${attr(String(idx))}"
-         title="${attr(i.name)}" aria-label="${attr(i.name)}">
-      ${i.image
-        ? `<img src="${attr(resolveArt(i.image))}" alt="" loading="lazy" class="inv-img"
-                onerror="this.insertAdjacentHTML('afterend', this.dataset.fb); this.remove()"
-                data-fb="${attr(`<span>${iconSvg('inventory', 'inventory-icon')}</span>`)}">`
-        : `<span>${iconSvg('inventory', 'inventory-icon')}</span>`}
-      ${i.qty > 1 ? `<span class="qty">${num(i.qty)}</span>` : ''}
-    </button>`).join('')
+  const inv = state.inv.map((i, idx) => {
+    const qty = Number(i.qty ?? i.quantity ?? 0)
+    const meta = itemMeta(i)
+    return `
+    <button type="button" class="item-card ${itemAccent(i.rarity)}"
+         data-item="${attr(String(idx))}" title="${attr(i.name)}" aria-label="${attr(i.name)}">
+      <span class="item-card-art">
+        ${itemArt(i.image)}
+        ${qty > 1 ? `<span class="item-card-qty">×${num(qty)}</span>` : ''}
+      </span>
+      <span class="item-card-name">${esc(i.name)}</span>
+      ${meta ? `<span class="item-card-sub">${esc(meta)}</span>` : ''}
+    </button>`
+  }).join('')
 
   host.innerHTML = `
     <div class="profile-banner"${p.bannerUrl ? ` style="background-image:url('${attr(p.bannerUrl)}');background-size:cover;background-position:center;"` : ''}></div>
@@ -2592,6 +2673,15 @@ function wireGlobalClicks() {
       shopShelf = shelfTab.dataset.shelf
       for (const b of $$('#shopTabs .tab-btn')) b.classList.toggle('active', b.dataset.shelf === shopShelf)
       paintShopShelf()
+      return
+    }
+
+    // Shop card art → the same item sheet the inventory opens, with a Buy
+    // button in it. The row is read out of the payload already on screen.
+    const shopView = t.closest('[data-shopview]')
+    if (shopView) {
+      e.preventDefault()
+      openShopItem(findShopRow(shopView.dataset.shopview))
       return
     }
 
