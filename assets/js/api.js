@@ -219,6 +219,25 @@ export function newIdempotencyKey() {
   return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
 }
 
+/**
+ * Last successful payload per endpoint, keyed by path with the query string
+ * stripped.
+ *
+ * This exists because the phone pages talk to bot routes whose envelopes are
+ * not documented anywhere in this repo, and a wrong guess looks identical to an
+ * empty account. With this, `astralDebug()` in the console prints exactly what
+ * the bot sent for every route the page touched - which is what gets pasted
+ * back when a page renders NaN or zeroes.
+ *
+ * It keeps responses in memory only, for the life of the tab, and never
+ * persists them.
+ */
+const rawPayloads = new Map()
+
+export function debugPayloads() {
+  return Object.fromEntries(rawPayloads)
+}
+
 export async function request(path, { method = 'GET', body = null, timeoutMs = 12_000, auth = true, idempotencyKey = null } = {}) {
   // A caller can retain this key for an exact retry. No automatic write retries.
   const mutating = !['GET', 'HEAD'].includes(method)
@@ -281,6 +300,7 @@ export async function request(path, { method = 'GET', body = null, timeoutMs = 1
     })
   }
 
+  rawPayloads.set(path.split('?')[0], payload)
   return payload
 }
 
@@ -598,6 +618,23 @@ export const api = {
      a card can't be tapped twice for two payouts - the UI only ever shows
      what the server says was granted. */
   claimEvent: (id) => post('/events/claim', { id }),
+}
+
+/* Console helpers. `astralDebug()` prints a table of the endpoints hit and
+   returns the raw payloads; `astralDebugCopy()` puts the JSON on the clipboard
+   so a broken page can be reported with the response that broke it. */
+if (typeof window !== 'undefined') {
+  window.astralDebug = () => {
+    const all = debugPayloads()
+    console.table(Object.keys(all).map(path => ({ path, keys: Object.keys(all[path] ?? {}).join(', ') || '(empty)' })))
+    return all
+  }
+  window.astralDebugCopy = () => {
+    const json = JSON.stringify(debugPayloads(), null, 2)
+    if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(json).then(() => 'Copied raw payloads')
+    console.log(json)
+    return 'Logged raw payloads'
+  }
 }
 
 /* ──────────────────────────── image helpers ─────────────────────────────── */

@@ -1950,3 +1950,110 @@ button.loadout-slot:hover{transform:translateY(-2px);border-color:var(--gold);}
   @keyframes viewInMob{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
 }
 html.no-motion .view,html.no-motion .ev-slide,html.no-motion .mobile-bar{animation:none;}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   GUILD / EMPIRE CRESTS, AND THE SECOND PASS ON THE PHONE PAGES
+   The first render of these pages put a shared photograph on every record and
+   printed raw numbers, so a list of thirty guilds looked like one guild
+   repeated and a wallet full of solars read 0 / NaN. Crests are now generated
+   per record, and the layouts below give the generated art room to do its job.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.crest{
+  position:relative;display:grid;place-items:center;flex:0 0 auto;
+  overflow:hidden;border-radius:16px;
+  background:
+    radial-gradient(circle at 32% 22%,hsl(var(--h,45) 70% 62% / 55%),transparent 62%),
+    linear-gradient(150deg,hsl(var(--h,45) 46% 20%),hsl(calc(var(--h,45) + 28) 40% 9%));
+  border:1px solid hsl(var(--h,45) 55% 45% / 45%);
+  box-shadow:inset 0 1px 0 rgb(255 255 255 / 10%);
+}
+.crest-glyph{
+  font-family:'Space Grotesk',sans-serif;font-weight:800;letter-spacing:.02em;
+  color:#fff;opacity:.92;text-shadow:0 2px 10px rgb(0 0 0 / 55%);
+}
+.crest img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+.crest-md{width:100%;aspect-ratio:1;border-radius:14px;}
+.crest-md .crest-glyph{font-size:clamp(20px,7vw,30px);}
+.crest-lg{width:62px;height:62px;border-radius:16px;}
+.crest-lg .crest-glyph{font-size:19px;}
+
+/* Two per line, like every other collection on a phone. */
+.guild-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+.guild-grid .guild-card{flex-direction:column;align-items:stretch;gap:9px;padding:9px;}
+.guild-grid .guild-card .crest-md{width:100%;}
+.guild-grid .guild-body{gap:2px;}
+.guild-grid .guild-name{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.guild-grid .guild-sub{white-space:normal;}
+.guild-grid .guild-desc{-webkit-line-clamp:2;}
+.guild-grid .guild-go{display:none;}
+/* Your own guild/empire keeps the wide row - it is the one you came for. */
+.guild-card.is-mine{flex-direction:row;align-items:center;gap:12px;}
+.guild-card.is-mine .crest-md{width:64px;height:64px;flex:0 0 64px;}
+.guild-card.is-mine .guild-go{display:flex;}
+
+@media (min-width:640px){
+  .guild-grid{grid-template-columns:repeat(3,minmax(0,1fr));}
+}
+
+.guild-sheet-head{display:flex;align-items:center;gap:13px;padding:18px 18px 0;}
+.guild-sheet-id{min-width:0;}
+.guild-sheet-id h3{font-size:19px;font-weight:800;line-height:1.2;overflow-wrap:anywhere;}
+.guild-sheet-id p{margin-top:4px;font-size:12px;font-weight:700;color:var(--gold);}
+
+/* ── storage: the ender chest now reads as owned ───────────────────────── */
+.storage-card.is-owned{border-color:rgb(212 175 55 / 45%);background:rgb(212 175 55 / 6%);}
+.storage-card .mgr-cap-track{margin-top:8px;height:6px;}
+.storage-card .chip-sm{margin-left:6px;font-size:9.5px;padding:2px 8px;color:var(--gold);
+  border-color:rgb(212 175 55 / 40%);background:rgb(212 175 55 / 12%);}
+
+/* ── dex: not-yet-caught entries step back ────────────────────────────── */
+.mon-card.is-unseen .mon-art img{filter:grayscale(1) brightness(.6);opacity:.65;}
+.mon-card.is-unseen .mon-name{color:var(--text-muted);}
+
+/* ── season carousel, second pass ─────────────────────────────────────── */
+@media (max-width:820px){
+  .mob-events{padding-top:12px;}
+  .ev-track{gap:14px;padding:2px 20px 10px;}
+  .ev-slide{
+    flex-basis:min(88%,380px);
+    border-color:rgb(212 175 55 / 22%);
+    background:linear-gradient(165deg,#121009,#060606 62%);
+    box-shadow:0 16px 34px rgb(0 0 0 / 55%);
+  }
+  .ev-media{aspect-ratio:4/3;}
+  .ev-media img{transform:scale(1.02);}
+  .ev-slide::after{
+    content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    box-shadow:inset 0 0 0 1px rgb(255 255 255 / 4%);
+  }
+  .ev-body{padding:2px 16px 16px;margin-top:-34px;gap:7px;}
+  .ev-title{font-size:22px;}
+  .ev-reward{background:rgb(212 175 55 / 16%);box-shadow:0 4px 14px rgb(212 175 55 / 12%);}
+  .ev-dot{width:6px;height:6px;background:rgb(255 255 255 / 16%);}
+  .ev-dot.is-on{width:26px;background:var(--gold);box-shadow:0 0 10px rgb(212 175 55 / 60%);}
+  .mob-season-head{padding-top:16px;}
+  .mob-season-title{font-size:26px;}
+  /* a hairline that reads as "there is more to the right" */
+  .ev-slider::after{
+    content:"";position:absolute;top:0;right:0;width:34px;height:calc(100% - 26px);
+    background:linear-gradient(90deg,transparent,rgb(0 0 0 / 55%));
+    pointer-events:none;border-radius:0 var(--r-xl) var(--r-xl) 0;
+  }
+}
+
+/* ── inventory manager, second pass ───────────────────────────────────── */
+.mgr-head{display:flex;flex-direction:column;}
+.mgr-head h3{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.mgr-cap{background:linear-gradient(160deg,rgb(212 175 55 / 8%),var(--bg-2) 60%);}
+.mgr-cap-num{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:800;}
+.mgr-cap.is-tight .mgr-cap-track i{background:linear-gradient(135deg,#e07a5f,#b4462f);}
+.mgr-cap.is-tight .mgr-cap-tag{color:#ffb4a2;background:rgb(224 122 95 / 14%);border-color:rgb(224 122 95 / 40%);}
+.mgr-cap-track i{background:var(--grad-1);}
+.mgr-actions .btn{justify-content:center;}
+.mgr-actions .btn-primary{grid-column:1 / -1;}
+.mgr-empty{padding:26px 8px;text-align:center;}
+
+/* manager item sheet: give the plate a little more presence */
+.mgr-body .item-sheet{padding:14px 0 0;}
+.mgr-body .item-sheet-art{width:min(180px,54%);}
