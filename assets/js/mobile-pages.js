@@ -1140,6 +1140,100 @@ export async function loadStoragePage() {
 
 /* ──────────────────────────────── progress ────────────────────────────── */
 
+/**
+ * The six tracks everything in Progress belongs to.
+ *
+ * Each one carries its own painting, which is used as the card's background -
+ * the Progress page was a pair of flat lists, and these are the "cards" that
+ * give it a face. `words` is how a quest or achievement is recognised as
+ * belonging to a track when the bot doesn't label it: the explicit field wins
+ * (category / track / type / kind / branch), and the keywords are the fallback
+ * for payloads that only carry a name and a description.
+ */
+const PROGRESS_TRACKS = [
+  {
+    id: 'mastery', label: 'Mastery', art: 'https://i.ibb.co/C5fHDBNK/mastery.jpg',
+    blurb: 'Levels, skills and the long climb',
+    words: ['master', 'level', 'skill', 'xp', 'train', 'practice', 'rank up'],
+  },
+  {
+    id: 'social', label: 'Social', art: 'https://i.ibb.co/V02x1Tsp/social.jpg',
+    blurb: 'Friends, guilds and parties',
+    words: ['friend', 'guild', 'party', 'social', 'invite', 'gift a', 'trade with', 'chat', 'clan'],
+  },
+  {
+    id: 'adventure', label: 'Adventure', art: 'https://i.ibb.co/Fq4vDVVx/advebture.jpg',
+    blurb: 'Dungeons, floors and runs',
+    words: ['adventure', 'dungeon', 'floor', 'explore', 'run', 'expedition', 'map', 'raid'],
+  },
+  {
+    id: 'wealth', label: 'Wealth', art: 'https://i.ibb.co/dsSgXx7T/welath.jpg',
+    blurb: 'Solars, trade and the vault',
+    words: ['wealth', 'solar', 'gold', 'coin', 'bank', 'vault', 'trade', 'sell', 'buy', 'market', 'loan'],
+  },
+  {
+    id: 'collection', label: 'Collection', art: 'https://i.ibb.co/8LmgPsFx/collection.jpg',
+    blurb: 'Cards, characters and loot',
+    words: ['collect', 'card', 'character', 'roster', 'loot', 'item', 'dex', 'pokemon', 'summon'],
+  },
+  {
+    id: 'combat', label: 'Combat', art: 'https://i.ibb.co/7mqHrQW/combat.jpg',
+    blurb: 'Duels, arenas and wins',
+    words: ['combat', 'battle', 'duel', 'arena', 'pvp', 'fight', 'win', 'kill', 'boss', 'damage'],
+  },
+]
+
+/** Which of the module's own words a record belongs to, or '' when unknown. */
+function trackOf(record) {
+  const explicit = cleanText(pick(record, ['track', 'category', 'type', 'kind', 'branch', 'group', 'section']), '').toLowerCase()
+  if (explicit) {
+    const hit = PROGRESS_TRACKS.find(t => explicit.includes(t.id) || t.label.toLowerCase() === explicit)
+    if (hit) return hit.id
+  }
+  const haystack = [
+    cleanText(pick(record, ['name', 'title', 'quest']), ''),
+    cleanText(pick(record, ['description', 'objective', 'text']), ''),
+  ].join(' ').toLowerCase()
+  if (!haystack.trim()) return ''
+  let best = ''
+  let bestScore = 0
+  for (const t of PROGRESS_TRACKS) {
+    const score = t.words.reduce((n, w) => (haystack.includes(w) ? n + 1 : n), 0)
+    if (score > bestScore) { bestScore = score; best = t.id }
+  }
+  return best
+}
+
+/** Selected track on the Progress page ('' = everything). */
+let progressTrack = ''
+let progressCache = { quests: [], achievements: [] }
+
+/** One art card per track: the painting, a scrim, the name and what's inside. */
+function trackCard(track) {
+  const quests = progressCache.quests.filter(x => trackOf(x) === track.id)
+  const achs = progressCache.achievements.filter(x => trackOf(x) === track.id)
+  const ready = quests.filter(x => isOwned(pick(x, ['claimable', 'canClaim']))).length
+    + achs.filter(x => isOwned(pick(x, ['claimable', 'canClaim']))).length
+  const total = quests.length + achs.length
+  const on = progressTrack === track.id
+  const done = achs.filter(x => isOwned(pick(x, ['claimed', 'unlocked', 'isClaimed']))).length
+
+  return `
+    <button type="button" class="track-card${on ? ' is-on' : ''}${track.art ? '' : ' no-art'}"
+            data-track="${attr(track.id)}" aria-pressed="${on}"
+            ${track.art ? `style="--art:url('${attr(track.art)}')"` : ''}>
+      <span class="track-art" aria-hidden="true"></span>
+      <span class="track-scrim" aria-hidden="true"></span>
+      <span class="track-body">
+        <span class="track-kicker">${total ? `${num(total)} ${plural(total, 'goal')}` : 'No goals yet'}</span>
+        <strong class="track-name">${esc(track.label)}</strong>
+        <span class="track-blurb">${esc(track.blurb)}</span>
+      </span>
+      ${ready ? `<span class="track-badge">${num(ready)} ready</span>`
+        : done ? `<span class="track-badge is-done">${num(done)} done</span>` : ''}
+    </button>`
+}
+
 export async function loadProgress() {
   const root = $('#progressRoot')
   if (!root) return
@@ -1161,6 +1255,16 @@ export async function loadProgress() {
   const a = listOf(achievements, ['achievements', 'items', 'rows'])
   const p = pick(progress, ['progress']) ?? progress ?? {}
   const player = me?.player ?? null
+
+  progressCache = { quests: q, achievements: a }
+  // A track that no longer exists (data changed under us) shouldn't leave the
+  // page filtered to nothing.
+  if (progressTrack && !PROGRESS_TRACKS.some(t => t.id === progressTrack)) progressTrack = ''
+
+  const onTrack = (record) => !progressTrack || trackOf(record) === progressTrack
+  const qShown = q.filter(onTrack)
+  const aShown = a.filter(onTrack)
+  const activeTrack = PROGRESS_TRACKS.find(t => t.id === progressTrack) ?? null
 
   // Only show what actually resolved. `rank` came back null and was printed as
   // the word "null"; now it falls back to the rank on /me, then disappears.
@@ -1206,14 +1310,30 @@ export async function loadProgress() {
       </div>` : ''}
 
     <section class="mob-sec">
-      <div class="sec-head"><h2>Quests</h2><span class="subtext">${num(q.filter(x => isOwned(pick(x, ['claimable', 'canClaim']))).length)} ready</span></div>
-      ${q.length ? `<div class="quest-list">${q.map(questRow).join('')}</div>`
-        : emptyState('season', 'No quests right now', 'New ones appear when the bot rotates them in.')}
+      <div class="sec-head">
+        <h2>Tracks</h2>
+        ${progressTrack
+          ? `<button type="button" class="link-btn" id="trackClear">Show all</button>`
+          : `<span class="subtext">${num(PROGRESS_TRACKS.length)} tracks</span>`}
+      </div>
+      <div class="track-grid">
+        ${PROGRESS_TRACKS.map(trackCard).join('')}
+      </div>
     </section>
 
     <section class="mob-sec">
-      <div class="sec-head"><h2>Achievements</h2></div>
-      ${a.length ? `<div class="ach-grid">${a.map(x => {
+      <div class="sec-head">
+        <h2>Quests${activeTrack ? ` · ${esc(activeTrack.label)}` : ''}</h2>
+        <span class="subtext">${num(qShown.filter(x => isOwned(pick(x, ['claimable', 'canClaim']))).length)} ready</span>
+      </div>
+      ${qShown.length ? `<div class="quest-list">${qShown.map(questRow).join('')}</div>`
+        : emptyState('season', progressTrack ? `Nothing in ${esc(activeTrack?.label ?? 'this track')} yet` : 'No quests right now',
+          progressTrack ? 'Other tracks may have goals waiting.' : 'New ones appear when the bot rotates them in.')}
+    </section>
+
+    <section class="mob-sec">
+      <div class="sec-head"><h2>Achievements${activeTrack ? ` · ${esc(activeTrack.label)}` : ''}</h2></div>
+      ${aShown.length ? `<div class="ach-grid">${aShown.map(x => {
         const id = pick(x, ['id', 'achievementId', 'key'])
         const claimable = isOwned(pick(x, ['claimable', 'canClaim']))
         const claimed = isOwned(pick(x, ['claimed', 'unlocked', 'isClaimed']))
@@ -1228,6 +1348,17 @@ export async function loadProgress() {
         </div>`}).join('')}</div>`
         : emptyState('reward', 'No achievements yet', 'They unlock as you play.')}
     </section>`
+
+  for (const tile of $$('[data-track]', root)) {
+    tile.onclick = () => {
+      // Tapping the selected track again clears it - one control, no hunting
+      // for a separate "all" button.
+      progressTrack = progressTrack === tile.dataset.track ? '' : tile.dataset.track
+      loadProgress()
+    }
+  }
+  const clear = $('#trackClear', root)
+  if (clear) clear.onclick = () => { progressTrack = ''; loadProgress() }
 
   for (const btn of $$('[data-claim-quest]', root)) {
     btn.onclick = async () => {
