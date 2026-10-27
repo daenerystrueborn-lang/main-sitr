@@ -66,6 +66,23 @@ export function typeIcon(type) {
   return `${SHOWDOWN_SPRITES}/types/${pretty}.png`
 }
 
+/**
+ * Showdown's type colours, used for move buttons and the hit flash.
+ * Same palette its own client paints the move list with.
+ */
+const TYPE_COLORS = {
+  normal: '#A8A77A', fighting: '#C22E28', flying: '#A98FF3', poison: '#A33EA1',
+  ground: '#E2BF65', rock: '#B6A136', bug: '#A6B91A', ghost: '#735797',
+  steel: '#B7B7CE', fire: '#EE8130', water: '#6390F0', grass: '#7AC74C',
+  electric: '#F7D02C', psychic: '#F95587', ice: '#96D9D6', dragon: '#6F35FC',
+  dark: '#705746', fairy: '#D685AD', stellar: '#40B5A5', unknown: '#68A090',
+}
+
+/** A type's colour, or a neutral gold when the type isn't known. */
+export function typeColor(type) {
+  return TYPE_COLORS[String(type ?? '').trim().toLowerCase()] || '#c9a227'
+}
+
 /** Trainer sprite, for a character's portrait when one is wanted. */
 export function trainerSprite(name) {
   const id = showdownId(name)
