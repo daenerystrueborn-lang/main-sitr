@@ -24,7 +24,7 @@ import { itemCard, itemArt, itemMeta, itemPopupHtml, itemQty, resolveArt } from 
 import {
   pick, toNum, counted, listOf, imgOf, cleanText, isOwned, plural,
 } from './shape.js'
-import { monSprite, itemIcon, typeIcon, moveInfo, warmMoveData, showdownId } from './showdown.js'
+import { monSprite, itemIcon, typeIcon, moveInfo, warmMoveData, typeColor } from './showdown.js'
 
 /* ───────────────────────────── breakpoint ─────────────────────────────── */
 
@@ -1816,24 +1816,46 @@ function hpOf(m) {
   return hp != null && max ? { hp, max, pct: Math.max(0, Math.min(100, Math.round((hp / max) * 100))) } : null
 }
 
-function battleFighter(m, { foe = false } = {}) {
+/**
+ * One side of the field, the way Showdown draws it: a small HUD plate and the
+ * battler standing on the ground next to it.
+ *
+ * The HUD is deliberately tiny - name, level, a thin HP bar - because the
+ * sprite is the thing being looked at. When the bot sends no HP the bar is
+ * muted and says so rather than inventing a number.
+ */
+function battleHud(m, { foe = false, id }) {
   const hp = hpOf(m)
   const lvl = toNum(pick(m, ['level', 'lvl']), null)
+  return `
+    <div class="pb-hud${foe ? ' is-foe' : ' is-you'}" data-hud="${attr(id)}">
+      <div class="pb-hud-top">
+        <span class="pb-hud-name">${esc(monName(m))}</span>
+        ${lvl != null ? `<span class="pb-hud-lv">Lv${num(lvl)}</span>` : ''}
+      </div>
+      <div class="pb-hp${hp ? (hp.pct <= 25 ? ' is-low' : hp.pct <= 50 ? ' is-mid' : '') : ' is-unknown'}"
+           role="img" aria-label="${hp ? `${num(hp.hp)} of ${num(hp.max)} HP` : 'HP not available'}">
+        <i style="width:${hp ? hp.pct : 0}%"></i>
+      </div>
+      <div class="pb-hud-sub">${hp ? `${num(hp.hp)} / ${num(hp.max)}` : 'HP —'}</div>
+    </div>`
+}
+
+/**
+ * A battler: the sprite, its ground shadow and the little platform it stands
+ * on. `back` is used for your own side, exactly like the games.
+ */
+function battleMon(m, { foe = false } = {}) {
   const species = monSpecies(m)
-  // Showdown's back sprite is what your own battler looks like from behind.
   const sprite = imgOf(m) || monSprite(species, { back: !foe }) || ''
   return `
-    <div class="pb-${foe ? 'foe' : 'you'}">
-      <span class="pb-sprite">${sprite
-        ? `<img src="${attr(sprite)}" alt="" loading="lazy" referrerpolicy="no-referrer"
-                class="pb-sprite-img${foe ? ' is-foe' : ''}" onerror="this.remove()">`
-        : `<span class="item-art-ph">${iconSvg('spark', 'inventory-icon')}</span>`}</span>
-      <span class="pb-name">${foe ? 'Foe · ' : ''}${esc(monName(m))}</span>
-      ${lvl != null ? `<span class="pb-lv">Lv ${num(lvl)}</span>` : ''}
-      ${hp
-        ? `<div class="pb-hp${hp.pct <= 25 ? ' is-low' : ''}"><i style="width:${hp.pct}%"></i></div>
-           <span class="pb-hpn">${num(hp.hp)} / ${num(hp.max)}</span>`
-        : `<span class="pb-hpn">HP not available</span>`}
+    <div class="pb-mon${foe ? ' is-foe' : ' is-you'}" data-mon-side="${foe ? 'foe' : 'you'}">
+      ${sprite
+        ? `<img class="pb-mon-img" src="${attr(sprite)}" alt="${attr(monName(m))}"
+                loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`
+        : `<span class="pb-mon-img is-empty">${iconSvg('spark', 'inventory-icon')}</span>`}
+      <span class="pb-mon-shadow" aria-hidden="true"></span>
+      <span class="pb-mon-platform" aria-hidden="true"></span>
     </div>`
 }
 
@@ -1864,15 +1886,24 @@ function battlePanel() {
 
   return `
     <div class="poke-battle" id="monBattle">
-      <div class="pb-scene">
+      <div class="pb-scene"${bg ? ` style="--bg:url('${attr(bg)}')"` : ''}>
         ${bg ? `<img class="pb-bg" src="${attr(bg)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}
+        <span class="pb-flash" aria-hidden="true"></span>
         <span class="pb-badge">${esc(cleanText(pick(b, ['kind', 'type', 'mode']), 'Wild battle'))}</span>
-        ${battleFighter(theirMon, { foe: true })}
-        ${battleFighter(myMon)}
+
+        <div class="pb-row is-foe">
+          ${battleHud(theirMon, { foe: true, id: 'foe' })}
+          ${battleMon(theirMon, { foe: true })}
+        </div>
+
+        <div class="pb-row is-you">
+          ${battleMon(myMon, { foe: false })}
+          ${battleHud(myMon, { id: 'you' })}
+        </div>
       </div>
 
-      ${battleLog.length ? `<div class="pb-log">${battleLog.slice(0, 4).map(line =>
-        `<p>${esc(line)}</p>`).join('')}</div>` : ''}
+      ${battleLog.length ? `<div class="pb-log" aria-live="polite">${battleLog.slice(0, 3).map((line, i) =>
+        `<p${i === 0 ? ' class="is-now"' : ''}>${esc(line)}</p>`).join('')}</div>` : ''}
 
       ${moves.length ? `
         <div class="pb-moves">
@@ -1888,7 +1919,9 @@ function battlePanel() {
             const badge = type ? typeIcon(type) : ''
             return `
             <button type="button" class="pb-move"
+                    style="--tc:${attr(typeColor(type))}"
                     data-pb-move="${attr(String(toNum(pick(mv, ['index', 'slot']), i + 1)))}"
+                    data-pb-type="${attr(type)}"
                     ${battleBusy ? 'disabled' : ''}>
               <span class="pb-move-name">${esc(name)}</span>
               <span class="pb-move-sub">
@@ -1912,6 +1945,57 @@ function battlePanel() {
     </div>`
 }
 
+/* ── battle motion ──────────────────────────────────────────────────────────
+   Nothing here decides anything; it only shows what the last turn said. The
+   attacker lunges, the target takes a type-coloured hit, and a mon that has
+   fainted drops out of the frame. All of it is class toggling so a repaint
+   can't leave a half-played animation behind. */
+
+/** How long the longest battle animation runs (keep in step with the CSS). */
+const FX_MS = 620
+
+const fxReset = (el, ...classes) => { if (el) el.classList.remove(...classes) }
+
+/** Your mon dashes at the foe. Called before the request, so it plays while we wait. */
+function fxAttack(type) {
+  const scene = $('#monBattle .pb-scene')
+  const mine = $('#monBattle [data-mon-side="you"]')
+  const theirs = $('#monBattle [data-mon-side="foe"]')
+  if (scene && type) scene.style.setProperty('--hit', typeColor(type))
+  if (mine) {
+    fxReset(mine, 'is-hit', 'is-faint')
+    mine.classList.add('is-attacking')
+    setTimeout(() => fxReset(mine, 'is-attacking'), FX_MS)
+  }
+  if (theirs) {
+    fxReset(theirs, 'is-hit')
+    theirs.classList.add('is-bracing')
+    setTimeout(() => fxReset(theirs, 'is-bracing'), FX_MS)
+  }
+}
+
+/** The target reacts. Played after the response repaints the field. */
+function fxHit({ faint = false } = {}) {
+  const scene = $('#monBattle .pb-scene')
+  const theirs = $('#monBattle [data-mon-side="foe"]')
+  const mine = $('#monBattle [data-mon-side="you"]')
+  if (scene) {
+    scene.classList.add('is-flashing')
+    setTimeout(() => scene.classList.remove('is-flashing'), FX_MS)
+  }
+  if (theirs) {
+    fxReset(theirs, 'is-bracing')
+    theirs.classList.add(faint ? 'is-faint' : 'is-hit')
+    setTimeout(() => fxReset(theirs, 'is-hit'), FX_MS)
+  }
+  if (mine) {
+    // The bot's events decide who got hit; if our own side is the one that
+    // took the turn's damage, shake that instead of the foe.
+    const hurt = battleLog.some(line => /(hit|hurt|damage|fainted)/i.test(line) && /^you/i.test(line))
+    if (hurt) { mine.classList.add('is-hit'); setTimeout(() => fxReset(mine, 'is-hit'), FX_MS) }
+  }
+}
+
 /** Draws whatever the last response left behind, or reloads when the fight ended. */
 async function applyBattle(out) {
   const events = listOf(out, ['events', 'log', 'messages'])
@@ -1928,6 +2012,10 @@ async function applyBattle(out) {
   if (next) {
     monBattle = next
     paintBattle()
+    // The field has just been repainted, so the reaction starts from a clean
+    // frame rather than from whatever the previous turn left behind.
+    const faint = hpOf(frontOf(sideOf(next, 'foe')))?.pct === 0
+    fxHit({ faint: !!faint })
     return
   }
 
@@ -1951,10 +2039,12 @@ function paintBattle() {
 }
 
 /** One turn, or one of the out-of-turn actions the bot accepts. */
-async function battleAct(payload, label = '') {
+async function battleAct(payload, label = '', type = '') {
   if (battleBusy) return
   battleBusy = true
   for (const btn of $$('[data-pb-move], [data-pb-catch], [data-pb-run], #pbItem, #pbSwitch')) btn.disabled = true
+  // Attack, catch and item all lunge; running and switching do not.
+  if (payload.action === 'move' || payload.action === 'catch' || payload.action === 'item') fxAttack(type)
   try {
     const out = await api.pokemonAct(payload)
     if (label) battleLog = [label, ...battleLog].slice(0, 8)
@@ -1972,7 +2062,11 @@ function wireBattle() {
   if (!host) return
 
   for (const btn of $$('[data-pb-move]', host)) {
-    btn.onclick = () => battleAct({ action: 'move', index: Number(btn.dataset.pbMove) })
+    btn.onclick = () => battleAct(
+      { action: 'move', index: Number(btn.dataset.pbMove) },
+      '',
+      btn.dataset.pbType || '',
+    )
   }
   const catchBtn = host.querySelector('[data-pb-catch]')
   if (catchBtn) catchBtn.onclick = () => battleAct({ action: 'catch', itemId: catchBtn.dataset.pbCatch })

@@ -2294,48 +2294,6 @@ html.no-motion .view,html.no-motion .ev-slide,html.no-motion .mobile-bar{animati
   border:1px solid rgb(212 175 55 / 24%);border-radius:var(--r-lg);
   background:linear-gradient(170deg,var(--bg-3),#070606);
 }
-.pb-scene{
-  position:relative;display:flex;flex-direction:column;justify-content:space-between;gap:10px;
-  min-height:230px;padding:12px;overflow:hidden;
-  /* An arena drawn with gradients, the way Showdown's own client does it: a
-     lit sky over a darker floor, so the battlers have somewhere to stand even
-     when the bot sends no background. */
-  background:
-    radial-gradient(ellipse at 50% 0%,rgb(212 175 55 / 16%),transparent 58%),
-    linear-gradient(180deg,#1a2431 0%,#22303f 44%,#1b2119 44%,#0e120c 100%);
-}
-.pb-scene::after{
-  content:"";position:absolute;left:-10%;right:-10%;top:44%;height:60%;pointer-events:none;
-  background:radial-gradient(ellipse at 50% 0%,rgb(255 255 255 / 8%),transparent 62%);
-}
-.pb-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.55;}
-.pb-scene>*{position:relative;z-index:1;}
-.pb-badge{
-  align-self:flex-start;padding:2px 9px;border-radius:999px;
-  font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
-  color:#0a0805;background:var(--grad-1);
-}
-.pb-foe,.pb-you{
-  display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;
-  padding:8px 10px;border-radius:var(--r);
-  background:rgb(0 0 0 / 62%);border:1px solid rgb(255 255 255 / 8%);
-  backdrop-filter:blur(2px);
-}
-.pb-foe{align-self:flex-start;max-width:82%;}
-.pb-you{align-self:flex-end;max-width:82%;}
-.pb-name{font-size:13px;font-weight:800;text-shadow:0 2px 10px rgb(0 0 0 / 70%);}
-.pb-lv{font-size:10.5px;font-weight:700;color:var(--gold);}
-.pb-hp{
-  flex:1 0 100%;height:6px;border-radius:999px;overflow:hidden;
-  background:rgb(255 255 255 / 12%);
-}
-.pb-hp i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#3fbf6a,#7ee29b);transition:width var(--dur) var(--ease-out);}
-.pb-hp.is-low i{background:linear-gradient(90deg,#c0392b,#ef7d6a);}
-.pb-hpn{flex:1 0 100%;font-size:10.5px;color:rgb(255 255 255 / 62%);}
-
-.pb-log{padding:10px 12px;border-top:1px solid var(--border);background:rgb(0 0 0 / 30%);}
-.pb-log p{margin:0;font-size:12px;line-height:1.5;color:var(--text-muted);}
-.pb-log p+p{margin-top:3px;opacity:.72;}
 
 .pb-moves{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px;}
 .pb-move{
@@ -2374,12 +2332,6 @@ html.no-motion .view,html.no-motion .ev-slide,html.no-motion .mobile-bar{animati
 
 /* ── Showdown battlers and move badges ──────────────────────────────────── */
 
-.pb-sprite{display:flex;justify-content:center;align-items:flex-end;flex:1 0 100%;height:74px;}
-.pb-sprite-img{height:100%;width:auto;max-width:100%;object-fit:contain;
-  image-rendering:pixelated;filter:drop-shadow(0 8px 14px rgb(0 0 0 / 55%));}
-.pb-sprite-img.is-foe{transform:scaleX(-1);}
-.pb-foe .pb-sprite{justify-content:flex-start;}
-.pb-you .pb-sprite{justify-content:flex-end;}
 .pb-type{width:auto;height:12px;vertical-align:-2px;margin-right:4px;}
 .pb-move-sub{display:flex;align-items:center;flex-wrap:wrap;gap:2px;}
 
@@ -2405,3 +2357,179 @@ html.no-motion .view,html.no-motion .ev-slide,html.no-motion .mobile-bar{animati
 
 /* Showdown sprites are 96px pixel art; keep them crisp when scaled up. */
 .pokemon-card-art img{image-rendering:pixelated;}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   POKÉMON → THE BATTLE FIELD
+   Drawn the way Showdown draws its own: a wide framed field, the foe standing
+   on the far side and your mon on the near side, each with a small HUD plate
+   and a ground shadow. The sprite is the subject - the HUD is deliberately
+   tiny - and a turn plays out as motion: your mon lunges, the target takes a
+   type-coloured flash. Everything collapses to a still frame for anyone who
+   asked for reduced motion.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.pb-scene{
+  position:relative;
+  display:grid;grid-template-rows:1fr 1fr;gap:4px;
+  aspect-ratio:5/4;min-height:248px;
+  padding:42px 10px 12px;
+  overflow:hidden;
+  background:
+    radial-gradient(ellipse at 50% -10%,rgb(255 255 255 / 10%),transparent 62%),
+    linear-gradient(180deg,#243447 0%,#2b3d52 46%,#1d2a1c 46%,#0d120b 100%);
+}
+.pb-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.45;}
+.pb-scene::after{
+  /* the ground line, where the two halves of the field meet */
+  content:"";position:absolute;left:-10%;right:-10%;top:46%;height:1px;
+  background:linear-gradient(90deg,transparent,rgb(255 255 255 / 22%),transparent);
+  pointer-events:none;
+}
+.pb-badge{
+  position:absolute;top:10px;left:10px;z-index:3;
+  padding:3px 9px;border-radius:999px;
+  font-size:9px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
+  color:#0a0805;background:var(--grad-1);
+  box-shadow:0 4px 12px rgb(0 0 0 / 45%);
+}
+
+/* One side of the field. Foe on the far bank, you on the near one. */
+.pb-row{position:relative;z-index:2;display:flex;align-items:center;gap:8px;min-height:0;}
+.pb-row.is-foe{align-items:flex-start;}
+.pb-row.is-you{align-items:flex-end;}
+
+/* ── the small HUD ─────────────────────────────────────────────────────── */
+.pb-hud{
+  flex:0 1 168px;min-width:0;
+  padding:5px 8px 6px;
+  border:1px solid rgb(255 255 255 / 14%);border-radius:8px;
+  background:rgb(6 10 8 / 78%);
+  box-shadow:0 6px 16px rgb(0 0 0 / 35%);
+  backdrop-filter:blur(3px);
+}
+.pb-hud-top{display:flex;align-items:baseline;justify-content:space-between;gap:6px;}
+.pb-hud-name{
+  font-size:11px;font-weight:800;letter-spacing:.01em;line-height:1.2;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  text-shadow:0 1px 4px rgb(0 0 0 / 70%);
+}
+.pb-hud-lv{flex:0 0 auto;font-size:9px;font-weight:800;color:var(--gold);letter-spacing:.02em;}
+.pb-hp{
+  position:relative;height:4px;margin-top:4px;border-radius:999px;overflow:hidden;
+  background:rgb(0 0 0 / 55%);border:1px solid rgb(255 255 255 / 12%);
+}
+.pb-hp i{
+  display:block;height:100%;border-radius:999px;
+  background:linear-gradient(90deg,#3fbf6a,#7ee29b);
+  transition:width .5s var(--ease-out),background .3s linear;
+}
+.pb-hp.is-mid i{background:linear-gradient(90deg,#d4af37,#f0d878);}
+.pb-hp.is-low i{background:linear-gradient(90deg,#c0392b,#ef7d6a);}
+.pb-hp.is-unknown{background:repeating-linear-gradient(90deg,rgb(255 255 255 / 12%) 0 4px,transparent 4px 8px);}
+.pb-hud-sub{margin-top:3px;font-size:9px;font-weight:700;color:rgb(255 255 255 / 55%);letter-spacing:.03em;}
+
+/* ── the battler ───────────────────────────────────────────────────────── */
+.pb-mon{
+  position:relative;flex:0 0 auto;
+  width:clamp(104px,36%,148px);aspect-ratio:1;
+  display:flex;align-items:flex-end;justify-content:center;
+}
+.pb-mon.is-foe{margin-right:2%;}
+.pb-mon.is-you{margin-left:2%;}
+.pb-mon-img{
+  position:relative;z-index:2;width:100%;height:100%;object-fit:contain;object-position:bottom center;
+  image-rendering:pixelated;
+  filter:drop-shadow(0 6px 8px rgb(0 0 0 / 45%));
+  transform-origin:50% 100%;
+  animation:pbBob 3.4s ease-in-out infinite;
+}
+.pb-mon.is-you .pb-mon-img{animation-delay:-1.2s;}
+.pb-mon-img.is-empty{display:grid;place-items:center;color:var(--gold);opacity:.7;animation:none;}
+
+/* the soft dark shape under the feet */
+.pb-mon-shadow{
+  position:absolute;left:50%;bottom:2px;z-index:1;
+  width:62%;height:12px;transform:translateX(-50%);
+  border-radius:50%;background:radial-gradient(ellipse,rgb(0 0 0 / 62%),transparent 72%);
+}
+/* the platform ring the games stand their Pokémon on */
+.pb-mon-platform{
+  position:absolute;left:50%;bottom:-2px;z-index:0;
+  width:78%;height:20px;transform:translateX(-50%);
+  border-radius:50%;
+  border:1px solid rgb(255 255 255 / 12%);
+  background:radial-gradient(ellipse at 50% 40%,rgb(255 255 255 / 10%),transparent 70%);
+}
+
+@keyframes pbBob{0%,100%{transform:translateY(0);}50%{transform:translateY(-5px);}}
+
+/* ── turn motion ───────────────────────────────────────────────────────── */
+/* Attacker: a quick lunge toward the other side of the field. */
+.pb-mon.is-you.is-attacking{animation:pbLungeYou .42s var(--ease-out);}
+.pb-mon.is-foe.is-attacking{animation:pbLungeFoe .42s var(--ease-out);}
+@keyframes pbLungeYou{
+  0%{transform:translate(0,0);}
+  38%{transform:translate(26%,-8%);}
+  100%{transform:translate(0,0);}
+}
+@keyframes pbLungeFoe{
+  0%{transform:translate(0,0);}
+  38%{transform:translate(-26%,8%);}
+  100%{transform:translate(0,0);}
+}
+
+/* Target: brace (a small pull-back), then take the hit. */
+.pb-mon.is-bracing .pb-mon-img{animation:pbBrace .42s var(--ease-out);}
+@keyframes pbBrace{
+  0%,100%{transform:translate(0,0);}
+  40%{transform:translate(-6%,4%);}
+}
+.pb-mon.is-hit{animation:pbShake .5s linear;}
+.pb-mon.is-hit .pb-mon-img{animation:pbBlink .5s linear;}
+@keyframes pbShake{
+  0%,100%{transform:translateX(0);}
+  12%{transform:translateX(-5px);}
+  30%{transform:translateX(5px);}
+  48%{transform:translateX(-3px);}
+  66%{transform:translateX(3px);}
+}
+@keyframes pbBlink{
+  0%,100%{filter:drop-shadow(0 6px 8px rgb(0 0 0 / 45%));}
+  20%,60%{filter:drop-shadow(0 6px 8px rgb(0 0 0 / 45%)) brightness(2.2) saturate(.4);opacity:.65;}
+}
+.pb-mon.is-faint{animation:pbFaint .62s var(--ease-out) forwards;}
+@keyframes pbFaint{
+  0%{transform:translateY(0);opacity:1;}
+  100%{transform:translateY(38%);opacity:0;}
+}
+
+/* The whole field lights up in the move's type colour for a frame. */
+.pb-flash{
+  position:absolute;inset:0;z-index:4;pointer-events:none;opacity:0;
+  background:radial-gradient(ellipse at 50% 40%,var(--hit,#c9a227),transparent 72%);
+  mix-blend-mode:screen;
+}
+.pb-scene.is-flashing .pb-flash{animation:pbFlash .5s ease-out;}
+@keyframes pbFlash{0%{opacity:0;}18%{opacity:.42;}100%{opacity:0;}}
+
+/* ── the turn log ──────────────────────────────────────────────────────── */
+.pb-log{padding:8px 12px;border-top:1px solid var(--border);background:rgb(0 0 0 / 34%);}
+.pb-log p{margin:0;font-size:11.5px;line-height:1.45;color:var(--text-subtle);}
+.pb-log p.is-now{font-size:12.5px;font-weight:700;color:var(--text);}
+.pb-log p+p{margin-top:2px;opacity:.66;}
+
+/* Move buttons carry their type as a colour bar on the left. */
+.pb-move{border-left:3px solid var(--tc,var(--border));}
+.pb-move:hover:not(:disabled){border-color:var(--tc,var(--gold));}
+
+@media (max-width:420px){
+  .pb-scene{aspect-ratio:1/1;padding-top:38px;}
+  .pb-hud{flex-basis:146px;}
+  .pb-mon{width:clamp(96px,34%,128px);}
+}
+@media (prefers-reduced-motion:reduce){
+  .pb-mon-img,.pb-mon.is-attacking,.pb-mon.is-hit,.pb-mon.is-hit .pb-mon-img,
+  .pb-mon.is-bracing .pb-mon-img,.pb-scene.is-flashing .pb-flash{animation:none;}
+  .pb-mon.is-faint{opacity:.25;}
+  .pb-hp i{transition:none;}
+}
