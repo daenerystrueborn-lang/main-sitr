@@ -12,6 +12,7 @@ whenever Showdown is slow).
 | `pokemon/<dex>.png` | front sprite for National Dex 1–1025 |
 | `pokemon/back/<dex>.png` | back sprite for the same 1025 species |
 | `items/<id>.png` | 61 item icons (balls, potions, status heals, berries, held items, repels) |
+| `battle/bg-forest-clearing.jpg` | Player-uploaded forest-clearing battlefield, used when the server sends no arena art |
 
 Files are keyed by **National Dex number**, not by name. `Nidoran♀` is `29.png`,
 `Mr. Mime` is `122.png` - see `spriteUrl()` in `assets/js/showdown.js`, which is
@@ -25,6 +26,9 @@ the only place a sprite path is built.
   serves.
 * Only the static front and back frames were copied. The `animated/` set is
   ~262 MB and is deliberately **not** in this repo.
+* Battlefield: the forest-clearing image supplied by the player in this session,
+  copied to `battle/bg-forest-clearing.jpg`. It is the offline/default arena; a
+  background sent by the game server still takes precedence.
 
 ## Data tables
 

@@ -82,12 +82,12 @@ const routes = {
   // Wallets, storage and progress are phone-only: the bot exposes them, but the
   // desktop site deliberately doesn't show them, so `mobile: true` makes
   // render() send a wide viewport back to home instead of showing a page with
-  // no way in. The Pokédex is different - it is a page of the site now, with a
+  // no way in. Pokémon is different - it is a page of the site now, with a
   // nav slot of its own, so it opens at every width.
   wallet: { view: 'view-wallet', title: 'Wallet', load: loadWallet, mobile: true, auth: true },
   storage: { view: 'view-storage', title: 'Storage', load: loadStoragePage, mobile: true, auth: true },
   progress: { view: 'view-progress', title: 'Progress', load: loadProgress, mobile: true, auth: true },
-  pokemon: { view: 'view-pokemon', title: 'Pokédex', load: loadPokemon, auth: true },
+  pokemon: { view: 'view-pokemon', title: 'Pokémon', load: loadPokemon, auth: true },
   404: { view: 'view-404', title: 'Not found' },
 }
 

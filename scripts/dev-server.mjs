@@ -45,4 +45,4 @@ http.createServer((req, res) => {
   })
   res.end(body)
   console.log(`${res.statusCode} ${url}${file.endsWith('index.html') && !url.endsWith('.html') && url !== '/' ? '  (fallback)' : ''}`)
-}).listen(PORT, () => console.log(`serving ${ROOT} on http://localhost:${PORT}`))
+}).listen(PORT, '0.0.0.0', () => console.log(`serving ${ROOT} on http://localhost:${PORT}`))
