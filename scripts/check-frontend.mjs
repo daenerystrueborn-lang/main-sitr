@@ -183,39 +183,16 @@ if (/\b(?:buyCardPull|buyCardTier)\b|data-buytier/.test(allJs))
   fail('card purchase code is still reachable from the frontend')
 else ok('frontend has no card purchase action')
 
-/* ── 5c. battle scene and Halloween success states stay true to the UI ─── */
+/* ── 5c. Pokémon UI is removed; Halloween success states stay true ───── */
 
 const mobilePages = js['assets/js/mobile-pages.js']
-const sceneRule = css.match(/\.pb-scene\s*\{([^}]*)\}/)?.[1] ?? ''
-if (!/width:\s*100%/.test(sceneRule) || !/aspect-ratio:\s*16\s*\/\s*9/.test(sceneRule))
-  fail('Pokémon battlefield should remain a full-width 16:9 scene')
-else ok('Pokémon battlefield is locked to a responsive 16:9 frame')
-
-const battleMonSource = mobilePages.match(/function battleMon\(m, \{ foe = false \} = \{\}\) \{([\s\S]*?)\n\}/)?.[0] ?? ''
-if (!/spriteUrl\(dexNo,\s*\{\s*back:\s*!foe\s*\}\)/.test(battleMonSource) || /\bimgOf\(m\)/.test(battleMonSource))
-  fail('battle Pokémon should use local front/back sprites, not front-facing portrait fallbacks')
-else ok('battle uses the correct local front/back sprite for each side')
-
-const battleBackground = mobilePages.match(/UPLOADED_BATTLE_BACKGROUND\s*=\s*'([^']+)'/)?.[1]
-if (battleBackground !== 'assets/sprites/battle/bg-forest-clearing.jpg'
-  || !fs.existsSync(path.join(ROOT, battleBackground)))
-  fail('the uploaded forest battlefield should be the local battle fallback')
-else ok('the uploaded forest battlefield is the local battle fallback')
-
-if (!/data-route=\"pokemon\">Pokémon<\/a>/.test(html)
-  || /data-route=\"pokemon\">Pokédex<\/a>/.test(html)
-  || !/title: 'Pokémon'/.test(js['assets/js/app.js']))
-  fail('Pokémon navigation and the route title should use “Pokémon”, not “Pokédex”')
-else ok('Pokémon navigation and route title use the requested label')
-
-if (!/export async function loadPokemon\(tab = 'overview'/.test(mobilePages)
-  || !/function overviewPanel\(\)/.test(mobilePages)
-  || !/Your lead Pokémon/.test(mobilePages)
-  || !/PC &amp; Collection/.test(mobilePages)
-  || !/function regionDetailPanel\(region\)/.test(mobilePages)
-  || !/function renderPokemonPage\([\s\S]*?No region browser,[\s\S]{0,100}page tabs are rendered alongside it/.test(mobilePages))
-  fail('the Pokémon hub should open on the collection home and isolate an active battle')
-else ok('the Pokémon hub home and focused battle view are wired')
+const appJs = js['assets/js/app.js']
+const hasPokemonUi = /href="#\/pokemon"|data-route="pokemon"|id="view-pokemon"|id="pokemonRoot"|poke-view|home-pokemon-section|id="homePokemon"/.test(html)
+  || /^\s*pokemon:\s*\{\s*view:\s*'view-pokemon'/m.test(appJs)
+  || /\b(?:loadPokemon|renderHomePokemon|fetchSunMoonPokemon)\b/.test(`${appJs}\n${mobilePages}`)
+if (hasPokemonUi)
+  fail('Pokémon page, navigation, or homepage teaser is still present')
+else ok('Pokémon page, route, navigation and homepage teaser are removed')
 
 const eventClaim = mobilePages.match(/async function claimEvent\(ev\) \{([\s\S]*?)\n\}/)?.[1] ?? ''
 const progressClaim = mobilePages.match(/async function claimHalloween\(btn\) \{([\s\S]*?)\n\}/)?.[1] ?? ''

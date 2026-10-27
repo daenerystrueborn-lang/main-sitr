@@ -6,7 +6,7 @@
  * flicking between tabs doesn't re-hit the API, while `reload()` exists for
  * the places that must be fresh after a mutation.
  */
-import { api, API_BASE, ApiError, onConnectionChange, onAuthLost, hasSession, fileToDataUrl, uploadToImgbb, fetchSunMoonPokemon } from './api.js'
+import { api, API_BASE, ApiError, onConnectionChange, onAuthLost, hasSession, fileToDataUrl, uploadToImgbb } from './api.js'
 import {
   $, $$, esc, attr, num, compact, usd, relTime, duration, titleCase,
   toast, busy, skeletonRows, skeletonCards,
@@ -17,7 +17,7 @@ import {
 } from './items.js'
 import {
   isMobileView, mountSeasonEvents, openInventoryManager, paintMobileBar,
-  loadWallet, loadStoragePage, loadProgress, loadPokemon,
+  loadWallet, loadStoragePage, loadProgress,
 } from './mobile-pages.js'
 
 /** astral's checkmark, used in every `.plan-features` list. */
@@ -82,12 +82,10 @@ const routes = {
   // Wallets, storage and progress are phone-only: the bot exposes them, but the
   // desktop site deliberately doesn't show them, so `mobile: true` makes
   // render() send a wide viewport back to home instead of showing a page with
-  // no way in. Pokémon is different - it is a page of the site now, with a
-  // nav slot of its own, so it opens at every width.
+  // no way in.
   wallet: { view: 'view-wallet', title: 'Wallet', load: loadWallet, mobile: true, auth: true },
   storage: { view: 'view-storage', title: 'Storage', load: loadStoragePage, mobile: true, auth: true },
   progress: { view: 'view-progress', title: 'Progress', load: loadProgress, mobile: true, auth: true },
-  pokemon: { view: 'view-pokemon', title: 'Pokémon', load: loadPokemon, auth: true },
   404: { view: 'view-404', title: 'Not found' },
 }
 
@@ -861,7 +859,7 @@ const PLATFORMS = {
   app: {
     label: 'Android',
     live: true,
-    sub: 'Dungeon raids, Pokemon battles and your empire, playable on your phone with the same character you use in chat.',
+    sub: 'Dungeon adventures and your empire, playable on your phone with the same character you use in chat.',
     actions: () => `
       <a class="btn btn-secondary" href="${attr(APP_RELEASES_URL)}" target="_blank" rel="noopener">
         <svg class="icon" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg> Release notes
@@ -905,14 +903,11 @@ async function loadHome() {
 
   paintHomeStatic()
 
-  const [meta, stats, board, pokemon] = await Promise.all([
+  const [meta, stats, board] = await Promise.all([
     ensureMeta(),
     api.stats().catch(err => { reportError(err); return null }),
     api.leaderboard('level', 5).catch(() => null),
-    fetchSunMoonPokemon().catch(() => []),
   ])
-
-  renderHomePokemon(pokemon)
 
   if (meta) {
     const sub = $('#heroSub')
@@ -961,30 +956,6 @@ async function loadHome() {
       ? board.rows.map(rowHtml).join('')
       : emptyState('rank', 'No one on the board yet', 'Be the first to register.')
   }
-}
-
-function renderHomePokemon(pokemon) {
-  const host = $('#homePokemon')
-  if (!host) return
-
-  if (!pokemon?.length) {
-    host.innerHTML = '<div class="pokemon-empty">The Alola roster is taking a short break. Check back soon.</div>'
-    return
-  }
-
-  host.innerHTML = pokemon.map(p => `
-    <article class="pokemon-card">
-      <div class="pokemon-card-art">
-        <span class="pokemon-number">#${String(p.id).padStart(3, '0')}</span>
-        <img src="${attr(p.image)}" alt="${attr(titleCase(p.name))}" loading="lazy">
-      </div>
-      <div class="pokemon-card-body">
-        <h3>${esc(titleCase(p.name))}</h3>
-        <div class="pokemon-types">
-          ${p.types.map(type => `<span class="pokemon-type type-${esc(type)}">${esc(titleCase(type))}</span>`).join('')}
-        </div>
-      </div>
-    </article>`).join('')
 }
 
 function paintHomeStatic() {

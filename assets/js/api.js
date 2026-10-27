@@ -107,47 +107,6 @@ export async function uploadToImgbb(dataUrl, name) {
   return data.url
 }
 
-/* ─────────────────────── Pokémon home-page showcase ────────────────────── */
-
-/**
- * A small Alola roster for the home page: the Gen VII Pokémon tied to the Sun
- * and Moon eras, so the showcase matches the two bots.
- *
- * Every sprite comes from Pokémon Showdown (see showdown.js), which has an id
- * for each of these, so the roster costs no requests at all - it used to be
- * eight PokéAPI calls on every cold load.
- */
-const SUN_MOON_ROSTER = [
-  { id: 722, name: 'Rowlet', types: ['grass', 'flying'] },
-  { id: 725, name: 'Litten', types: ['fire'] },
-  { id: 728, name: 'Popplio', types: ['water'] },
-  { id: 778, name: 'Mimikyu', types: ['ghost', 'fairy'] },
-  { id: 785, name: 'Tapu Koko', types: ['electric', 'fairy'] },
-  { id: 789, name: 'Cosmog', types: ['psychic'] },
-  { id: 791, name: 'Solgaleo', types: ['psychic', 'steel'] },
-  { id: 800, name: 'Necrozma', types: ['psychic'] },
-]
-
-/**
- * The sprite that ships with this site, by dex number.
- *
- * Kept local (rather than imported from showdown.js) because the standalone
- * mobile bundle extracts this file without that module - the showcase is the
- * only part of api.js that needs a sprite. Nothing is fetched from Showdown's
- * own servers: the files live in assets/sprites/.
- */
-const localSprite = (num) => {
-  const n = Number(num)
-  return Number.isInteger(n) && n > 0 && n <= 1025 ? `assets/sprites/pokemon/${n}.png` : ''
-}
-
-export async function fetchSunMoonPokemon() {
-  return SUN_MOON_ROSTER.map(entry => ({
-    ...entry,
-    image: localSprite(entry.id) || pokemonImageUrl(entry.id),
-  }))
-}
-
 /* ───────────────────────────── session token ───────────────────────────── */
 
 let token = null
