@@ -21,6 +21,9 @@ import {
   toast, emptyState, openModal, closeModal, skeletonCards, bar,
 } from './ui.js'
 import { itemCard, itemArt, itemMeta, itemSheetHtml, statBonusTiles, itemQty } from './items.js'
+import {
+  pick, toNum, counted, listOf, imgOf, cleanText, isOwned, plural, hueOf, crestInitials,
+} from './shape.js'
 
 /* ───────────────────────────── breakpoint ─────────────────────────────── */
 
@@ -368,9 +371,10 @@ async function mgrLoad({ append = false } = {}) {
 const mgrRoot = () => $('#mgrRoot')
 
 function mgrTabs() {
+  const equipped = Object.values(mgr.equipment ?? {}).filter(Boolean).length
   const tabs = [
-    ['items', 'Items'],
-    ['loadout', 'Loadout'],
+    ['items', `Items${mgr.items.length ? ` (${mgr.items.length})` : ''}`],
+    ['loadout', `Loadout${equipped ? ` (${equipped}/6)` : ''}`],
     ['pvp', 'PvP'],
   ]
   return `<div class="mgr-tabs" role="tablist" aria-label="Inventory sections">
@@ -382,13 +386,17 @@ function mgrTabs() {
 
 function mgrCapBar() {
   const pct = Math.min(100, Math.round((mgr.used / Math.max(1, mgr.capacity)) * 100))
+  // Past 85% the meter turns warm: at that point the next pickup may bounce,
+  // and a gold bar that has always looked decorative wouldn't say so.
+  const tight = pct >= 85
   return `
-    <div class="mgr-cap">
+    <div class="mgr-cap${tight ? ' is-tight' : ''}">
       <div class="mgr-cap-top">
-        <strong>${num(mgr.used)} <span class="subtext">/ ${num(mgr.capacity)} slots</span></strong>
-        <span class="mgr-cap-tag">${mgr.premium ? 'Premium' : 'Free'}</span>
+        <strong class="mgr-cap-num">${num(mgr.used)} <span class="subtext">/ ${num(mgr.capacity)} slots</span></strong>
+        <span class="mgr-cap-tag">${tight ? `${pct}% full` : (mgr.premium ? 'Premium' : 'Free')}</span>
       </div>
-      <div class="mgr-cap-track"><i style="width:${pct}%"></i></div>
+      <div class="mgr-cap-track" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+           aria-valuenow="${pct}" aria-label="Inventory space used"><i style="width:${pct}%"></i></div>
       ${mgr.premium
         ? `<p class="mgr-note">Premium space: ${num(CAP_PREMIUM)} stacks instead of ${num(CAP_FREE)}.</p>`
         : `<p class="mgr-note">Free accounts carry ${num(CAP_FREE)} stacks. Premium lifts it to ${num(CAP_PREMIUM)}.</p>`}
@@ -604,22 +612,49 @@ async function mgrDo(action, id) {
 
 /* ─────────────────────────────── guilds ───────────────────────────────── */
 
-const DEFAULT_EMPIRE_ART = 'https://i.ibb.co/8L7S38gD/Empires-Capital.jpg'
-
-function guildArt(g) {
-  // `/guilds/:query/image` is the guild's own crest; a guild without one falls
-  // back to the shared crest rather than an empty plate.
-  const query = g?.slug ?? g?.id ?? g?.name
-  if (g?.image) return g.image
-  if (query) return api.guildImage(query)
-  return ''
+/**
+ * Guild and empire crests.
+ *
+ * The API turned out to have no per-record artwork in the payloads the pages
+ * were reading: every guild fell back to the same `/image` endpoint and every
+ * empire to the same capital painting, so a list of thirty guilds looked like
+ * thirty copies of one guild.
+ *
+ * A crest is therefore generated from the record itself - initials plus a hue
+ * derived from the name - and the API image is layered on top when there is
+ * one. Same guild, same crest, on any device, with no request.
+ */
+function crestHtml(name, { img = '', size = 'md' } = {}) {
+  const label = cleanText(name, '?')
+  const hue = hueOf(label)
+  return `
+    <span class="crest crest-${attr(size)}" style="--h:${hue}">
+      <span class="crest-glyph">${esc(crestInitials(label))}</span>
+      ${img ? `<img src="${attr(img)}" alt="" loading="lazy" referrerpolicy="no-referrer"
+                    onerror="this.remove()">` : ''}
+    </span>`
 }
 
-function statChips(stats) {
-  return Object.entries(stats ?? {})
-    .filter(([, v]) => v != null && v !== '')
-    .map(([k, v]) => `<span class="stat-chip"><span>${esc(titleCase(k))}</span><strong>${esc(typeof v === 'number' ? num(v) : String(v))}</strong></span>`)
-    .join('')
+/** The record's own image, if the API gave one. No shared fallback here. */
+const recordArt = (rec) => imgOf(rec)
+
+function guildQuery(g) {
+  return g?.slug ?? g?.query ?? g?.guildId ?? g?.id ?? g?.tag ?? g?.name ?? ''
+}
+
+/**
+ * Guild numbers, read defensively: `memberCount`, `members` (number or array),
+ * `citizens`, `population`, `size` all reach the same slot.
+ */
+function guildFacts(g) {
+  const members = counted(pick(g, ['memberCount', 'membersCount', 'members', 'citizenCount', 'population', 'size']), null)
+  const level = toNum(pick(g, ['level', 'tier', 'guildLevel']), null)
+  const power = toNum(pick(g, ['power', 'score', 'points', 'prestige', 'contribution']), null)
+  return [
+    members != null && `${num(members)} ${plural(members, 'member')}`,
+    level != null && `Lv ${num(level)}`,
+    power != null && `${num(power)} power`,
+  ].filter(Boolean)
 }
 
 export async function loadGuilds() {
@@ -632,13 +667,14 @@ export async function loadGuilds() {
     api.guilds().catch(err => ({ __error: err })),
   ])
 
-  if (list?.__error) {
+  if (list?.__error && !mine) {
     root.innerHTML = emptyState('warning', 'Guilds aren’t live yet', list.__error.message ?? 'The bot hasn’t opened this route.')
     return
   }
 
-  const guilds = list?.guilds ?? list?.rows ?? list?.items ?? (Array.isArray(list) ? list : [])
-  const myGuild = mine?.guild ?? mine?.guilds ?? (mine?.name ? mine : null)
+  const guilds = listOf(list, ['guilds', 'rows', 'results'])
+  const myGuild = listOf(mine, ['guilds'])[0] ?? (pick(mine, ['guild']) ?? (pick(mine, ['name']) ? mine : null))
+  const mineQuery = myGuild ? guildQuery(myGuild) : ''
 
   root.innerHTML = `
     ${myGuild ? `
@@ -647,10 +683,12 @@ export async function loadGuilds() {
         ${guildCard(myGuild, { mine: true })}
       </section>` : ''}
     <section class="mob-sec">
-      <div class="sec-head"><h2>All guilds</h2><span class="subtext">${num(guilds.length)} open</span></div>
+      <div class="sec-head"><h2>All guilds</h2><span class="subtext">${num(guilds.length)} listed</span></div>
       ${guilds.length
-        ? `<div class="guild-list">${guilds.map(g => guildCard(g)).join('')}</div>`
-        : emptyState('rank', 'No guilds yet', 'Guilds appear here as they’re founded in the bot.')}
+        ? `<div class="guild-grid">${guilds
+          .filter(g => guildQuery(g) !== mineQuery)
+          .map(g => guildCard(g)).join('')}</div>`
+        : emptyState('rank', 'No guilds listed', 'Guilds appear here as they’re founded in the bot.')}
     </section>`
 
   for (const card of $$('[data-guild]', root)) {
@@ -659,22 +697,20 @@ export async function loadGuilds() {
 }
 
 function guildCard(g, { mine = false } = {}) {
-  const query = g.slug ?? g.id ?? g.name
-  const members = g.memberCount ?? g.members?.length ?? g.members
-  const art = guildArt(g)
+  const query = guildQuery(g)
+  const name = cleanText(pick(g, ['name', 'guildName', 'title']), 'Guild')
+  const tag = cleanText(pick(g, ['tag', 'guildTag', 'shortName']))
+  const facts = guildFacts(g)
+  const desc = cleanText(pick(g, ['description', 'bio', 'motto', 'about']))
+  const leader = cleanText(pick(g, ['leaderName', 'ownerName', 'leader', 'owner', 'master']))
+
   return `
     <button type="button" class="guild-card${mine ? ' is-mine' : ''}" data-guild="${attr(query)}">
-      <span class="guild-art">
-        ${art
-          ? `<img src="${attr(art)}" alt="" loading="lazy" referrerpolicy="no-referrer"
-                  onerror="this.remove()">`
-          : `<span class="guild-art-ph">${iconSvg('rank', 'inventory-icon')}</span>`}
-      </span>
+      ${crestHtml(name, { img: recordArt(g), size: 'md' })}
       <span class="guild-body">
-        <span class="guild-name">${esc(g.name ?? 'Guild')}${g.tag ? ` <span class="guild-tag">[${esc(g.tag)}]</span>` : ''}</span>
-        <span class="guild-sub">${members != null ? `${num(members)} member${Number(members) === 1 ? '' : 's'}` : 'Guild'}${
-          g.leaderName || g.leader ? ` · led by ${esc(g.leaderName ?? g.leader?.name ?? g.leader)}` : ''}</span>
-        ${g.description ? `<span class="guild-desc">${esc(g.description)}</span>` : ''}
+        <span class="guild-name">${esc(name)}${tag ? ` <span class="guild-tag">[${esc(tag)}]</span>` : ''}</span>
+        <span class="guild-sub">${esc(facts.join(' · ') || (leader ? `Led by ${leader}` : 'Guild'))}</span>
+        ${desc ? `<span class="guild-desc">${esc(desc)}</span>` : ''}
       </span>
       <span class="guild-go">${iconSvg('chevron', 'inline-icon')}</span>
     </button>`
@@ -693,40 +729,42 @@ async function openGuild(query) {
     return
   }
 
-  const g = detail?.guild ?? detail?.guilds ?? detail
-  const rows = board?.rows ?? board?.board ?? (Array.isArray(board) ? board : [])
-  const stock = shop?.items ?? shop?.shop ?? (Array.isArray(shop) ? shop : [])
+  const g = pick(detail, ['guild']) ?? detail
+  const rows = listOf(board, ['rows', 'board', 'members', 'leaderboard'])
+  const stock = listOf(shop, ['items', 'shop', 'stock', 'offers'])
+  const name = cleanText(pick(g, ['name', 'guildName', 'title']), 'Guild')
+  const facts = guildFacts(g)
 
   openModal(`
     <div class="guild-sheet">
-      <div class="guild-sheet-art">
-        ${guildArt(g)
-          ? `<img src="${attr(guildArt(g))}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">`
-          : `<span class="guild-art-ph">${iconSvg('rank', 'inventory-icon')}</span>`}
-        <div class="ev-veil"></div>
-        <div class="guild-sheet-title">
-          <h3>${esc(g.name ?? 'Guild')}</h3>
-          <p>${esc([g.tag && `[${g.tag}]`, g.memberCount != null && `${num(g.memberCount)} members`].filter(Boolean).join(' · ') || 'Guild')}</p>
+      <div class="guild-sheet-head">
+        ${crestHtml(name, { img: recordArt(g), size: 'lg' })}
+        <div class="guild-sheet-id">
+          <h3>${esc(name)}</h3>
+          <p>${esc(facts.join(' · ') || 'Guild')}</p>
         </div>
       </div>
       <div class="pd-body">
-        ${g.description ? `<p class="subtext">${esc(g.description)}</p>` : ''}
-        ${Object.keys(g.stats ?? {}).length ? `<div class="stat-chips">${statChips(g.stats)}</div>` : ''}
+        ${cleanText(pick(g, ['description', 'bio', 'motto', 'about'])) ? `<p class="subtext">${esc(cleanText(pick(g, ['description', 'bio', 'motto', 'about'])))}</p>` : ''}
+        ${statChips(pick(g, ['stats', 'perks', 'bonuses']))}
 
         <div class="pd-sec-title">Leaderboard</div>
         ${rows.length ? `<div class="lb-list">${rows.slice(0, 12).map((r, i) => `
           <div class="lb-row is-static">
             <span class="lb-rank">${i + 1}</span>
-            <span class="lb-name">${esc(r.name ?? r.player ?? 'Member')}<span class="sub">${esc(r.role ?? '')}</span></span>
-            <span class="lb-score">${num(r.score ?? r.points ?? r.contribution ?? 0)}</span>
+            <span class="lb-name">${esc(cleanText(pick(r, ['name', 'player', 'playerName', 'username']), 'Member'))}
+              <span class="sub">${esc(cleanText(pick(r, ['role', 'rank']), ''))}</span></span>
+            <span class="lb-score">${num(counted(pick(r, ['score', 'points', 'contribution', 'power']), 0))}</span>
           </div>`).join('')}</div>`
           : `<p class="subtext">No contributions logged yet.</p>`}
 
         <div class="pd-sec-title">Guild shop</div>
         ${stock.length ? `<div class="mgr-grid">${stock.slice(0, 8).map(i => `
-          <div class="item-card is-static">${itemArt(i.image)}
-            <span class="item-card-name">${esc(i.name ?? 'Item')}</span>
-            <span class="item-card-sub">${i.price != null ? `${num(i.price)} solars` : esc(itemMeta(i))}</span>
+          <div class="item-card is-static">${itemArt(imgOf(i))}
+            <span class="item-card-name">${esc(cleanText(pick(i, ['name', 'title']), 'Item'))}</span>
+            <span class="item-card-sub">${toNum(pick(i, ['price', 'cost', 'buyPrice']), null) != null
+              ? `${num(toNum(pick(i, ['price', 'cost', 'buyPrice']), 0))} solars`
+              : esc(itemMeta(i))}</span>
           </div>`).join('')}</div>`
           : `<p class="subtext">This guild hasn’t stocked its shop yet.</p>`}
       </div>
@@ -734,6 +772,23 @@ async function openGuild(query) {
 }
 
 /* ─────────────────────────────── empires ──────────────────────────────── */
+
+const EMPIRE_CAPITAL_ART = 'https://i.ibb.co/8L7S38gD/Empires-Capital.jpg'
+
+function empireQuery(e) {
+  return e?.slug ?? e?.query ?? e?.empireId ?? e?.id ?? e?.name ?? ''
+}
+
+function empireFacts(e) {
+  const citizens = counted(pick(e, ['citizenCount', 'population', 'members', 'memberCount', 'citizens']), null)
+  const land = counted(pick(e, ['territoryCount', 'territories', 'land', 'provinces', 'tiles']), null)
+  const power = toNum(pick(e, ['power', 'militaryPower', 'army', 'strength', 'score']), null)
+  return [
+    citizens != null && `${num(citizens)} ${plural(citizens, 'citizen')}`,
+    land != null && `${num(land)} ${plural(land, 'territory', 'territories')}`,
+    power != null && `${num(power)} power`,
+  ].filter(Boolean)
+}
 
 export async function loadEmpires() {
   const root = $('#empireRoot')
@@ -745,35 +800,40 @@ export async function loadEmpires() {
     api.empires().catch(err => ({ __error: err })),
   ])
 
-  if (list?.__error) {
+  if (list?.__error && !mine) {
     root.innerHTML = emptyState('warning', 'Empires aren’t live yet', list.__error.message ?? 'The bot hasn’t opened this route.')
     return
   }
 
-  const empires = list?.empires ?? list?.rows ?? list?.items ?? (Array.isArray(list) ? list : [])
-  const myEmpire = mine?.empire ?? (mine?.name ? mine : null)
+  const empires = listOf(list, ['empires', 'rows', 'results'])
+  const myEmpire = listOf(mine, ['empires'])[0] ?? (pick(mine, ['empire']) ?? (pick(mine, ['name']) ? mine : null))
+  const myQuery = myEmpire ? empireQuery(myEmpire) : ''
 
   root.innerHTML = `
-    <div class="empire-hero">
-      <img src="${DEFAULT_EMPIRE_ART}" alt="" referrerpolicy="no-referrer" decoding="async">
-      <div class="ev-veil"></div>
-      <div class="empire-hero-body">
-        <span class="ev-badge">Empires</span>
-        <h2>${myEmpire ? esc(myEmpire.name) : 'Claim your corner of the map'}</h2>
-        <p>${myEmpire
-          ? esc(myEmpire.description ?? 'Your empire, its holdings and its garrison.')
-          : 'Empires hold territory, raise armies and tax the roads between them.'}</p>
+    <section class="mob-sec">
+      <div class="empire-hero">
+        <img src="${EMPIRE_CAPITAL_ART}" alt="" referrerpolicy="no-referrer" decoding="async">
+        <div class="ev-veil"></div>
+        <div class="empire-hero-body">
+          <span class="ev-badge">Empires</span>
+          <h2>${myEmpire ? esc(cleanText(pick(myEmpire, ['name', 'empireName']), 'Your empire')) : 'Claim your corner of the map'}</h2>
+          <p>${myEmpire
+            ? esc(empireFacts(myEmpire).join(' · ') || 'Your empire, its holdings and its garrison.')
+            : 'Empires hold territory, raise armies and tax the roads between them.'}</p>
+        </div>
       </div>
-    </div>
-    ${myEmpire && (myEmpire.description || myEmpire.name) ? `
+    </section>
+
+    ${myEmpire ? `
       <section class="mob-sec">
         <div class="sec-head"><h2>Your empire</h2></div>
         ${empireCard(myEmpire, { mine: true })}
       </section>` : ''}
+
     <section class="mob-sec">
       <div class="sec-head"><h2>All empires</h2><span class="subtext">${num(empires.length)} standing</span></div>
       ${empires.length
-        ? `<div class="guild-list">${empires.map(e => empireCard(e)).join('')}</div>`
+        ? `<div class="guild-grid">${empires.filter(e => empireQuery(e) !== myQuery).map(e => empireCard(e)).join('')}</div>`
         : emptyState('rank', 'No empires yet', 'The first empire to rise will be listed here.')}
     </section>`
 
@@ -783,18 +843,19 @@ export async function loadEmpires() {
 }
 
 function empireCard(e, { mine = false } = {}) {
-  const query = e.slug ?? e.id ?? e.name
-  const art = e.image || DEFAULT_EMPIRE_ART
+  const query = empireQuery(e)
+  const name = cleanText(pick(e, ['name', 'empireName', 'title']), 'Empire')
+  const facts = empireFacts(e)
+  const ruler = cleanText(pick(e, ['rulerName', 'leaderName', 'ruler', 'leader', 'emperor', 'owner']))
+  const desc = cleanText(pick(e, ['description', 'bio', 'motto', 'about']))
+
   return `
     <button type="button" class="guild-card empire-card${mine ? ' is-mine' : ''}" data-empire="${attr(query)}">
-      <span class="guild-art">
-        <img src="${attr(art)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">
-      </span>
+      ${crestHtml(name, { img: recordArt(e), size: 'md' })}
       <span class="guild-body">
-        <span class="guild-name">${esc(e.name ?? 'Empire')}</span>
-        <span class="guild-sub">${[e.rulerName ?? e.ruler, e.territoryCount != null && `${num(e.territoryCount)} territories`, e.population != null && `${num(e.population)} citizens`]
-          .filter(Boolean).map(v => esc(String(v))).join(' · ') || 'Empire'}</span>
-        ${e.description ? `<span class="guild-desc">${esc(e.description)}</span>` : ''}
+        <span class="guild-name">${esc(name)}</span>
+        <span class="guild-sub">${esc([ruler && `Ruled by ${ruler}`, ...facts].filter(Boolean).join(' · ') || 'Empire')}</span>
+        ${desc ? `<span class="guild-desc">${esc(desc)}</span>` : ''}
       </span>
       <span class="guild-go">${iconSvg('chevron', 'inline-icon')}</span>
     </button>`
@@ -805,30 +866,35 @@ async function openEmpire(query) {
   openModal(skeletonCards(2))
   try {
     const out = await api.empire(query)
-    const e = out?.empire ?? out
+    const e = pick(out, ['empire']) ?? out
+    const name = cleanText(pick(e, ['name', 'empireName', 'title']), 'Empire')
+    const territories = listOf(e, ['territories', 'provinces', 'land', 'tiles'])
+    const citizens = listOf(e, ['citizens', 'members', 'population', 'people'])
+
     openModal(`
       <div class="guild-sheet">
-        <div class="guild-sheet-art">
-          <img src="${attr(e.image || DEFAULT_EMPIRE_ART)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">
-          <div class="ev-veil"></div>
-          <div class="guild-sheet-title">
-            <h3>${esc(e.name ?? 'Empire')}</h3>
-            <p>${esc([e.rulerName ?? e.ruler, e.territoryCount != null && `${num(e.territoryCount)} territories`].filter(Boolean).join(' · ') || 'Empire')}</p>
+        <div class="guild-sheet-head">
+          ${crestHtml(name, { img: recordArt(e), size: 'lg' })}
+          <div class="guild-sheet-id">
+            <h3>${esc(name)}</h3>
+            <p>${esc(empireFacts(e).join(' · ') || 'Empire')}</p>
           </div>
         </div>
         <div class="pd-body">
-          ${e.description ? `<p class="subtext">${esc(e.description)}</p>` : ''}
-          ${Object.keys(e.stats ?? {}).length ? `<div class="stat-chips">${statChips(e.stats)}</div>` : ''}
-          ${Array.isArray(e.territories) && e.territories.length ? `
+          ${cleanText(pick(e, ['description', 'bio', 'motto', 'about'])) ? `<p class="subtext">${esc(cleanText(pick(e, ['description', 'bio', 'motto', 'about'])))}</p>` : ''}
+          ${statChips(pick(e, ['stats', 'perks', 'bonuses']))}
+          ${territories.length ? `
             <div class="pd-sec-title">Territories</div>
-            <div class="chips-wrap">${e.territories.map(t => `<span class="chip-sm">${esc(t.name ?? t)}</span>`).join('')}</div>` : ''}
-          ${Array.isArray(e.members) && e.members.length ? `
+            <div class="chips-wrap">${territories.slice(0, 24).map(t => `
+              <span class="chip-sm">${esc(cleanText(typeof t === 'string' ? t : pick(t, ['name', 'title', 'region']), 'Territory'))}</span>`).join('')}</div>` : ''}
+          ${citizens.length ? `
             <div class="pd-sec-title">Citizens</div>
-            <div class="lb-list">${e.members.slice(0, 12).map((m, i) => `
+            <div class="lb-list">${citizens.slice(0, 12).map((m, i) => `
               <div class="lb-row is-static">
                 <span class="lb-rank">${i + 1}</span>
-                <span class="lb-name">${esc(m.name ?? m.player ?? 'Citizen')}<span class="sub">${esc(m.role ?? '')}</span></span>
-                <span class="lb-score">${m.power != null ? num(m.power) : ''}</span>
+                <span class="lb-name">${esc(cleanText(typeof m === 'string' ? m : pick(m, ['name', 'player', 'playerName']), 'Citizen'))}
+                  <span class="sub">${esc(cleanText(pick(m, ['role', 'rank', 'title']), ''))}</span></span>
+                <span class="lb-score">${toNum(pick(m, ['power', 'score', 'level']), null) != null ? num(toNum(pick(m, ['power', 'score', 'level']), 0)) : ''}</span>
               </div>`).join('')}</div>` : ''}
         </div>
       </div>`)
@@ -839,47 +905,79 @@ async function openEmpire(query) {
 
 /* ──────────────────────────────── wallet ──────────────────────────────── */
 
-let walletData = null
+let walletRaw = null
+
+/**
+ * The four balances, read from whichever envelope the bot used.
+ *
+ * `/wallet` came back in a shape the first pass didn't understand, so the bank
+ * printed `NaN` and carried printed `0` even with money in the account. Two
+ * fixes: numbers go through toNum() (which understands objects and formatted
+ * strings), and the wallet falls back to `/me`, whose shape is known-good
+ * because the profile page already renders it correctly.
+ */
+function walletView(walletPayload, mePlayer) {
+  const w = pick(walletPayload, ['wallet']) ?? walletPayload ?? {}
+  const me = mePlayer?.wallet ?? {}
+
+  const value = (keys, meValue) => {
+    const direct = toNum(pick(w, keys), null)
+    if (direct != null) return direct
+    return toNum(meValue, 0)
+  }
+
+  return {
+    carried: value(['solars', 'carried', 'balance', 'cash', 'available', 'coins', 'money'], me.solars),
+    bank: toNum(pick(w, ['bank', 'banked', 'bankBalance', 'bank_balance', 'inBank']), 0),
+    vault: value(['vault', 'vaulted', 'vaultBalance', 'inVault'], me.vault),
+    gems: value(['gems', 'gem', 'gemBalance', 'crystals'], me.gems),
+    loan: toNum(pick(w, ['loan', 'loanDue', 'debt', 'owed', 'outstanding']), 0),
+    loanDueAt: pick(w, ['loanDueAt', 'dueAt', 'loanEndsAt']) ?? null,
+  }
+}
 
 export async function loadWallet() {
   const root = $('#walletRoot')
   if (!root) return
   root.innerHTML = skeletonCards(2)
 
-  const [wallet, ledger] = await Promise.all([
+  const [wallet, ledger, me] = await Promise.all([
     api.wallet().catch(err => ({ __error: err })),
     api.walletLedger().catch(() => null),
+    api.me().catch(() => null),
   ])
-  if (wallet?.__error) {
+
+  if (wallet?.__error && !me) {
     root.innerHTML = emptyState('warning', 'Wallet unavailable', wallet.__error.message ?? '')
     return
   }
 
-  const w = wallet?.wallet ?? wallet
-  walletData = w
-  const ledgerRows = ledger?.rows ?? ledger?.entries ?? (Array.isArray(ledger) ? ledger : [])
+  const player = me?.player ?? null
+  const w = walletView(wallet?.__error ? null : wallet, player)
+  walletRaw = w
+  const ledgerRows = listOf(ledger, ['rows', 'entries', 'transactions', 'ledger', 'activity'])
 
   root.innerHTML = `
     <div class="wallet-grid">
       ${[
-        ['Carried', w.solars ?? w.balance, 'solars', 'spark'],
-        ['Bank', w.bank ?? 0, 'solars', 'rank'],
-        ['Vault', w.vault ?? 0, 'solars', 'lock'],
-        ['Gems', w.gems ?? 0, 'gems', 'gift'],
+        ['Carried', w.carried, 'solars', 'spark'],
+        ['Bank', w.bank, 'solars', 'rank'],
+        ['Vault', w.vault, 'solars', 'lock'],
+        ['Gems', w.gems, 'gems', 'gift'],
       ].map(([label, value, unit, icon]) => `
         <div class="wallet-card">
           <span class="wallet-ico">${iconSvg(icon, 'inline-icon')}</span>
           <span class="wallet-k">${label}</span>
-          <strong class="wallet-v">${num(value ?? 0)}</strong>
+          <strong class="wallet-v">${num(value)}</strong>
           <span class="wallet-u">${unit}</span>
         </div>`).join('')}
     </div>
 
-    ${w.loan || w.loanDue ? `
+    ${w.loan > 0 ? `
       <div class="card wallet-loan">
         <div>
-          <strong>Outstanding loan</strong>
-          <p class="subtext">${num(w.loan ?? w.loanDue)} solars${w.loanDueAt ? ` · due ${new Date(w.loanDueAt).toLocaleDateString()}` : ''}</p>
+          <strong>Loan outstanding</strong>
+          <p class="subtext">${num(w.loan)} solars${w.loanDueAt ? ` · due ${new Date(w.loanDueAt).toLocaleDateString()}` : ''}</p>
         </div>
         <button type="button" class="btn btn-secondary btn-sm" id="walletRepay">Repay</button>
       </div>` : ''}
@@ -902,12 +1000,17 @@ export async function loadWallet() {
 
     <section class="mob-sec">
       <div class="sec-head"><h2>Recent activity</h2></div>
-      ${ledgerRows.length ? `<div class="ledger">${ledgerRows.slice(0, 20).map(r => `
+      ${ledgerRows.length ? `<div class="ledger">${ledgerRows.slice(0, 20).map(r => {
+        const amount = toNum(pick(r, ['amount', 'delta', 'change', 'value']), 0)
+        const label = cleanText(pick(r, ['label', 'reason', 'type', 'description', 'note']), 'Transaction')
+        const at = pick(r, ['at', 'date', 'createdAt', 'timestamp', 'time'])
+        const when = at ? new Date(at) : null
+        return `
         <div class="ledger-row">
-          <span class="ledger-what">${esc(r.label ?? r.reason ?? r.type ?? 'Transaction')}
-            <span class="subtext">${esc(r.at ? new Date(r.at).toLocaleDateString() : '')}</span></span>
-          <span class="ledger-amt${Number(r.amount) < 0 ? ' is-out' : ''}">${Number(r.amount) > 0 ? '+' : ''}${num(r.amount ?? 0)}</span>
-        </div>`).join('')}</div>`
+          <span class="ledger-what">${esc(label)}
+            <span class="subtext">${when && !isNaN(when) ? esc(when.toLocaleDateString()) : ''}</span></span>
+          <span class="ledger-amt${amount < 0 ? ' is-out' : ''}">${amount > 0 ? '+' : ''}${num(amount)}</span>
+        </div>`}).join('')}</div>`
         : emptyState('inventory', 'No activity yet', 'Deposits, rewards and purchases show up here.')}
     </section>`
 
@@ -943,12 +1046,26 @@ function wireWallet() {
 
   const repay = $('#walletRepay')
   if (repay) repay.onclick = async () => {
-    try { await api.repayLoan(walletData?.loan ?? walletData?.loanDue ?? 0); toast('Loan repaid', 'ok'); await loadWallet() }
+    try { await api.repayLoan(walletRaw?.loan ?? 0); toast('Loan repaid', 'ok'); await loadWallet() }
     catch (e) { toast(e?.message ?? 'Could not repay', 'err') }
   }
 }
 
 /* ──────────────────────────────── storage ─────────────────────────────── */
+
+/** "Do I own the ender chest?" - the buy button used to ignore every spelling
+ *  except one, so a purchased chest still read as locked. */
+function enderOwned(s) {
+  const direct = pick(s, ['enderChest', 'enderChestOwned', 'enderOwned', 'enderUnlocked',
+    'ender', 'enderChests', 'enderChestSlots', 'enderSlots'])
+  if (direct !== undefined) return isOwned(direct)
+  const chests = pick(s, ['chests'])
+  if (chests && typeof chests === 'object') {
+    const e = chests.ender ?? chests.enderChest
+    if (e !== undefined) return isOwned(e)
+  }
+  return false
+}
 
 export async function loadStoragePage() {
   const root = $('#storageRoot')
@@ -961,22 +1078,33 @@ export async function loadStoragePage() {
     return
   }
 
-  const s = out?.storage ?? out
-  const items = s.items ?? s.chest ?? []
-  const used = s.used ?? items.length
-  const capacity = s.capacity ?? 0
+  const s = pick(out, ['storage']) ?? out
+  const items = listOf(pick(s, ['items']) ?? s, ['items', 'chest', 'stacks'])
+  const used = counted(pick(s, ['used', 'slotsUsed', 'count']), items.length)
+  const capacity = counted(pick(s, ['capacity', 'slots', 'size', 'max', 'maxSlots']), 0)
+  const ender = enderOwned(s)
+  const pct = capacity ? Math.min(100, Math.round((used / capacity) * 100)) : 0
 
   root.innerHTML = `
     <div class="storage-cards">
       <div class="storage-card">
         <span class="wallet-ico">${iconSvg('inventory', 'inline-icon')}</span>
-        <div><strong>Chest</strong><p class="subtext">${num(used)} / ${num(capacity)} slots</p></div>
+        <div>
+          <strong>Chest</strong>
+          <p class="subtext">${num(used)} / ${capacity ? num(capacity) : '—'} slots</p>
+          ${capacity ? `<div class="mgr-cap-track"><i style="width:${pct}%"></i></div>` : ''}
+        </div>
         <button type="button" class="btn btn-secondary btn-sm" id="buyChest">Buy slot</button>
       </div>
-      <div class="storage-card">
+      <div class="storage-card${ender ? ' is-owned' : ''}">
         <span class="wallet-ico">${iconSvg('gift', 'inline-icon')}</span>
-        <div><strong>Ender chest</strong><p class="subtext">${s.enderChest ? 'Owned' : 'Not owned yet'}</p></div>
-        <button type="button" class="btn btn-secondary btn-sm" id="buyEnder">${s.enderChest ? 'Upgrade' : 'Unlock'}</button>
+        <div>
+          <strong>Ender chest ${ender ? '<span class="chip-sm">Owned</span>' : ''}</strong>
+          <p class="subtext">${ender ? 'Unlocked on this account.' : 'Extra storage that follows you between runs.'}</p>
+        </div>
+        <button type="button" class="btn ${ender ? 'btn-ghost' : 'btn-secondary'} btn-sm" id="buyEnder" ${ender ? 'disabled' : ''}>
+          ${ender ? 'Unlocked' : 'Unlock'}
+        </button>
       </div>
     </div>
 
@@ -998,13 +1126,15 @@ export async function loadStoragePage() {
   }
   const chest = $('#buyChest')
   if (chest) chest.onclick = async () => {
+    chest.disabled = true
     try { await api.buyStorageChest(); toast('Chest expanded', 'ok'); await loadStoragePage() }
-    catch (e) { toast(e?.message ?? 'Could not buy that', 'err') }
+    catch (e) { chest.disabled = false; toast(e?.message ?? 'Could not buy that', 'err') }
   }
-  const ender = $('#buyEnder')
-  if (ender) ender.onclick = async () => {
+  const enderBtn = $('#buyEnder')
+  if (enderBtn && !ender) enderBtn.onclick = async () => {
+    enderBtn.disabled = true
     try { await api.buyEnderChest(); toast('Ender chest unlocked', 'ok'); await loadStoragePage() }
-    catch (e) { toast(e?.message ?? 'Could not buy that', 'err') }
+    catch (e) { enderBtn.disabled = false; toast(e?.message ?? 'Could not buy that', 'err') }
   }
 }
 
@@ -1015,60 +1145,87 @@ export async function loadProgress() {
   if (!root) return
   root.innerHTML = skeletonCards(2)
 
-  const [quests, achievements, progress] = await Promise.all([
+  const [quests, achievements, progress, me] = await Promise.all([
     api.quests().catch(err => ({ __error: err })),
     api.achievements().catch(() => null),
     api.progress().catch(() => null),
+    api.me().catch(() => null),
   ])
 
-  if (quests?.__error) {
+  if (quests?.__error && !me) {
     root.innerHTML = emptyState('warning', 'Progress unavailable', quests.__error.message ?? '')
     return
   }
 
-  const q = quests?.quests ?? (Array.isArray(quests) ? quests : [])
-  const a = achievements?.achievements ?? (Array.isArray(achievements) ? achievements : [])
-  const p = progress?.progress ?? progress ?? {}
+  const q = listOf(quests, ['quests', 'items', 'rows'])
+  const a = listOf(achievements, ['achievements', 'items', 'rows'])
+  const p = pick(progress, ['progress']) ?? progress ?? {}
+  const player = me?.player ?? null
 
-  const questRow = (item) => `
-    <div class="quest-row">
-      <span class="quest-ico">${iconSvg('spark', 'inline-icon')}</span>
-      <div class="quest-body">
-        <strong>${esc(item.name ?? item.title ?? 'Quest')}</strong>
-        <span class="subtext">${esc(item.description ?? '')}</span>
-        ${item.goal != null ? `<div class="quest-bar">${bar('', item.progress ?? 0, item.goal)}</div>
-          <span class="subtext">${num(item.progress ?? 0)} / ${num(item.goal)}</span>` : ''}
-      </div>
-      ${item.claimable
-        ? `<button type="button" class="btn btn-primary btn-sm" data-claim-quest="${attr(item.id)}">Claim</button>`
-        : item.claimed ? `<span class="chip-sm">Claimed</span>` : ''}
-    </div>`
+  // Only show what actually resolved. `rank` came back null and was printed as
+  // the word "null"; now it falls back to the rank on /me, then disappears.
+  const rankTitle = cleanText(pick(p, ['rankTitle', 'rank', 'title']) ?? player?.rank?.title, '')
+  const statRows = [
+    ['Level', toNum(pick(p, ['level']), player?.level)],
+    ['Rank', rankTitle || null],
+    ['Quests done', toNum(pick(p, ['questsDone', 'questsCompleted', 'completedQuests']), null)],
+    ['Achievements', toNum(pick(p, ['achievementsUnlocked', 'achievements']), null)],
+    ['Fame', toNum(pick(p, ['fame', 'reputation']), null)],
+    ['Streak', toNum(pick(p, ['streak', 'winStreak']), null)],
+  ].filter(([, v]) => v != null && v !== '')
+
+  const questRow = (item) => {
+    const name = cleanText(pick(item, ['name', 'title', 'quest']), 'Quest')
+    const desc = cleanText(pick(item, ['description', 'objective', 'text']))
+    const goal = toNum(pick(item, ['goal', 'target', 'required', 'amount']), null)
+    const done = toNum(pick(item, ['progress', 'current', 'completed', 'count']), 0)
+    const claimable = isOwned(pick(item, ['claimable', 'canClaim', 'claimReady'])) || pick(item, ['state']) === 'claimable'
+    const claimed = isOwned(pick(item, ['claimed', 'isClaimed']))
+    const id = pick(item, ['id', 'questId', 'key'])
+    return `
+      <div class="quest-row">
+        <span class="quest-ico">${iconSvg('spark', 'inline-icon')}</span>
+        <div class="quest-body">
+          <strong>${esc(name)}</strong>
+          ${desc ? `<span class="subtext">${esc(desc)}</span>` : ''}
+          ${goal != null ? `<div class="quest-bar">${bar('', done, goal || 1)}</div>
+            <span class="subtext">${num(done)} / ${num(goal)}</span>` : ''}
+        </div>
+        ${claimable && id != null
+          ? `<button type="button" class="btn btn-primary btn-sm" data-claim-quest="${attr(id)}">Claim</button>`
+          : claimed ? `<span class="chip-sm">Claimed</span>` : ''}
+      </div>`
+  }
 
   root.innerHTML = `
-    ${Object.keys(p).length ? `
-      <div class="pd-stats" style="margin-bottom:18px">
-        ${Object.entries(p).slice(0, 4).map(([k, v]) => `
-          <div class="pd-stat"><div class="pd-stat-k">${esc(titleCase(k))}</div>
+    ${statRows.length ? `
+      <div class="pd-stats" style="margin-bottom:20px">
+        ${statRows.map(([k, v]) => `
+          <div class="pd-stat"><div class="pd-stat-k">${esc(k)}</div>
           <div class="pd-stat-v">${esc(typeof v === 'number' ? num(v) : String(v))}</div></div>`).join('')}
       </div>` : ''}
 
     <section class="mob-sec">
-      <div class="sec-head"><h2>Quests</h2><span class="subtext">${num(q.filter(x => x.claimable).length)} ready</span></div>
+      <div class="sec-head"><h2>Quests</h2><span class="subtext">${num(q.filter(x => isOwned(pick(x, ['claimable', 'canClaim']))).length)} ready</span></div>
       ${q.length ? `<div class="quest-list">${q.map(questRow).join('')}</div>`
         : emptyState('season', 'No quests right now', 'New ones appear when the bot rotates them in.')}
     </section>
 
     <section class="mob-sec">
       <div class="sec-head"><h2>Achievements</h2></div>
-      ${a.length ? `<div class="ach-grid">${a.map(x => `
-        <div class="ach-card${x.claimed ? ' is-done' : ''}">
+      ${a.length ? `<div class="ach-grid">${a.map(x => {
+        const id = pick(x, ['id', 'achievementId', 'key'])
+        const claimable = isOwned(pick(x, ['claimable', 'canClaim']))
+        const claimed = isOwned(pick(x, ['claimed', 'unlocked', 'isClaimed']))
+        return `
+        <div class="ach-card${claimed ? ' is-done' : ''}">
           <span class="ach-ico">${iconSvg('reward', 'inline-icon')}</span>
-          <strong>${esc(x.name ?? x.title ?? 'Achievement')}</strong>
-          <p class="subtext">${esc(x.description ?? '')}</p>
-          ${x.claimable
-            ? `<button type="button" class="btn btn-secondary btn-sm" data-claim-ach="${attr(x.id)}">Claim</button>`
-            : `<span class="chip-sm">${x.claimed ? 'Unlocked' : 'Locked'}</span>`}
-        </div>`).join('')}</div>`
+          <strong>${esc(cleanText(pick(x, ['name', 'title']), 'Achievement'))}</strong>
+          <p class="subtext">${esc(cleanText(pick(x, ['description', 'text'])))}</p>
+          ${claimable && id != null
+            ? `<button type="button" class="btn btn-secondary btn-sm" data-claim-ach="${attr(id)}">Claim</button>`
+            : `<span class="chip-sm">${claimed ? 'Unlocked' : 'Locked'}</span>`}
+        </div>`}).join('')}</div>`
         : emptyState('reward', 'No achievements yet', 'They unlock as you play.')}
     </section>`
 
@@ -1093,8 +1250,36 @@ export async function loadProgress() {
 let monTab = 'mons'
 let monData = { mons: [], party: [], dex: [], bag: [], shop: [], overview: null }
 
-const monArt = (m) => m?.image ?? m?.sprite ?? m?.artwork ?? m?.sprites?.other?.['official-artwork']?.front_default
-  ?? m?.sprites?.front_default ?? ''
+/** PokeAPI's own artwork, used when the bot sends an id/name but no picture. */
+const pokeApiArt = (id) => {
+  const n = toNum(id, null)
+  return n != null && n > 0
+    ? `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${n}.png`
+    : ''
+}
+
+/**
+ * A mon's picture, in the order that will actually resolve:
+ * whatever the bot sent -> PokeAPI sprite block -> official artwork by id.
+ * "Images not showing" was the bot sending a name and the page only ever
+ * reading `image`.
+ */
+function monArt(m) {
+  const direct = imgOf(m)
+  return direct || pokeApiArt(pick(m, ['id', 'pokemonId', 'dexId', 'dexNumber']))
+}
+
+const monName = (m) => cleanText(pick(m, ['nickname', 'name', 'species', 'pokemon']), 'Pokémon')
+
+function monTypes(m) {
+  const t = pick(m, ['types', 'type', 'typeNames'])
+  const arr = Array.isArray(t) ? t : (t ? [t] : [])
+  return arr
+    .map(x => cleanText(typeof x === 'string' ? x : pick(x, ['name', 'type', 'label']), ''))
+    .filter(Boolean)
+    .map(titleCase)
+    .join(' · ')
+}
 
 export async function loadPokemon(tab = monTab) {
   const root = $('#pokemonRoot')
@@ -1119,22 +1304,23 @@ export async function loadPokemon(tab = monTab) {
   }
 
   monData = {
-    overview: overview?.overview ?? overview,
-    mons: mons?.mons ?? mons?.pokemon ?? (Array.isArray(mons) ? mons : []),
-    party: party?.party ?? party?.members ?? (Array.isArray(party) ? party : []),
-    dex: dex?.dex ?? dex?.entries ?? (Array.isArray(dex) ? dex : []),
-    bag: bag?.bag ?? bag?.items ?? (Array.isArray(bag) ? bag : []),
-    shop: shop?.items ?? shop?.shop ?? (Array.isArray(shop) ? shop : []),
+    overview: pick(overview, ['overview']) ?? overview ?? null,
+    mons: listOf(mons, ['mons', 'pokemon', 'items', 'caught']),
+    party: listOf(party, ['party', 'members', 'mons']),
+    dex: listOf(dex, ['dex', 'entries', 'species', 'pokemon']),
+    bag: listOf(bag, ['bag', 'items']),
+    shop: listOf(shop, ['items', 'shop', 'stock']),
   }
 
   const o = monData.overview ?? {}
+  const dexSeen = toNum(pick(o, ['dexSeen', 'seen', 'seenCount']), monData.dex.length)
   const tabs = [['mons', 'Mons'], ['party', 'Party'], ['dex', 'Dex'], ['bag', 'Bag'], ['shop', 'Shop']]
 
   root.innerHTML = `
     <div class="mon-summary">
       <div><strong>${num(monData.mons.length)}</strong><span>caught</span></div>
       <div><strong>${num(monData.party.length)}</strong><span>in party</span></div>
-      <div><strong>${num(o.dexSeen ?? monData.dex.length)}</strong><span>seen</span></div>
+      <div><strong>${num(dexSeen)}</strong><span>seen</span></div>
     </div>
     <div class="mon-actions">
       <button type="button" class="btn btn-primary btn-sm" id="monHunt">${iconSvg('spark', 'inline-icon')} Hunt</button>
@@ -1149,12 +1335,21 @@ export async function loadPokemon(tab = monTab) {
     <div id="monPanel">${monPanel()}</div>`
 
   for (const pill of $$('[data-mon-tab]', root)) {
-    pill.onclick = () => { monTab = pill.dataset.monTab; for (const p of $$('[data-mon-tab]', root)) { const on = p === pill; p.classList.toggle('is-on', on); p.setAttribute('aria-selected', String(on)) } $('#monPanel').innerHTML = monPanel(); wireMonPanel() }
+    pill.onclick = () => {
+      monTab = pill.dataset.monTab
+      for (const p of $$('[data-mon-tab]', root)) { const on = p === pill; p.classList.toggle('is-on', on); p.setAttribute('aria-selected', String(on)) }
+      $('#monPanel').innerHTML = monPanel()
+      wireMonPanel()
+    }
   }
   $('#monHunt').onclick = async (e) => {
     e.currentTarget.disabled = true
-    try { const out = await api.pokemonHunt(); toast(out?.caught?.name ? `Caught ${out.caught.name}` : 'Hunt complete', 'ok'); await loadPokemon() }
-    catch (err) { e.currentTarget.disabled = false; toast(err?.message ?? 'Hunt failed', 'err') }
+    try {
+      const out = await api.pokemonHunt()
+      const caught = pick(out, ['caught', 'mon', 'pokemon'])
+      toast(caught ? `Caught ${monName(caught)}` : 'Hunt complete', 'ok')
+      await loadPokemon()
+    } catch (err) { e.currentTarget.disabled = false; toast(err?.message ?? 'Hunt failed', 'err') }
   }
   $('#monHeal').onclick = async (e) => {
     e.currentTarget.disabled = true
@@ -1172,12 +1367,17 @@ function monPanel() {
   }
   if (monTab === 'dex') {
     return monData.dex.length
-      ? `<div class="mon-grid">${monData.dex.slice(0, 120).map(d => `
-          <div class="mon-card is-dex">
-            <span class="mon-art">${monArt(d) ? `<img src="${attr(monArt(d))}" alt="" loading="lazy">` : `<span class="item-art-ph">${iconSvg('spark', 'inventory-icon')}</span>`}</span>
-            <span class="mon-name">${esc(d.name ?? `#${d.id}`)}</span>
-            <span class="mon-sub">${d.caught || d.seen ? 'Caught' : 'Seen'}</span>
-          </div>`).join('')}</div>`
+      ? `<div class="mon-grid">${monData.dex.slice(0, 120).map(d => {
+        const art = monArt(d)
+        const seen = isOwned(pick(d, ['caught', 'owned'])) || pick(d, ['seen']) !== undefined
+        return `
+          <div class="mon-card is-dex${seen ? '' : ' is-unseen'}">
+            <span class="mon-art">${art
+              ? `<img src="${attr(art)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`
+              : `<span class="item-art-ph">${iconSvg('spark', 'inventory-icon')}</span>`}</span>
+            <span class="mon-name">${esc(monName(d))}</span>
+            <span class="mon-sub">${isOwned(pick(d, ['caught', 'owned'])) ? 'Caught' : 'Seen'}</span>
+          </div>`}).join('')}</div>`
       : emptyState('inventory', 'Dex is empty', 'Every mon you meet gets logged here.')
   }
   if (monTab === 'bag') {
@@ -1189,10 +1389,11 @@ function monPanel() {
     return monData.shop.length
       ? `<div class="mon-grid">${monData.shop.map(i => `
           <div class="mon-card">
-            <span class="mon-art">${itemArt(i.image)}</span>
-            <span class="mon-name">${esc(i.name ?? 'Item')}</span>
-            <span class="mon-sub">${i.price != null ? `${num(i.price)} solars` : esc(itemMeta(i))}</span>
-            <button type="button" class="btn btn-secondary btn-sm btn-block" data-mon-buy="${attr(i.id)}">Buy</button>
+            <span class="mon-art">${itemArt(imgOf(i))}</span>
+            <span class="mon-name">${esc(cleanText(pick(i, ['name', 'title']), 'Item'))}</span>
+            <span class="mon-sub">${toNum(pick(i, ['price', 'cost']), null) != null
+              ? `${num(toNum(pick(i, ['price', 'cost']), 0))} solars` : esc(itemMeta(i))}</span>
+            <button type="button" class="btn btn-secondary btn-sm btn-block" data-mon-buy="${attr(pick(i, ['id', 'itemId', 'key']))}">Buy</button>
           </div>`).join('')}</div>`
       : emptyState('inventory', 'Shop is empty', 'Stock rotates with the bot.')
   }
@@ -1203,16 +1404,21 @@ function monPanel() {
 
 function monCard(m, { party = false } = {}) {
   const art = monArt(m)
+  const level = toNum(pick(m, ['level', 'lvl']), null)
+  const held = pick(m, ['heldItem', 'item', 'holding'])
+  const heldName = held ? cleanText(typeof held === 'string' ? held : pick(held, ['name', 'title']), '') : ''
+  const id = pick(m, ['id', 'monId', 'pokemonId', 'uid', 'key'])
+
   return `
-    <button type="button" class="mon-card" data-mon="${attr(String(m.id ?? m.monId ?? ''))}">
+    <button type="button" class="mon-card" data-mon="${attr(String(id ?? ''))}">
       <span class="mon-art">
         ${art ? `<img src="${attr(art)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`
           : `<span class="item-art-ph">${iconSvg('spark', 'inventory-icon')}</span>`}
-        ${m.level != null ? `<span class="mon-lv">Lv ${num(m.level)}</span>` : ''}
+        ${level != null ? `<span class="mon-lv">Lv ${num(level)}</span>` : ''}
       </span>
-      <span class="mon-name">${esc(m.nickname ?? m.name ?? 'Pokémon')}</span>
-      <span class="mon-sub">${esc([].concat(m.types ?? m.type ?? []).map(t => titleCase(t?.type?.name ?? t?.name ?? t)).filter(Boolean).join(' · ') || (party ? 'In party' : ''))}</span>
-      ${m.heldItem ? `<span class="mon-held">Holding ${esc(m.heldItem.name ?? m.heldItem)}</span>` : ''}
+      <span class="mon-name">${esc(monName(m))}</span>
+      <span class="mon-sub">${esc(monTypes(m) || (party ? 'In party' : ''))}</span>
+      ${heldName ? `<span class="mon-held">Holding ${esc(heldName)}</span>` : ''}
     </button>`
 }
 
@@ -1235,9 +1441,12 @@ async function openMon(id) {
   openModal(skeletonCards(1))
   const out = await api.pokemonMon(id).catch(err => ({ __error: err }))
   if (out?.__error) { openModal(emptyState('warning', 'Pokémon unavailable', out.__error.message ?? '')); return }
-  const m = out?.mon ?? out?.pokemon ?? out
+  const m = pick(out, ['mon', 'pokemon']) ?? out
   const art = monArt(m)
-  const stats = m.stats ?? {}
+  const stats = pick(m, ['stats', 'baseStats'])
+  const level = toNum(pick(m, ['level', 'lvl']), null)
+  const hp = toNum(pick(m, ['hp', 'currentHp']), null)
+  const maxHp = toNum(pick(m, ['maxHp', 'hpMax']), null)
 
   openModal(`
     <div class="item-sheet">
@@ -1246,22 +1455,22 @@ async function openMon(id) {
           : `<span class="item-art-ph">${iconSvg('spark', 'inventory-icon')}</span>`}
       </div>
       <div class="item-sheet-head">
-        <h3>${esc(m.nickname ?? m.name ?? 'Pokémon')}</h3>
-        <p class="item-sheet-sub">${esc([].concat(m.types ?? m.type ?? []).map(t => titleCase(t?.type?.name ?? t?.name ?? t)).filter(Boolean).join(' · ') || '')}${m.level != null ? ` · Lv ${num(m.level)}` : ''}</p>
+        <h3>${esc(monName(m))}</h3>
+        <p class="item-sheet-sub">${esc([monTypes(m), level != null && `Lv ${num(level)}`].filter(Boolean).join(' · '))}</p>
       </div>
     </div>
     <div class="pd-body">
-      ${m.hp != null ? bar('HP', m.hp, m.maxHp ?? m.hp ?? 1) : ''}
-      ${Object.keys(stats).length ? `<div class="pd-sec-title">Stats</div><div class="pd-stats">${statBonusTiles(stats)}</div>` : ''}
+      ${hp != null && maxHp ? bar('HP', hp, maxHp || 1) : ''}
+      ${stats && typeof stats === 'object' && Object.keys(stats).length ? `<div class="pd-sec-title">Stats</div><div class="pd-stats">${statBonusTiles(stats)}</div>` : ''}
       <div class="mgr-actions">
         <button type="button" class="btn btn-primary btn-sm" data-mon-act="main">Set as main</button>
-        <button type="button" class="btn btn-secondary btn-sm" data-mon-act="${m.heldItem ? 'unhold' : 'hold'}">${m.heldItem ? 'Remove held item' : 'Hold item'}</button>
+        <button type="button" class="btn btn-secondary btn-sm" data-mon-act="${pick(m, ['heldItem', 'item', 'holding']) ? 'unhold' : 'hold'}">${pick(m, ['heldItem', 'item', 'holding']) ? 'Remove held item' : 'Hold item'}</button>
         <button type="button" class="btn btn-secondary btn-sm" data-mon-act="feed">Feed</button>
         <button type="button" class="btn btn-secondary btn-sm" data-mon-act="evolve">Evolve</button>
         <button type="button" class="btn btn-ghost btn-sm" data-mon-act="protect">Protect</button>
         <button type="button" class="btn btn-ghost btn-sm" data-mon-act="rename">Rename</button>
       </div>
-      ${m.notes || m.description ? `<p class="subtext" style="margin-top:12px">${esc(m.notes ?? m.description)}</p>` : ''}
+      ${cleanText(pick(m, ['notes', 'description', 'flavor', 'flavorText'])) ? `<p class="subtext" style="margin-top:12px">${esc(cleanText(pick(m, ['notes', 'description', 'flavor', 'flavorText'])))}</p>` : ''}
     </div>`)
 
   for (const btn of $$('[data-mon-act]')) {
@@ -1291,7 +1500,7 @@ async function openMon(id) {
   }
 }
 
-/* Keep the bar honest when the viewport flips between phone and desktop. */
+/* Keep the carousel honest when the viewport flips between phone and desktop. */
 MOBILE_MQ.addEventListener?.('change', () => {
   if (!isMobileView()) clearInterval(evTimer)
 })

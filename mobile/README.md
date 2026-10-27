@@ -4,6 +4,18 @@ The app bundles `app-shell/`, based on **Floating Nav – iPhone.html**. The ori
 screen structures, typography and floating navigation remain. Pokémon is removed.
 API data fills existing screen elements; missing data does not trigger a redesign.
 
+## Phone pages on the website
+
+The site's phone experience (floating bottom bar, season event carousel,
+inventory manager, Guilds/Empires/Wallet/Storage/Progress/Pokémon pages) talks
+to bot routes that are specified in **[MOBILE_API_SPEC.md](MOBILE_API_SPEC.md)**.
+That file is the contract to hand the bot: exact paths, required envelopes, and
+the field-level bugs it explains (wallet NaN, identical guild/empire art, ender
+chest stuck locked, missing Pokémon art, `null` rank).
+
+To report a broken page, run `astralDebugCopy()` in the browser console and paste
+the result — it copies the raw response of every endpoint the page touched.
+
 ## Build and preview
 
 ```sh

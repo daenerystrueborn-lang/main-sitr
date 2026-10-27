@@ -26,6 +26,7 @@ const js = {
   'assets/js/api.js': read('assets/js/api.js'),
   'assets/js/ui.js': read('assets/js/ui.js'),
   'assets/js/items.js': read('assets/js/items.js'),
+  'assets/js/shape.js': read('assets/js/shape.js'),
   'assets/js/mobile-pages.js': read('assets/js/mobile-pages.js'),
   'assets/js/app.js': read('assets/js/app.js'),
 }
