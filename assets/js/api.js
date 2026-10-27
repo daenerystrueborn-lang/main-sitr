@@ -39,6 +39,30 @@ function resolveBase() {
 export const API_BASE = resolveBase()
 
 /**
+ * Absolute URL for one of the bot's own image routes (`/api/images/...`).
+ *
+ * These are <img src> targets, not fetches: the browser can load them even when
+ * the API itself is cross-origin, and the ones that redirect to an external
+ * host still work as long as that host is reachable.
+ */
+export function imageApi(path) {
+  return `${API_BASE}/api${path.startsWith('/') ? '' : '/'}${path}`
+}
+
+/**
+ * Pokémon art from the bot's image service.
+ *
+ * `variant` is one of artwork | sprite | animated, and `spriteDex` is what a
+ * special form has to be rendered as. The site prefers whatever the record
+ * carries (`image`, `art.front`) and only builds a URL when it has a dex id.
+ */
+export function pokemonImageUrl(dexId, { variant = 'artwork', shiny = false } = {}) {
+  const n = Number(dexId)
+  if (!Number.isInteger(n) || n <= 0) return ''
+  return imageApi(`/images/pokemon/${n}?variant=${encodeURIComponent(variant)}${shiny ? '&shiny=1' : ''}`)
+}
+
+/**
  * Base URL for the ImgBB upload proxy (a small Vercel serverless function -
  * see the astral-imgbb-proxy project). The ImgBB key itself never lives in
  * this file or anywhere else in the frontend; it stays server-side in that
@@ -310,74 +334,97 @@ export function debugPayloads() {
   return Object.fromEntries(rawPayloads)
 }
 
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
 export async function request(path, { method = 'GET', body = null, timeoutMs = 12_000, auth = true, idempotencyKey = null } = {}) {
-  // A caller can retain this key for an exact retry. No automatic write retries.
+  // A caller can retain this key for an exact retry. No automatic write retries,
+  // except the one collision case below - which reuses this same key and body.
   const mutating = !['GET', 'HEAD'].includes(method)
   const mutationKey = mutating ? idempotencyKey || newIdempotencyKey() : null
   const serializedBody = body ? JSON.stringify(body) : undefined
   const retryBody = serializedBody ? JSON.parse(serializedBody) : null
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
 
-  let res
-  try {
-    res = await fetch(`${API_BASE}/api${path}`, {
-      method,
-      credentials: 'include',
-      signal: controller.signal,
-      headers: {
-        Accept: 'application/json',
-        ...(body || mutating ? { 'Content-Type': 'application/json' } : {}),
-        ...(mutationKey ? { 'Idempotency-Key': mutationKey } : {}),
-        ...(auth && token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: serializedBody,
-    })
-  } catch (err) {
-    clearTimeout(timer)
-    setOnline(false)
-    const aborted = err?.name === 'AbortError'
-    const failure = new ApiError(
-      aborted ? 'The server took too long to respond.' : 'Cannot reach the server.',
-      { status: 0, code: aborted ? 'timeout' : 'network' },
-    )
-    // Exact network retries reuse the original body and mutation key. Never
-    // automatically retry combat, purchases or reward claims.
-    failure.retry = () => request(path, { method, body: retryBody, timeoutMs, auth, idempotencyKey: mutationKey })
-    throw failure
-  }
-  clearTimeout(timer)
-  setOnline(true)
+  for (let attempt = 0; ; attempt += 1) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
 
-  // 204 and other empty bodies are legitimate - don't try to parse them.
-  const text = await res.text()
-  let payload = null
-  if (text) {
-    try { payload = JSON.parse(text) } catch { payload = { error: text } }
-  }
-
-  if (!res.ok || payload?.ok === false) {
-    // The API reports failures as { ok:false, error }. Older/proxy errors may
-    // use `message`, and Cloudflare can return HTML - hence the fallbacks.
-    const message = payload?.error ?? payload?.message ?? `Request failed (${res.status})`
-    if (res.status === 401) {
-      setToken(null)
-      for (const fn of authListeners) { try { fn() } catch {} }
+    let res
+    try {
+      res = await fetch(`${API_BASE}/api${path}`, {
+        method,
+        credentials: 'include',
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+          ...(body || mutating ? { 'Content-Type': 'application/json' } : {}),
+          ...(mutationKey ? { 'Idempotency-Key': mutationKey } : {}),
+          ...(auth && token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: serializedBody,
+      })
+    } catch (err) {
+      clearTimeout(timer)
+      setOnline(false)
+      const aborted = err?.name === 'AbortError'
+      const failure = new ApiError(
+        aborted ? 'The server took too long to respond.' : 'Cannot reach the server.',
+        { status: 0, code: aborted ? 'timeout' : 'network' },
+      )
+      // Exact network retries reuse the original body and mutation key. Never
+      // automatically retry combat, purchases or reward claims.
+      failure.retry = () => request(path, { method, body: retryBody, timeoutMs, auth, idempotencyKey: mutationKey })
+      throw failure
     }
-    throw new ApiError(message, {
-      status: res.ok ? 400 : res.status,
-      code: payload?.code ?? null,
-      retryAfterMs: payload?.retryAfterMs ?? null,
-      body: payload,
-    })
-  }
+    clearTimeout(timer)
+    setOnline(true)
 
-  rawPayloads.set(path.split('?')[0], payload)
-  return payload
+    // 204 and other empty bodies are legitimate - don't try to parse them.
+    const text = await res.text()
+    let payload = null
+    if (text) {
+      try { payload = JSON.parse(text) } catch { payload = { error: text } }
+    }
+
+    /**
+     * The same action is still being committed by the server - a double tap or
+     * a retried request that overlapped the first one. That is not a failure:
+     * the key and body are identical, so waiting and asking again gets the
+     * original result instead of charging twice. Two extra attempts is enough
+     * for a commit that reports how long it needs.
+     */
+    if (res.status === 409 && payload?.code === 'IDEMPOTENCY_IN_PROGRESS' && attempt < 2) {
+      const wait = Math.min(Math.max(Number(payload.retryAfterMs) || 400, 200), 4_000)
+      await sleep(wait)
+      continue
+    }
+
+    if (!res.ok || payload?.ok === false) {
+      // The API reports failures as { ok:false, error }. Older/proxy errors may
+      // use `message`, and Cloudflare can return HTML - hence the fallbacks.
+      const message = payload?.error ?? payload?.message ?? `Request failed (${res.status})`
+      if (res.status === 401) {
+        setToken(null)
+        for (const fn of authListeners) { try { fn() } catch {} }
+      }
+      const failure = new ApiError(message, {
+        status: res.ok ? 400 : res.status,
+        code: payload?.code ?? null,
+        retryAfterMs: payload?.retryAfterMs ?? null,
+        body: payload,
+      })
+      // Everything a caller needs to retry this exact action by hand.
+      failure.retry = () => request(path, { method, body: retryBody, timeoutMs, auth, idempotencyKey: mutationKey })
+      throw failure
+    }
+
+    rawPayloads.set(path.split('?')[0], payload)
+    return payload
+  }
 }
 
 const get = (p) => request(p)
-const post = (p, body) => request(p, { method: 'POST', body })
+const post = (p, body, opts = {}) => request(p, { method: 'POST', body, ...opts })
+const put = (p, body) => request(p, { method: 'PUT', body })
 const patch = (p, body) => request(p, { method: 'PATCH', body })
 const del = (p) => request(p, { method: 'DELETE' })
 
@@ -615,13 +662,20 @@ export const api = {
   unequip: (slot) => post('/me/equipment/unequip', { slot }),
 
   /* ── storage ───────────────────────────────────────────────────────────
-     `move` covers chest ⇄ inventory in both directions. The server decides
-     what fits, so a slot count shown here is a preview, not a guarantee. */
+     One route returns all three containers: `bag`, `chest` and `ender`, each
+     with its own `items`/`used`/`capacity`. The top-level `items` is the Ender
+     Chest list specifically, not everything the player owns.
+
+     A move names its containers and the raw item id, and can succeed only in
+     part - the server says how many actually moved in `moved`, so a caller
+     must read the response instead of assuming the quantity it asked for. */
   storage: () => get('/storage'),
-  storageMove: ({ itemInstanceId, qty = 1, to }) =>
-    post('/storage/move', { itemInstanceId, qty, to }),
-  buyStorageChest: () => post('/storage/chest/buy'),
-  buyEnderChest: () => post('/storage/ender/buy'),
+  storageMove: ({ from = 'bag', to = 'ender', item, qty = 1 }) =>
+    post('/storage/move', { from, to, item, qty }),
+  /** The ordinary chest is a separate purchase, in solars or in gems. */
+  buyStorageChest: (currency = 'solars') => post('/storage/chest/buy', { currency }),
+  /** One-off purchase; the response's `storage.enderChest` becomes true. */
+  buyEnderChest: () => post('/storage/ender/buy', {}),
 
   /* ── wallet ────────────────────────────────────────────────────────────
      Solars live in three places: carried, banked and vaulted. Each write
@@ -645,7 +699,7 @@ export const api = {
   guild: (query) => get(`/guilds/${encodeURIComponent(query)}`),
   guildBoard: (query) => get(`/guilds/${encodeURIComponent(query)}/board`),
   guildShop: (query) => get(`/guilds/${encodeURIComponent(query)}/shop`),
-  guildImage: (query) => `${API_BASE}/api/guilds/${encodeURIComponent(query)}/image`,
+  guildImage: (query) => imageApi(`/guilds/${encodeURIComponent(query)}/image`),
 
   /* ── empires ───────────────────────────────────────────────────────────── */
   empires: (params = {}) => {
@@ -655,6 +709,15 @@ export const api = {
   },
   myEmpire: () => get('/empires/me'),
   empire: (query) => get(`/empires/${encodeURIComponent(query)}`),
+  /** Real material prices and market stock. Preview only - the bot sells. */
+  empireShop: (query) => get(`/empires/${encodeURIComponent(query)}/shop`),
+  /**
+   * Empires have no guild-style board. This always answers
+   * `{ supported: false, board: null }`, which is why the empire sheet shows no
+   * board at all rather than an empty one that looks broken.
+   */
+  empireBoard: (query) => get(`/empires/${encodeURIComponent(query)}/board`),
+  empireImage: (query) => imageApi(`/empires/${encodeURIComponent(query)}/image`),
 
   /* ── progress ──────────────────────────────────────────────────────────── */
   quests: () => get('/quests'),
@@ -675,8 +738,26 @@ export const api = {
   pokemonBag: () => get('/pokemon/bag'),
   pokemonShop: () => get('/pokemon/shop'),
   pokemonBuy: (id, qty = 1) => post('/pokemon/shop/buy', { id, qty }),
-  pokemonHunt: () => post('/pokemon/hunt'),
-  pokemonHeal: () => post('/pokemon/heal'),
+  /** `dexId` names the species; a mon's own id names the owned instance. */
+  pokemonStarter: (dexId) => post('/pokemon/starter', { dexId }),
+  /** Replaces the whole party with these owned-instance ids. */
+  pokemonSetParty: (ids) => put('/pokemon/party', { ids }),
+  /** The battle in progress, for picking one back up after a reload. */
+  pokemonBattle: () => get('/pokemon/battle'),
+  /**
+   * One turn. The shapes, per the bot:
+   *   { action: 'move',  index: 1 }       1-based index from battle.moves
+   *   { action: 'catch', itemId: 'poke_ball' }
+   *   { action: 'item',  itemId: 'poke_super_potion' }
+   *   { action: 'switch', slot: 1 }       slot from battle.you.team
+   *   { action: 'run' }
+   */
+  pokemonAct: (action) => post('/pokemon/battle/act', action),
+  pokemonForfeit: () => post('/pokemon/battle/forfeit', {}),
+  /** Moves recognised Pokémon items from the RPG inventory into this bag. */
+  pokemonBagImport: () => post('/pokemon/bag/import', {}),
+  pokemonHunt: (region) => post('/pokemon/hunt', region ? { region } : {}),
+  pokemonHeal: () => post('/pokemon/heal', {}),
   pokemonHold: (id, held) => post(`/pokemon/mons/${encodeURIComponent(id)}/${held ? 'hold' : 'unhold'}`),
   pokemonMain: (id) => post(`/pokemon/mons/${encodeURIComponent(id)}/main`),
   pokemonRename: (id, name) => post(`/pokemon/mons/${encodeURIComponent(id)}/rename`, { name }),
@@ -685,11 +766,21 @@ export const api = {
   pokemonEvolve: (id) => post(`/pokemon/mons/${encodeURIComponent(id)}/evolve`),
 
   /* ── events ────────────────────────────────────────────────────────────
-     The season page's event cards hand out fixed rewards (that is why they
-     are worth including at all). The claim is server-side and idempotent so
-     a card can't be tapped twice for two payouts - the UI only ever shows
-     what the server says was granted. */
-  claimEvent: (id) => post('/events/claim', { id }),
+     Live event state comes from the bot: `active`, `claimed`, `reward` and
+     `badge` per event. The claim is server-side and idempotent, and the client
+     never credits the reward itself - it shows what the server says was
+     granted. `key` is passed in when a failed claim is retried, so the retry
+     is answered from the ledger instead of paying out twice. */
+  events: () => get('/events'),
+  event: (id) => get(`/events/${encodeURIComponent(id)}`),
+  claimEvent: (eventId, key) =>
+    request('/events/claim', { method: 'POST', body: { eventId }, idempotencyKey: key ?? null }),
+
+  /* ── images ────────────────────────────────────────────────────────────
+     The bot's own image host. Backgrounds, badges and Pokémon art all live
+     behind /api/images, and some of those routes redirect to external hosts -
+     so callers show a placeholder on error rather than pretending otherwise. */
+  images: () => get('/images'),
 }
 
 /* Console helpers. `astralDebug()` prints a table of the endpoints hit and

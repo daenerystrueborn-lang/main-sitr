@@ -2184,3 +2184,103 @@ html.no-motion .view,html.no-motion .ev-slide,html.no-motion .mobile-bar{animati
 }
 .stepper input::-webkit-outer-spin-button,.stepper input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
 .stepper input:focus{outline:none;border-color:var(--gold);}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PROGRESS → HALLOWEEN EVENT CARD
+   The event slider on the season page is a poster; this is the same event as a
+   card you can act on. Its state - live, claimed, or not live yet - comes from
+   /api/events, so the button never claims something the bot won't pay out.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.ev-card{
+  overflow:hidden;padding:0;
+  border-color:rgb(212 175 55 / 26%);
+  background:linear-gradient(170deg,var(--bg-3),#080606);
+}
+.ev-card .ev-media{aspect-ratio:16/9;border-bottom:1px solid var(--border);}
+.ev-card .ev-media img{object-position:center 34%;}
+.ev-card .ev-body{padding:12px 14px 14px;margin-top:-24px;}
+.ev-card.is-quiet{border-color:var(--border);background:var(--bg-2);}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   POKÉMON → BATTLE, STARTER
+   The bot runs the fight and owns every number, so this is a picture of the
+   turn it sent back: the scene it named, both sides' HP, the moves it listed
+   (their index is the action), and the four out-of-turn actions. Nothing here
+   decides anything - it only shows state and posts a choice.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.poke-battle{
+  overflow:hidden;margin-bottom:16px;
+  border:1px solid rgb(212 175 55 / 24%);border-radius:var(--r-lg);
+  background:linear-gradient(170deg,var(--bg-3),#070606);
+}
+.pb-scene{
+  position:relative;display:flex;flex-direction:column;justify-content:space-between;gap:14px;
+  min-height:190px;padding:12px;
+  background:radial-gradient(ellipse at 50% 10%,rgb(212 175 55 / 12%),transparent 62%),var(--bg-2);
+  overflow:hidden;
+}
+.pb-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.55;}
+.pb-scene>*{position:relative;z-index:1;}
+.pb-badge{
+  align-self:flex-start;padding:2px 9px;border-radius:999px;
+  font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  color:#0a0805;background:var(--grad-1);
+}
+.pb-foe,.pb-you{
+  display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;
+  padding:8px 10px;border-radius:var(--r);
+  background:rgb(0 0 0 / 62%);border:1px solid rgb(255 255 255 / 8%);
+  backdrop-filter:blur(2px);
+}
+.pb-foe{align-self:flex-start;max-width:82%;}
+.pb-you{align-self:flex-end;max-width:82%;}
+.pb-name{font-size:13px;font-weight:800;text-shadow:0 2px 10px rgb(0 0 0 / 70%);}
+.pb-lv{font-size:10.5px;font-weight:700;color:var(--gold);}
+.pb-hp{
+  flex:1 0 100%;height:6px;border-radius:999px;overflow:hidden;
+  background:rgb(255 255 255 / 12%);
+}
+.pb-hp i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#3fbf6a,#7ee29b);transition:width var(--dur) var(--ease-out);}
+.pb-hp.is-low i{background:linear-gradient(90deg,#c0392b,#ef7d6a);}
+.pb-hpn{flex:1 0 100%;font-size:10.5px;color:rgb(255 255 255 / 62%);}
+
+.pb-log{padding:10px 12px;border-top:1px solid var(--border);background:rgb(0 0 0 / 30%);}
+.pb-log p{margin:0;font-size:12px;line-height:1.5;color:var(--text-muted);}
+.pb-log p+p{margin-top:3px;opacity:.72;}
+
+.pb-moves{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px;}
+.pb-move{
+  display:flex;flex-direction:column;gap:2px;padding:9px 11px;text-align:left;
+  border:1px solid var(--border);border-radius:var(--r);background:var(--bg-2);
+  font:inherit;color:var(--text);cursor:pointer;transition:var(--transition);
+}
+.pb-move:hover:not(:disabled){border-color:var(--gold);background:var(--bg-3);}
+.pb-move:disabled{opacity:.55;cursor:default;}
+.pb-move-name{font-size:12.5px;font-weight:800;line-height:1.2;}
+.pb-move-sub{font-size:10.5px;color:var(--text-subtle);}
+
+.pb-acts{display:flex;flex-wrap:wrap;gap:8px;padding:0 12px 12px;}
+.pb-acts .btn{flex:1 1 auto;justify-content:center;}
+
+.mob-note{margin:10px 12px;font-size:11.5px;color:var(--text-subtle);}
+
+/* Starter picker */
+.mon-starter{padding:14px;}
+.mon-starter .subtext{margin-bottom:12px;}
+.starter-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+.starter-card{
+  display:flex;flex-direction:column;gap:4px;padding:0 0 10px;overflow:hidden;text-align:center;
+  border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bg-2);
+  font:inherit;color:inherit;cursor:pointer;transition:var(--transition);
+}
+.starter-card:hover:not(:disabled){transform:translateY(-2px);border-color:var(--gold);}
+.starter-card:disabled{opacity:.55;}
+.starter-art{
+  display:grid;place-items:center;aspect-ratio:1;width:100%;overflow:hidden;
+  background:radial-gradient(circle at 50% 30%,rgb(212 175 55 / 16%),transparent 68%),var(--bg-3);
+}
+.starter-art img{width:84%;height:84%;object-fit:contain;}
+.starter-name{padding:0 8px;font-size:13px;font-weight:800;}
+.starter-sub{padding:0 8px;font-size:10.5px;color:var(--text-subtle);}

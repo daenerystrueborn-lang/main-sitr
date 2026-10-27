@@ -15,12 +15,12 @@
  * ships these routes separately, so a 404 must read as "not available yet",
  * never as a blank screen or a dead button.
  */
-import { api, hasSession, fetchPokemonArt } from './api.js'
+import { api, hasSession, fetchPokemonArt, newIdempotencyKey, pokemonImageUrl } from './api.js'
 import {
   $, $$, esc, attr, num, titleCase, iconSvg,
   toast, emptyState, openModal, closeModal, skeletonCards, bar,
 } from './ui.js'
-import { itemCard, itemArt, itemMeta, itemPopupHtml, itemQty } from './items.js'
+import { itemCard, itemArt, itemMeta, itemPopupHtml, itemQty, resolveArt } from './items.js'
 import {
   pick, toNum, counted, listOf, imgOf, cleanText, isOwned, plural, hueOf, crestInitials,
 } from './shape.js'
@@ -104,11 +104,12 @@ const SEASON_EVENTS = [
     id: 'halloween',
     kicker: 'Limited event',
     title: 'Halloween Giveaway',
-    desc: 'One claim per account. Tap to collect the drop before the season turns.',
+    // No reward numbers here on purpose: the bot decides what the drop is, and
+    // syncHalloweenSlide() replaces these chips with the ones it reports.
+    desc: 'One claim per account, granted by the bot. Tap to collect the drop.',
     image: 'https://i.ibb.co/ymySXjzR/D4DJ.jpg',
     rewards: [
-      { label: '30 gems', icon: 'gift' },
-      { label: '20,000 solars', icon: 'spark' },
+      { label: 'Server-granted reward', icon: 'gift' },
     ],
     cta: 'Claim gift',
     claim: true,
@@ -136,34 +137,89 @@ function openEventPreview(ev) {
 }
 
 /**
+ * Brings the slider's Halloween slide in line with `/api/events`.
+ *
+ * The slide is a poster with a claim button on it, so its label has to be the
+ * bot's state: live, already claimed, or not open yet. If the event feed isn't
+ * deployed the slide is left exactly as written rather than being disabled by a
+ * failed request.
+ */
+async function syncHalloweenSlide() {
+  const btn = $('#evClaimBtn')
+  if (!btn) return
+  const out = await api.events().catch(() => null)
+  const ev = eventById(out, 'halloween')
+  if (!ev) return
+
+  const active = isOwned(pick(ev, ['active', 'isActive', 'live', 'enabled']))
+  const claimed = isOwned(pick(ev, ['claimed', 'isClaimed', 'hasClaimed']))
+  paneLabel(btn, claimed, active)
+
+  const slide = btn.closest('.ev-slide')
+  const chips = rewardChips(ev)
+  if (slide && chips) {
+    const host = slide.querySelector('.ev-rewards')
+    if (host) host.outerHTML = chips
+    else slide.querySelector('.ev-body')?.insertAdjacentHTML('beforeend', chips)
+  }
+}
+
+/** The three honest button states. */
+function paneLabel(btn, claimed, active) {
+  if (!btn) return
+  btn.disabled = claimed || !active
+  btn.textContent = claimed ? 'Claimed' : active ? 'Claim gift' : 'Not live yet'
+}
+
+/**
  * Claims the gift.
  *
  * The server is the only thing that can grant it, so this never fakes a
- * balance change: it posts, then reports the server's own numbers. A route
- * that isn't deployed yet gets a calm "not live" message rather than an error
- * dump - the card stays tappable so it works the day the bot ships it.
+ * balance change: it posts, then reports the server's own numbers. One key per
+ * attempt, reused on a retry, so a double tap can't be paid twice. A 503
+ * (CLAIM_SAVE_PENDING / CLAIM_COMMIT_FAILED) means *unconfirmed*: the claim may
+ * still land, so the event is re-read and the button stays available.
  */
 async function claimEvent(ev) {
   const btn = $('#evClaimBtn')
   if (btn) { btn.disabled = true; btn.textContent = 'Claiming…' }
 
+  const key = newIdempotencyKey()
   try {
-    const out = await api.claimEvent(ev.id)
-    const granted = out?.granted ?? out?.rewards ?? out
+    const out = await api.claimEvent(ev.id, key)
+    const granted = pick(out, ['granted', 'rewards', 'reward']) ?? out
     const parts = []
-    if (granted?.gems) parts.push(`${num(granted.gems)} gems`)
-    if (granted?.solars) parts.push(`${num(granted.solars)} solars`)
-    toast(parts.length ? `Claimed ${parts.join(' + ')}` : 'Gift claimed', 'ok')
-    if (btn) btn.textContent = 'Claimed'
+    const solars = toNum(pick(granted, ['solars', 'coins']), null)
+    const gems = toNum(pick(granted, ['gems', 'gem']), null)
+    const monds = toNum(pick(granted, ['monds', 'mond']), null)
+    if (solars) parts.push(`${num(solars)} solars`)
+    if (gems) parts.push(`${num(gems)} gems`)
+    if (monds) parts.push(`${num(monds)} ${plural(monds, 'mond')}`)
+    const replay = isOwned(pick(out, ['alreadyClaimed', 'claimed']))
+    toast(parts.length ? `Claimed ${parts.join(' + ')}` : replay ? 'Already claimed' : 'Gift claimed', 'ok')
+
+    // Trust the server's wallet over anything calculated here.
+    const wallet = pick(out, ['wallet'])
+    if (!wallet) await api.wallet().catch(() => null)
+    await syncHalloweenSlide()
   } catch (err) {
+    const unconfirmed = err?.status === 503
+      || ['CLAIM_SAVE_PENDING', 'CLAIM_COMMIT_FAILED'].includes(err?.code)
     const notLive = err?.status === 404 || err?.status === 405
+    const already = err?.status === 409 && /claim/i.test(err?.message ?? '')
+
     toast(
-      notLive
-        ? 'This giveaway isn’t live yet - it lands with the next bot update.'
-        : (err?.message ?? 'Could not claim right now.'),
-      notLive ? '' : 'err',
+      unconfirmed
+        ? 'The claim couldn’t be confirmed yet - tap again, it’s safe.'
+        : notLive
+          ? 'This giveaway isn’t live yet - it lands with the next bot update.'
+          : already
+            ? 'You’ve already claimed this one.'
+            : (err?.message ?? 'Could not claim right now.'),
+      notLive || already ? '' : 'err',
     )
-    if (btn) { btn.disabled = false; btn.textContent = ev.cta ?? 'Claim gift' }
+    if (unconfirmed || already) await syncHalloweenSlide()
+    else if (btn) { btn.disabled = false; btn.textContent = ev.cta ?? 'Claim gift' }
   }
 }
 
@@ -271,6 +327,8 @@ export function mountSeasonEvents() {
   })
 
   startEventTimer()
+  // State, not decoration: the claim button follows the bot.
+  syncHalloweenSlide()
 }
 
 /* ─────────────────────────── inventory manager ────────────────────────── */
@@ -756,7 +814,7 @@ function guildCard(g, { mine = false } = {}) {
 
   return `
     <button type="button" class="guild-card${mine ? ' is-mine' : ''}" data-guild="${attr(query)}">
-      ${crestHtml(name, { img: recordArt(g), size: 'md' })}
+      ${crestHtml(name, { img: recordArt(g) || (query ? api.guildImage(query) : ''), size: 'md' })}
       <span class="guild-body">
         <span class="guild-name">${esc(name)}${tag ? ` <span class="guild-tag">[${esc(tag)}]</span>` : ''}</span>
         <span class="guild-sub">${esc(facts.join(' · ') || (leader ? `Led by ${leader}` : 'Guild'))}</span>
@@ -788,7 +846,7 @@ async function openGuild(query) {
   openModal(`
     <div class="guild-sheet">
       <div class="guild-sheet-head">
-        ${crestHtml(name, { img: recordArt(g), size: 'lg' })}
+        ${crestHtml(name, { img: recordArt(g) || api.guildImage(query), size: 'lg' })}
         <div class="guild-sheet-id">
           <h3>${esc(name)}</h3>
           <p>${esc(facts.join(' · ') || 'Guild')}</p>
@@ -901,7 +959,7 @@ function empireCard(e, { mine = false } = {}) {
 
   return `
     <button type="button" class="guild-card empire-card${mine ? ' is-mine' : ''}" data-empire="${attr(query)}">
-      ${crestHtml(name, { img: recordArt(e), size: 'md' })}
+      ${crestHtml(name, { img: recordArt(e) || (query ? api.empireImage(query) : ''), size: 'md' })}
       <span class="guild-body">
         <span class="guild-name">${esc(name)}</span>
         <span class="guild-sub">${esc([ruler && `Ruled by ${ruler}`, ...facts].filter(Boolean).join(' · ') || 'Empire')}</span>
@@ -915,8 +973,15 @@ async function openEmpire(query) {
   if (!query) return
   openModal(skeletonCards(2))
   try {
-    const out = await api.empire(query)
+    // The shop is a preview of the bot's real prices and stock. The board route
+    // answers supported:false by design - empires have none - so no board is
+    // drawn at all rather than an empty one that reads as a bug.
+    const [out, shopOut] = await Promise.all([
+      api.empire(query),
+      api.empireShop(query).catch(() => null),
+    ])
     const e = pick(out, ['empire']) ?? out
+    const stock = listOf(shopOut, ['items', 'shop', 'stock', 'offers', 'materials'])
     const name = cleanText(pick(e, ['name', 'empireName', 'title']), 'Empire')
     const territories = listOf(e, ['territories', 'provinces', 'land', 'tiles'])
     const citizens = listOf(e, ['citizens', 'members', 'population', 'people'])
@@ -924,7 +989,7 @@ async function openEmpire(query) {
     openModal(`
       <div class="guild-sheet">
         <div class="guild-sheet-head">
-          ${crestHtml(name, { img: recordArt(e), size: 'lg' })}
+          ${crestHtml(name, { img: recordArt(e) || api.empireImage(query), size: 'lg' })}
           <div class="guild-sheet-id">
             <h3>${esc(name)}</h3>
             <p>${esc(empireFacts(e).join(' · ') || 'Empire')}</p>
@@ -933,6 +998,16 @@ async function openEmpire(query) {
         <div class="pd-body">
           ${cleanText(pick(e, ['description', 'bio', 'motto', 'about'])) ? `<p class="subtext">${esc(cleanText(pick(e, ['description', 'bio', 'motto', 'about'])))}</p>` : ''}
           ${statChips(pick(e, ['stats', 'perks', 'bonuses']))}
+          ${stock.length ? `
+            <div class="pd-sec-title">Market</div>
+            <div class="mgr-grid">${stock.slice(0, 12).map(i => `
+              <div class="item-card is-static">${itemArt(imgOf(i))}
+                <span class="item-card-name">${esc(cleanText(pick(i, ['name', 'title', 'material']), 'Material'))}</span>
+                <span class="item-card-sub">${toNum(pick(i, ['price', 'cost', 'buyPrice']), null) != null
+                  ? `${num(toNum(pick(i, ['price', 'cost', 'buyPrice']), 0))} solars${pick(i, ['stock', 'qty', 'quantity']) != null ? ` · ${num(counted(pick(i, ['stock', 'qty', 'quantity']), 0))} left` : ''}`
+                  : esc(cleanText(pick(i, ['note', 'reason']), 'Not for sale'))}</span>
+              </div>`).join('')}</div>
+            <p class="mgr-note">Prices and stock are the bot's. Buying stays in chat.</p>` : ''}
           ${territories.length ? `
             <div class="pd-sec-title">Territories</div>
             <div class="chips-wrap">${territories.slice(0, 24).map(t => `
@@ -981,6 +1056,8 @@ function walletView(walletPayload, mePlayer) {
     bank: toNum(pick(w, ['bank', 'banked', 'bankBalance', 'bank_balance', 'inBank']), 0),
     vault: value(['vault', 'vaulted', 'vaultBalance', 'inVault'], me.vault),
     gems: value(['gems', 'gem', 'gemBalance', 'crystals'], me.gems),
+    // `monds` is its own currency in the updated wallet, not a gem alias.
+    monds: toNum(pick(w, ['monds', 'mond', 'mondBalance']), 0),
     loan: toNum(pick(w, ['loan', 'loanDue', 'debt', 'owed', 'outstanding']), 0),
     loanDueAt: pick(w, ['loanDueAt', 'dueAt', 'loanEndsAt']) ?? null,
   }
@@ -1014,6 +1091,7 @@ export async function loadWallet() {
         ['Bank', w.bank, 'solars', 'rank'],
         ['Vault', w.vault, 'solars', 'lock'],
         ['Gems', w.gems, 'gems', 'gift'],
+        ['Monds', w.monds, 'monds', 'reward'],
       ].map(([label, value, unit, icon]) => `
         <div class="wallet-card">
           <span class="wallet-ico">${iconSvg(icon, 'inline-icon')}</span>
@@ -1029,7 +1107,7 @@ export async function loadWallet() {
           <strong>Loan outstanding</strong>
           <p class="subtext">${num(w.loan)} solars${w.loanDueAt ? ` · due ${new Date(w.loanDueAt).toLocaleDateString()}` : ''}</p>
         </div>
-        <button type="button" class="btn btn-secondary btn-sm" id="walletRepay">Repay</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="walletRepay">Repay all</button>
       </div>` : ''}
 
     <section class="mob-sec">
@@ -1042,7 +1120,9 @@ export async function loadWallet() {
           <button type="button" class="btn btn-primary btn-sm" data-wallet="bank-in">Bank</button>
           <button type="button" class="btn btn-secondary btn-sm" data-wallet="bank-out">Withdraw</button>
           <button type="button" class="btn btn-secondary btn-sm" data-wallet="vault-in">Vault</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-wallet="vault-out">Unvault</button>
           <button type="button" class="btn btn-ghost btn-sm" data-wallet="loan">Take loan</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-wallet="repay">Repay</button>
         </div>
         <p class="mgr-note">The bank keeps solars safe from PvP; the vault hides them from everyone.</p>
       </div>
@@ -1078,13 +1158,18 @@ function wireWallet() {
     }
     if (err) err.textContent = ''
     try {
-      // Direction is carried by the sign: a negative amount moves money back
-      // out of the bank/vault into the wallet.
-      if (kind === 'bank-in') await api.bankMove(amount)
-      else if (kind === 'bank-out') await api.bankMove(-amount)
-      else if (kind === 'vault-in') await api.vaultMove(amount)
-      else if (kind === 'loan') await api.takeLoan(amount)
-      toast('Wallet updated', 'ok')
+      // Direction is the sign: a negative amount moves money back out of the
+      // bank/vault into the wallet. Loans and repayments are always positive.
+      const out = kind === 'bank-in' ? await api.bankMove(amount)
+        : kind === 'bank-out' ? await api.bankMove(-amount)
+        : kind === 'vault-in' ? await api.vaultMove(amount)
+        : kind === 'vault-out' ? await api.vaultMove(-amount)
+        : kind === 'loan' ? await api.takeLoan(amount)
+        : await api.repayLoan(amount)
+      // The response carries the settled wallet, so the numbers on screen come
+      // from the server rather than from arithmetic here.
+      const fresh = walletView(out, null)
+      toast(fresh.carried != null ? `Wallet updated · ${num(fresh.carried)} solars` : 'Wallet updated', 'ok')
       await loadWallet()
     } catch (e) {
       if (err) err.textContent = e?.message ?? 'That didn’t work.'
@@ -1096,25 +1181,63 @@ function wireWallet() {
 
   const repay = $('#walletRepay')
   if (repay) repay.onclick = async () => {
-    try { await api.repayLoan(walletRaw?.loan ?? 0); toast('Loan repaid', 'ok'); await loadWallet() }
+    try { await api.repayLoan('all'); toast('Loan repaid', 'ok'); await loadWallet() }
     catch (e) { toast(e?.message ?? 'Could not repay', 'err') }
   }
 }
 
 /* ──────────────────────────────── storage ─────────────────────────────── */
 
-/** "Do I own the ender chest?" - the buy button used to ignore every spelling
- *  except one, so a purchased chest still read as locked. */
+/**
+ * Three containers, one route.
+ *
+ * `/storage` answers with the Ender Chest flattened at the top level and the
+ * other two nested (`bag`, `chest`, `ender`), each with its own `items`, `used`
+ * and `capacity`. Reading the top-level `items` as "everything" was what made
+ * the page look like a single chest - so every container is read on its own
+ * here, and a container the bot didn't describe simply doesn't appear.
+ */
+/** The containers as they were last painted, for the move sheet. */
+let storageBoxes = []
+
+const CONTAINERS = [
+  { id: 'bag', label: 'Bag', icon: 'inventory' },
+  { id: 'chest', label: 'Chest', icon: 'lock' },
+  { id: 'ender', label: 'Ender chest', icon: 'gift' },
+]
+
+/** The container an item stack is addressed by, or null if the record has no id. */
+const stackKey = (i) => {
+  const raw = pick(i, ['id', 'itemId', 'item_id', 'itemInstanceId', 'instanceId', 'key', 'stackId'])
+  return raw == null || raw === '' ? null : String(raw)
+}
+
+function containerOf(out, id) {
+  const s = pick(out, ['storage']) ?? out ?? {}
+  const box = pick(s, [id]) ?? {}
+  // The Ender Chest is also flattened at the top level; use that when the
+  // nested object isn't there.
+  const fallback = id === 'ender' && !box.items ? s : null
+  const src = fallback ?? box
+  const items = listOf(src, ['items', 'contents', 'stacks'])
+  return {
+    id,
+    items,
+    used: counted(pick(src, ['used', 'slotsUsed', 'count']), items.length),
+    capacity: counted(pick(src, ['capacity', 'slots', 'maxSlots', 'size']), 0),
+  }
+}
+
+/** "Do I own the ender chest?" - every spelling the bot has used. */
 function enderOwned(s) {
-  const direct = pick(s, ['enderChest', 'enderChestOwned', 'enderOwned', 'enderUnlocked',
-    'ender', 'enderChests', 'enderChestSlots', 'enderSlots'])
+  const direct = pick(s, ['enderChest', 'enderChestOwned', 'enderOwned', 'enderUnlocked'])
   if (direct !== undefined) return isOwned(direct)
   const chests = pick(s, ['chests'])
   if (chests && typeof chests === 'object') {
     const e = chests.ender ?? chests.enderChest
     if (e !== undefined) return isOwned(e)
   }
-  return false
+  return isOwned(pick(s, ['ender']))
 }
 
 export async function loadStoragePage() {
@@ -1128,63 +1251,162 @@ export async function loadStoragePage() {
     return
   }
 
-  const s = pick(out, ['storage']) ?? out
-  const items = listOf(pick(s, ['items']) ?? s, ['items', 'chest', 'stacks'])
-  const used = counted(pick(s, ['used', 'slotsUsed', 'count']), items.length)
-  const capacity = counted(pick(s, ['capacity', 'slots', 'size', 'max', 'maxSlots']), 0)
-  const ender = enderOwned(s)
-  const pct = capacity ? Math.min(100, Math.round((used / capacity) * 100)) : 0
+  const ender = enderOwned(out)
+  const boxes = CONTAINERS.map(c => containerOf(out, c.id))
+  storageBoxes = boxes
+  const total = boxes.reduce((n, b) => n + b.items.length, 0)
 
   root.innerHTML = `
     <div class="storage-cards">
-      <div class="storage-card">
-        <span class="wallet-ico">${iconSvg('inventory', 'inline-icon')}</span>
-        <div>
-          <strong>Chest</strong>
-          <p class="subtext">${num(used)} / ${capacity ? num(capacity) : '—'} slots</p>
-          ${capacity ? `<div class="mgr-cap-track"><i style="width:${pct}%"></i></div>` : ''}
-        </div>
-        <button type="button" class="btn btn-secondary btn-sm" id="buyChest">Buy slot</button>
-      </div>
-      <div class="storage-card${ender ? ' is-owned' : ''}">
-        <span class="wallet-ico">${iconSvg('gift', 'inline-icon')}</span>
-        <div>
-          <strong>Ender chest ${ender ? '<span class="chip-sm">Owned</span>' : ''}</strong>
-          <p class="subtext">${ender ? 'Unlocked on this account.' : 'Extra storage that follows you between runs.'}</p>
-        </div>
-        <button type="button" class="btn ${ender ? 'btn-ghost' : 'btn-secondary'} btn-sm" id="buyEnder" ${ender ? 'disabled' : ''}>
-          ${ender ? 'Unlocked' : 'Unlock'}
-        </button>
-      </div>
+      ${boxes.map(box => {
+        const meta = CONTAINERS.find(c => c.id === box.id)
+        const locked = box.id === 'ender' && !ender
+        const pct = box.capacity ? Math.min(100, Math.round((box.used / box.capacity) * 100)) : 0
+        return `
+        <div class="storage-card${locked ? ' is-locked' : ''}${box.id === 'ender' && ender ? ' is-owned' : ''}">
+          <span class="wallet-ico">${iconSvg(meta.icon, 'inline-icon')}</span>
+          <div>
+            <strong>${meta.label}${box.id === 'ender' && ender ? ' <span class="chip-sm">Owned</span>' : ''}</strong>
+            <p class="subtext">${locked
+              ? 'Unlocks for 100,000 solars, once.'
+              : `${num(box.used)}${box.capacity ? ` / ${num(box.capacity)}` : ''} slots${box.items.length ? ` · ${num(box.items.length)} stacks` : ''}`}</p>
+            ${!locked && box.capacity ? `<div class="mgr-cap-track"><i style="width:${pct}%"></i></div>` : ''}
+          </div>
+          ${locked
+            ? '<button type="button" class="btn btn-secondary btn-sm" id="buyEnder">Unlock</button>'
+            : box.id === 'chest'
+              ? '<button type="button" class="btn btn-ghost btn-sm" id="buyChest">Expand</button>'
+              : ''}
+        </div>`}).join('')}
     </div>
 
-    <section class="mob-sec">
-      <div class="sec-head"><h2>Stored items</h2><span class="subtext">${num(items.length)} stacks</span></div>
-      ${items.length
-        ? `<div class="mgr-grid">${items.map(i => itemCard(i, { attrs: `data-store="${attr(String(stackId(i)))}"` })).join('')}</div>`
-        : emptyState('inventory', 'Nothing in storage', 'Move stacks here from the inventory manager to free up space.')}
-    </section>`
+    ${boxes.map(box => {
+      const meta = CONTAINERS.find(c => c.id === box.id)
+      const locked = box.id === 'ender' && !ender
+      if (locked) return ''
+      return `
+      <section class="mob-sec">
+        <div class="sec-head"><h2>${meta.label}</h2><span class="subtext">${num(box.items.length)} stacks</span></div>
+        ${box.items.length
+          ? `<div class="mgr-grid">${box.items.map(i => itemCard(i, {
+              attrs: `data-store="${attr(stackKey(i) ?? '')}" data-from="${attr(box.id)}"`,
+            })).join('')}</div>`
+          : emptyState('inventory', `${meta.label} is empty`, box.id === 'bag'
+            ? 'Items you carry show up here.'
+            : 'Move stacks in from the inventory manager.')}
+      </section>`}).join('')}
 
-  for (const tile of $$('[data-store]', root)) {
-    tile.onclick = async () => {
-      try {
-        await api.storageMove({ itemInstanceId: tile.dataset.store, qty: 1, to: 'inventory' })
-        toast('Moved to your bag', 'ok')
-        await loadStoragePage()
-      } catch (e) { toast(e?.message ?? 'Could not move that item', 'err') }
-    }
-  }
-  const chest = $('#buyChest')
-  if (chest) chest.onclick = async () => {
-    chest.disabled = true
-    try { await api.buyStorageChest(); toast('Chest expanded', 'ok'); await loadStoragePage() }
-    catch (e) { chest.disabled = false; toast(e?.message ?? 'Could not buy that', 'err') }
-  }
-  const enderBtn = $('#buyEnder')
-  if (enderBtn && !ender) enderBtn.onclick = async () => {
+    <p class="mgr-note">${total
+      ? 'Tap a stack to move it. Moves can land partially - the bot decides what fits.'
+      : 'Nothing stored yet.'}</p>`
+
+  wireStorage(ender)
+
+  const chest = $('#buyChest', root)
+  if (chest) chest.onclick = () => openChestBuy()
+  const enderBtn = $('#buyEnder', root)
+  if (enderBtn) enderBtn.onclick = async () => {
     enderBtn.disabled = true
     try { await api.buyEnderChest(); toast('Ender chest unlocked', 'ok'); await loadStoragePage() }
     catch (e) { enderBtn.disabled = false; toast(e?.message ?? 'Could not buy that', 'err') }
+  }
+}
+
+/**
+ * The chest has two prices, so the player picks which pot pays.
+ *
+ * The bot decides both, and the response carries the new storage - so the page
+ * re-reads it rather than assuming the capacity went up.
+ */
+function openChestBuy() {
+  openModal(`
+    <div class="item-pop">
+      <div class="item-pop-head"><h3>Expand the chest</h3><p class="item-pop-sub">One more row of slots</p></div>
+      <div class="item-pop-body">
+        <p class="item-pop-desc">Pay with solars or with gems - the bot sets both prices and applies the new capacity.</p>
+        <div class="item-pop-actions">
+          <button type="button" class="btn btn-primary btn-sm" data-chest-buy="solars">${iconSvg('spark', 'inline-icon')} Pay solars</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-chest-buy="gems">${iconSvg('gem', 'inline-icon')} Pay gems</button>
+        </div>
+      </div>
+    </div>`)
+
+  for (const btn of $$('[data-chest-buy]')) {
+    btn.onclick = async () => {
+      btn.disabled = true
+      try {
+        await api.buyStorageChest(btn.dataset.chestBuy)
+        toast('Chest expanded', 'ok')
+        closeModal()
+        await loadStoragePage()
+      } catch (e) {
+        btn.disabled = false
+        toast(e?.message ?? 'Could not buy that', 'err')
+      }
+    }
+  }
+}
+
+/**
+ * Moving a stack.
+ *
+ * The request names both containers and the raw item id, and the answer says
+ * how many actually moved (`moved`) and why it stopped (`reason`) - a 200 does
+ * not mean the whole stack travelled. So the sheet reports the real number and
+ * then re-reads storage and inventory rather than patching its own copy.
+ */
+function wireStorage(ender) {
+  const root = $('#storageRoot')
+  for (const tile of $$('[data-store]', root)) {
+    tile.onclick = () => openStorageStack(tile.dataset.store, tile.dataset.from, ender)
+  }
+}
+
+/** The stack the move sheet is about, drawn with the same card as everywhere else. */
+function openStorageStack(id, from, ender) {
+  const where = CONTAINERS.find(c => c.id === from)?.label ?? 'Storage'
+  const key = String(id ?? '')
+  const item = storageBoxes
+    .find(b => b.id === from)?.items
+    .find(i => String(stackKey(i)) === key)
+  if (!item) return
+
+  const available = CONTAINERS
+    .map(c => c.id)
+    .filter(c => c !== from && (c !== 'ender' || ender))
+
+  const actions = available.map(to => `
+    <button type="button" class="btn btn-secondary btn-sm" data-move-to="${attr(to)}">
+      ${iconSvg('compass', 'inline-icon')} To ${esc(CONTAINERS.find(c => c.id === to).label)}
+    </button>`).join('')
+
+  openModal(itemPopupHtml(item, {
+    qty: itemQty(item),
+    note: `<p class="item-pop-note">In your ${esc(where.toLowerCase())}. The bot moves up to 99 at a time and can stop early if the target is full.</p>`,
+    actions,
+  }))
+
+  for (const btn of $$('[data-move-to]')) {
+    btn.onclick = async () => {
+      const to = btn.dataset.moveTo
+      btn.disabled = true
+      try {
+        const out = await api.storageMove({ from, to, item: id, qty: 99 })
+        const moved = toNum(pick(out, ['moved', 'qty', 'amount']), null)
+        const reason = cleanText(pick(out, ['reason', 'note']), '')
+        toast(
+          moved == null
+            ? `Moved to ${CONTAINERS.find(c => c.id === to).label}`
+            : `Moved ${num(moved)} to ${CONTAINERS.find(c => c.id === to).label}${reason ? ` · ${reason}` : ''}`,
+          moved === 0 ? 'err' : 'ok',
+        )
+        closeModal()
+        await loadStoragePage()
+      } catch (e) {
+        btn.disabled = false
+        toast(e?.message ?? 'That move failed', 'err')
+      }
+    }
   }
 }
 
@@ -1279,16 +1501,157 @@ function trackChip(record) {
   return track ? `<span class="card-track">${esc(track.label)}</span>` : ''
 }
 
+/**
+ * The Halloween event, exactly as the bot reports it.
+ *
+ * `active`, `claimed`, `reward` and `badge` are the server's, and the reward is
+ * never spelled out on the client: the card prints what `reward` contains and
+ * the claim prints what `granted` says came back. If `/events` isn't deployed,
+ * the card says so calmly instead of pretending a giveaway exists.
+ */
+let halloween = null
+
+/** The event record from either envelope shape the bot has used. */
+function eventById(payload, id) {
+  if (!payload || payload.__error) return null
+  const rows = listOf(payload, ['events', 'items', 'active', 'season'])
+  const found = rows.find(x => String(pick(x, ['id', 'eventId', 'slug', 'key']) ?? '') === id)
+  if (found) return found
+  const direct = pick(payload, [id])
+  if (direct && typeof direct === 'object') return direct
+  return String(pick(payload, ['id', 'eventId']) ?? '') === id ? payload : null
+}
+
+/** Reward chips from `reward`, `rewards`, or whatever else it was called. */
+function rewardChips(ev) {
+  if (!ev) return ''
+  const rew = pick(ev, ['reward', 'rewards', 'prize', 'drop']) ?? {}
+  const chips = []
+  if (typeof rew === 'string') chips.push({ icon: 'gift', label: rew })
+  else {
+    const solars = toNum(pick(rew, ['solars', 'coins', 'money']), null)
+    const gems = toNum(pick(rew, ['gems', 'gem']), null)
+    const monds = toNum(pick(rew, ['monds', 'mond']), null)
+    if (solars) chips.push({ icon: 'spark', label: `${num(solars)} solars` })
+    if (gems) chips.push({ icon: 'gem', label: `${num(gems)} gems` })
+    if (monds) chips.push({ icon: 'reward', label: `${num(monds)} ${plural(monds, 'mond')}` })
+    for (const extra of listOf(rew, ['items', 'extra'])) {
+      const label = cleanText(typeof extra === 'string' ? extra : pick(extra, ['name', 'label', 'title']), '')
+      if (label) chips.push({ icon: 'inventory', label })
+    }
+  }
+  const badge = ev.badge
+  const badgeName = cleanText(typeof badge === 'string' ? badge : pick(badge, ['name', 'title', 'label']), '')
+  if (badgeName) chips.push({ icon: 'premium', label: badgeName })
+  return chips.length
+    ? `<div class="ev-rewards">${chips.map(c => `<span class="ev-reward">${iconSvg(c.icon, 'inline-icon')} ${esc(c.label)}</span>`).join('')}</div>`
+    : ''
+}
+
+function halloweenCard(ev, error) {
+  if (!ev) {
+    // Not deployed yet (or the route is closed): say so, offer nothing.
+    if (!error) return ''
+    const notFound = error.status === 404 || error.status === 405
+    return `
+      <section class="mob-sec">
+        <div class="card ev-card is-quiet">
+          <div class="ev-body">
+            <span class="ev-badge">Event</span>
+            <h2 class="ev-title">Halloween</h2>
+            <p class="ev-desc">${notFound
+              ? 'The event feed isn’t live yet. It appears here the moment the bot opens it.'
+              : esc(error.message ?? 'The event feed couldn’t be read.')}</p>
+          </div>
+        </div>
+      </section>`
+  }
+
+  const active = isOwned(pick(ev, ['active', 'isActive', 'live', 'enabled']))
+  const claimed = isOwned(pick(ev, ['claimed', 'isClaimed', 'hasClaimed']))
+  const title = cleanText(pick(ev, ['title', 'name']), 'Halloween')
+  const desc = cleanText(pick(ev, ['description', 'desc', 'text']), '')
+  const img = imgOf(ev) || 'https://i.ibb.co/ymySXjzR/D4DJ.jpg'
+  const state = claimed ? 'Claimed' : active ? 'Live' : 'Not live yet'
+
+  return `
+    <section class="mob-sec">
+      <div class="card ev-card">
+        <div class="ev-media">
+          <img src="${attr(img)}" alt="" referrerpolicy="no-referrer" loading="lazy"
+               onerror="this.style.display='none'">
+          <div class="ev-veil"></div>
+          <span class="ev-badge">${active && !claimed ? 'Limited event' : state}</span>
+        </div>
+        <div class="ev-body">
+          <h2 class="ev-title">${esc(title)}</h2>
+          ${desc ? `<p class="ev-desc">${esc(desc)}</p>` : ''}
+          ${rewardChips(ev)}
+          ${claimed
+            ? '<span class="chip-sm">Reward collected</span>'
+            : active
+              ? `<button type="button" class="btn btn-primary btn-sm ev-cta" id="halloweenClaim">Claim gift</button>`
+              : `<button type="button" class="btn btn-secondary btn-sm ev-cta" id="halloweenClaim" disabled>Not live yet</button>`}
+        </div>
+      </div>
+    </section>`
+}
+
+/**
+ * Claiming, with the retry rules the bot documents.
+ *
+ * One key per attempt, reused if the same attempt has to be repeated - that is
+ * what stops a double tap or a dropped connection paying out twice. A 503
+ * (CLAIM_SAVE_PENDING / CLAIM_COMMIT_FAILED) is *unconfirmed*, not failed: the
+ * button stays live so the player can safely try again, and the event is
+ * re-read first so a claim that actually landed shows as claimed.
+ */
+let claimKey = null
+
+async function claimHalloween(btn) {
+  if (btn.disabled) return
+  claimKey = claimKey || newIdempotencyKey()
+  btn.disabled = true
+  btn.textContent = 'Claiming…'
+  try {
+    await api.claimEvent('halloween', claimKey)
+    claimKey = null
+    // The server paid; ask it what the wallet and the event look like now.
+    await api.wallet().catch(() => null)
+    toast('Halloween gift claimed', 'ok')
+    await loadProgress()
+  } catch (err) {
+    const unconfirmed = err?.status === 503
+      || ['CLAIM_SAVE_PENDING', 'CLAIM_COMMIT_FAILED'].includes(err?.code)
+    if (unconfirmed) {
+      toast('The claim could not be confirmed yet. Try again - it is safe.', 'err')
+      btn.disabled = false
+      btn.textContent = 'Try again'
+      await api.events().catch(() => null)
+      return
+    }
+    claimKey = null
+    btn.disabled = false
+    btn.textContent = halloween?.claimed ? 'Claimed' : 'Claim gift'
+    toast(err?.message ?? 'Could not claim right now', 'err')
+    // 409 already-claimed is a normal outcome, not an error to shout about.
+    if (err?.status === 409) await loadProgress()
+  }
+}
+
 export async function loadProgress() {
   const root = $('#progressRoot')
   if (!root) return
   root.innerHTML = skeletonCards(2)
 
-  const [quests, achievements, progress, me] = await Promise.all([
+  const [quests, achievements, progress, me, events] = await Promise.all([
     api.quests().catch(err => ({ __error: err })),
     api.achievements().catch(() => null),
     api.progress().catch(() => null),
     api.me().catch(() => null),
+    // Live event state, so the Halloween card shows what the bot says rather
+    // than a countdown or a reward the site made up.
+    api.events().catch(err => ({ __error: err })),
   ])
 
   if (quests?.__error && !me) {
@@ -1339,7 +1702,11 @@ export async function loadProgress() {
       </div>`
   }
 
+  halloween = eventById(events, 'halloween')
+
   root.innerHTML = `
+    ${halloweenCard(halloween, events?.__error)}
+
     ${statRows.length ? `
       <div class="pd-stats" style="margin-bottom:20px">
         ${statRows.map(([k, v]) => `
@@ -1376,6 +1743,9 @@ export async function loadProgress() {
         : emptyState('reward', 'No achievements yet', 'They unlock as you play.')}
     </section>`
 
+  const evBtn = $('#halloweenClaim', root)
+  if (evBtn) evBtn.onclick = () => claimHalloween(evBtn)
+
   for (const btn of $$('[data-claim-quest]', root)) {
     btn.onclick = async () => {
       btn.disabled = true
@@ -1395,6 +1765,7 @@ export async function loadProgress() {
 /* ──────────────────────────────── pokémon ─────────────────────────────── */
 
 let monTab = 'mons'
+let dexAvailable = false
 let monData = { mons: [], party: [], dex: [], bag: [], shop: [], overview: null }
 
 /**
@@ -1437,7 +1808,13 @@ const monName = (m) => cleanText(pick(m, ['nickname', 'name', 'species', 'pokemo
 function monArt(m) {
   const direct = imgOf(m)
   if (direct) return direct
-  return pokeApiArt(dexOf(m))
+  // Mon detail and battle state expose ordered fallbacks here.
+  const front = pick(m, ['art'])?.front
+  if (front) return resolveArt(String(front))
+  // The bot serves its own artwork by dex id, so no external host is needed.
+  const dex = dexOf(m)
+  if (dex) return pokemonImageUrl(dex) || pokeApiArt(dex)
+  return ''
 }
 
 /**
@@ -1486,14 +1863,17 @@ export async function loadPokemon(tab = monTab) {
   root.innerHTML = skeletonCards(2)
 
   // One failing endpoint shouldn't blank the page: the tabs are independent,
-  // so each is caught on its own and simply renders empty.
-  const [overview, mons, party, dex, bag, shop] = await Promise.all([
+  // so each is caught on its own and simply renders empty. The battle route is
+  // also how an interrupted fight is picked back up after a reload.
+  const [meta, overview, mons, party, dexIn, bag, shop, battle] = await Promise.all([
+    api.pokemonMeta().catch(() => null),
     api.pokemonOverview().catch(() => null),
     api.pokemonMons().catch(err => ({ __error: err })),
     api.pokemonParty().catch(() => null),
-    api.pokemonDex().catch(() => null),
+    api.pokemonDex().catch(err => ({ __error: err })),
     api.pokemonBag().catch(() => null),
     api.pokemonShop().catch(() => null),
+    api.pokemonBattle().catch(() => null),
   ])
 
   if (mons?.__error) {
@@ -1501,6 +1881,8 @@ export async function loadPokemon(tab = monTab) {
     return
   }
 
+  const dex = dexIn?.__error ? null : dexIn
+  monMeta = pick(meta, ['meta']) ?? meta ?? null
   monData = {
     overview: pick(overview, ['overview']) ?? overview ?? null,
     mons: listOf(mons, ['mons', 'pokemon', 'items', 'caught']),
@@ -1509,20 +1891,41 @@ export async function loadPokemon(tab = monTab) {
     bag: listOf(bag, ['bag', 'items']),
     shop: listOf(shop, ['items', 'shop', 'stock']),
   }
+  monBattle = liveBattle(battle) ?? liveBattle(pick(monData.overview, ['battle']))
 
   const o = monData.overview ?? {}
+  // A brand-new account picks a starter before anything else makes sense.
+  if (isOwned(pick(o, ['needsStarter', 'needsStarterChoice'])) && !monData.mons.length) {
+    root.innerHTML = starterPicker()
+    wireStarter()
+    return
+  }
   const dexSeen = toNum(pick(o, ['dexSeen', 'seen', 'seenCount']), monData.dex.length)
-  const tabs = [['mons', 'Mons'], ['party', 'Party'], ['dex', 'Dex'], ['bag', 'Bag'], ['shop', 'Shop']]
+  // `/pokemon/dex` is not part of the bot's published Pokémon routes. When it
+  // isn't there the tab is left out instead of being a dead end.
+  dexAvailable = !dex?.__error && monData.dex.length > 0
+  if (!dexAvailable && monTab === 'dex') monTab = 'mons'
+  const tabs = [
+    ['mons', 'Mons'],
+    ['party', 'Party'],
+    ...(dexAvailable ? [['dex', 'Dex']] : []),
+    ['bag', 'Bag'],
+    ['shop', 'Shop'],
+  ]
 
   root.innerHTML = `
+    ${battlePanel()}
     <div class="mon-summary">
       <div><strong>${num(monData.mons.length)}</strong><span>caught</span></div>
       <div><strong>${num(monData.party.length)}</strong><span>in party</span></div>
       <div><strong>${num(dexSeen)}</strong><span>seen</span></div>
     </div>
     <div class="mon-actions">
-      <button type="button" class="btn btn-primary btn-sm" id="monHunt">${iconSvg('spark', 'inline-icon')} Hunt</button>
+      <button type="button" class="btn btn-primary btn-sm" id="monHunt" ${monBattle ? 'disabled' : ''}>
+        ${iconSvg('spark', 'inline-icon')} ${monBattle ? 'Battle in progress' : 'Hunt'}
+      </button>
       <button type="button" class="btn btn-secondary btn-sm" id="monHeal">${iconSvg('gift', 'inline-icon')} Heal party</button>
+      ${monBattle ? `<button type="button" class="btn btn-ghost btn-sm" id="monForfeit">Forfeit</button>` : ''}
     </div>
 
     <div class="filter-pills" role="tablist" aria-label="Pokémon sections">
@@ -1546,10 +1949,17 @@ export async function loadPokemon(tab = monTab) {
     e.currentTarget.disabled = true
     try {
       const out = await api.pokemonHunt()
-      const caught = pick(out, ['caught', 'mon', 'pokemon'])
-      toast(caught ? `Caught ${monName(caught)}` : 'Hunt complete', 'ok')
-      await loadPokemon()
+      await applyBattle(out)
+      // A hunt either starts a fight (the panel replaces the button state) or
+      // ends in a catch, which is a collection change - both need a repaint.
+      if (monBattle) await loadPokemon()
     } catch (err) { e.currentTarget.disabled = false; toast(err?.message ?? 'Hunt failed', 'err') }
+  }
+  const forfeit = $('#monForfeit')
+  if (forfeit) forfeit.onclick = async () => {
+    forfeit.disabled = true
+    try { await api.pokemonForfeit(); toast('Battle forfeited', 'ok'); monBattle = null; await loadPokemon() }
+    catch (err) { forfeit.disabled = false; toast(err?.message ?? 'Could not forfeit', 'err') }
   }
   $('#monHeal').onclick = async (e) => {
     e.currentTarget.disabled = true
@@ -1557,8 +1967,275 @@ export async function loadPokemon(tab = monTab) {
     catch (err) { e.currentTarget.disabled = false; toast(err?.message ?? 'Could not heal', 'err') }
   }
   wireMonPanel()
+  wireBattle()
   // Cards rendered without art get it filled in by species name.
   hydrateMonArt($('#monPanel'))
+}
+
+/* ───────────────────────────── pokémon battle ─────────────────────────── */
+
+/**
+ * The bot owns the fight.
+ *
+ * Every rule - who moves first, how much lands, whether a ball catches, what a
+ * berry does - lives in the bot, and an active battle lives in its memory. So
+ * this page never rolls anything: it posts one action, then draws the battle,
+ * events and bag the server sends back. A restart on the bot's side ends the
+ * fight, which is why `battle` is re-read on every load instead of being kept.
+ */
+let monMeta = null
+let monBattle = null
+let battleLog = []
+let battleBusy = false
+
+/** A battle payload that is actually in progress, or null. */
+function liveBattle(payload) {
+  const b = pick(payload, ['battle']) ?? (pick(payload, ['you', 'foe']) ? payload : null)
+  if (!b) return null
+  const active = pick(b, ['active', 'isActive', 'ongoing'])
+  if (active !== undefined) return isOwned(active) ? b : null
+  // Older payloads have no flag: an unfinished fight is one with no result.
+  return pick(b, ['finished', 'result', 'over', 'winner']) === undefined ? b : null
+}
+
+const sideOf = (b, which) => pick(b, [which]) ?? {}
+const frontOf = (side) => pick(side, ['active', 'front', 'mon', 'pokemon']) ?? side
+
+/** HP, when the record carries it. No invented bar. */
+function hpOf(m) {
+  const hp = toNum(pick(m, ['hp', 'currentHp', 'health']), null)
+  const max = toNum(pick(m, ['maxHp', 'hpMax', 'maxHealth']), null)
+  return hp != null && max ? { hp, max, pct: Math.max(0, Math.min(100, Math.round((hp / max) * 100))) } : null
+}
+
+function battleFighter(m, { foe = false } = {}) {
+  const hp = hpOf(m)
+  const lvl = toNum(pick(m, ['level', 'lvl']), null)
+  return `
+    <div class="pb-${foe ? 'foe' : 'you'}">
+      <span class="pb-name">${foe ? 'Foe · ' : ''}${esc(monName(m))}</span>
+      ${lvl != null ? `<span class="pb-lv">Lv ${num(lvl)}</span>` : ''}
+      ${hp
+        ? `<div class="pb-hp${hp.pct <= 25 ? ' is-low' : ''}"><i style="width:${hp.pct}%"></i></div>
+           <span class="pb-hpn">${num(hp.hp)} / ${num(hp.max)}</span>`
+        : `<span class="pb-hpn">HP not available</span>`}
+    </div>`
+}
+
+/** The moves the bot says this mon has, index included (it is the action key). */
+function battleMoves() {
+  if (!monBattle) return []
+  const you = sideOf(monBattle, 'you')
+  const active = frontOf(you)
+  const fromActive = listOf(active, ['moves'])
+  if (fromActive.length) return fromActive
+  const fromSide = listOf(you, ['moves'])
+  if (fromSide.length) return fromSide
+  return listOf(monBattle, ['moves'])
+}
+
+function battlePanel() {
+  const b = monBattle
+  if (!b) return ''
+  const you = sideOf(b, 'you')
+  const foe = sideOf(b, 'foe')
+  const myMon = frontOf(you)
+  const theirMon = frontOf(foe)
+  const bg = resolveArt(imgOf(pick(b, ['background', 'bg', 'arena'])) ?? '')
+  const moves = battleMoves()
+  const team = listOf(you, ['team'])
+  const balls = monData.bag.filter(i => /ball/i.test(String(pick(i, ['id', 'name']) ?? '')))
+  const items = monData.bag
+
+  return `
+    <div class="poke-battle" id="monBattle">
+      <div class="pb-scene">
+        ${bg ? `<img class="pb-bg" src="${attr(bg)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}
+        <span class="pb-badge">${esc(cleanText(pick(b, ['kind', 'type', 'mode']), 'Wild battle'))}</span>
+        ${battleFighter(theirMon, { foe: true })}
+        ${battleFighter(myMon)}
+      </div>
+
+      ${battleLog.length ? `<div class="pb-log">${battleLog.slice(0, 4).map(line =>
+        `<p>${esc(line)}</p>`).join('')}</div>` : ''}
+
+      ${moves.length ? `
+        <div class="pb-moves">
+          ${moves.map((mv, i) => {
+            const name = cleanText(pick(mv, ['name', 'move', 'title']), `Move ${i + 1}`)
+            const pp = toNum(pick(mv, ['pp', 'uses', 'remaining']), null)
+            const maxPp = toNum(pick(mv, ['maxPp', 'ppMax']), null)
+            const type = cleanText(pick(mv, ['type', 'element']), '')
+            return `
+            <button type="button" class="pb-move" data-pb-move="${attr(String(toNum(pick(mv, ['index', 'slot']), i + 1)))}"
+                    ${battleBusy ? 'disabled' : ''}>
+              <span class="pb-move-name">${esc(name)}</span>
+              <span class="pb-move-sub">${esc([type, pp != null && (maxPp ? `${num(pp)}/${num(maxPp)} PP` : `${num(pp)} PP`)].filter(Boolean).join(' · ') || '—')}</span>
+            </button>`}).join('')}
+        </div>` : `<p class="mob-note">The bot didn’t send any moves for this turn.</p>`}
+
+      <div class="pb-acts">
+        ${balls.length
+          ? `<button type="button" class="btn btn-primary btn-sm" data-pb-catch="${attr(String(pick(balls[0], ['id', 'itemId', 'key'])))}" ${battleBusy ? 'disabled' : ''}>Throw ball</button>`
+          : ''}
+        ${items.length ? `<button type="button" class="btn btn-secondary btn-sm" id="pbItem" ${battleBusy ? 'disabled' : ''}>Use item</button>` : ''}
+        ${team.length > 1 ? `<button type="button" class="btn btn-secondary btn-sm" id="pbSwitch" ${battleBusy ? 'disabled' : ''}>Switch</button>` : ''}
+        <button type="button" class="btn btn-ghost btn-sm" data-pb-run ${battleBusy ? 'disabled' : ''}>Run</button>
+      </div>
+    </div>`
+}
+
+/** Draws whatever the last response left behind, or reloads when the fight ended. */
+async function applyBattle(out) {
+  const events = listOf(out, ['events', 'log', 'messages'])
+  if (events.length) {
+    battleLog = [
+      ...events.map(e => cleanText(typeof e === 'string' ? e : pick(e, ['text', 'message', 'label']), '')).filter(Boolean),
+      ...battleLog,
+    ].slice(0, 8)
+  }
+  const bag = listOf(out, ['bag'])
+  if (bag.length) monData.bag = bag
+
+  const next = liveBattle(out)
+  if (next) {
+    monBattle = next
+    paintBattle()
+    return
+  }
+
+  monBattle = null
+  const summary = pick(out, ['summary', 'result'])
+  const won = summary && isOwned(pick(summary, ['won', 'victory', 'success']))
+  if (summary) {
+    const caught = pick(summary, ['caught', 'mon', 'pokemon'])
+    toast(caught ? `Caught ${monName(caught)}` : won ? 'Battle won' : cleanText(pick(summary, ['text', 'message']), 'Battle over'), 'ok')
+  }
+  battleLog = []
+  await loadPokemon()
+}
+
+function paintBattle() {
+  const host = $('#monBattle')
+  if (!monBattle) { if (host) host.remove(); return }
+  if (!host) { loadPokemon(); return }
+  host.outerHTML = battlePanel()
+  wireBattle()
+}
+
+/** One turn, or one of the out-of-turn actions the bot accepts. */
+async function battleAct(payload, label = '') {
+  if (battleBusy) return
+  battleBusy = true
+  for (const btn of $$('[data-pb-move], [data-pb-catch], [data-pb-run], #pbItem, #pbSwitch')) btn.disabled = true
+  try {
+    const out = await api.pokemonAct(payload)
+    if (label) battleLog = [label, ...battleLog].slice(0, 8)
+    await applyBattle(out)
+  } catch (err) {
+    toast(err?.message ?? 'That action failed', 'err')
+    await loadPokemon()
+  } finally {
+    battleBusy = false
+  }
+}
+
+function wireBattle() {
+  const host = $('#monBattle')
+  if (!host) return
+
+  for (const btn of $$('[data-pb-move]', host)) {
+    btn.onclick = () => battleAct({ action: 'move', index: Number(btn.dataset.pbMove) })
+  }
+  const catchBtn = host.querySelector('[data-pb-catch]')
+  if (catchBtn) catchBtn.onclick = () => battleAct({ action: 'catch', itemId: catchBtn.dataset.pbCatch })
+  const run = host.querySelector('[data-pb-run]')
+  if (run) run.onclick = () => battleAct({ action: 'run' })
+
+  const itemBtn = $('#pbItem', host)
+  if (itemBtn) itemBtn.onclick = () => {
+    const bag = monData.bag
+    openModal(`
+      <div class="item-pop">
+        <div class="item-pop-head"><h3>Use an item</h3><p class="item-pop-sub">From your Pokémon bag</p></div>
+        <div class="item-pop-body">
+          <div class="mgr-grid">${bag.map((i, idx) => itemCard(i, { attrs: `data-pb-use="${attr(String(idx))}"` })).join('')}</div>
+        </div>
+      </div>`)
+    for (const card of $$('[data-pb-use]')) {
+      card.onclick = () => {
+        const item = bag[Number(card.dataset.pbUse)]
+        const itemId = pick(item, ['id', 'itemId', 'key'])
+        closeModal()
+        battleAct({ action: 'item', itemId: String(itemId ?? '') })
+      }
+    }
+  }
+
+  const switchBtn = $('#pbSwitch', host)
+  if (switchBtn) switchBtn.onclick = () => {
+    const team = listOf(sideOf(monBattle, 'you'), ['team'])
+    openModal(`
+      <div class="item-pop">
+        <div class="item-pop-head"><h3>Switch</h3><p class="item-pop-sub">Your team</p></div>
+        <div class="item-pop-body">
+          <div class="mon-grid">${team.map((m, i) => `
+            <button type="button" class="mon-card" data-pb-slot="${attr(String(toNum(pick(m, ['slot', 'index']), i + 1)))}">
+              <span class="mon-name">${esc(monName(m))}</span>
+              <span class="mon-sub">${esc(hpOf(m) ? `${num(hpOf(m).hp)} / ${num(hpOf(m).max)} HP` : monTypes(m) || 'Team member')}</span>
+            </button>`).join('')}</div>
+        </div>
+      </div>`)
+    for (const card of $$('[data-pb-slot]')) {
+      card.onclick = () => {
+        const slot = Number(card.dataset.pbSlot)
+        closeModal()
+        battleAct({ action: 'switch', slot })
+      }
+    }
+  }
+}
+
+/* ── starter ─────────────────────────────────────────────────────────────── */
+
+const starterChoices = () => listOf(monMeta, ['starters', 'starterChoices', 'choices', 'options'])
+
+function starterPicker() {
+  const picks = starterChoices()
+  return `
+    <div class="card mon-starter">
+      <div class="sec-head"><h2>Choose a starter</h2></div>
+      <p class="subtext">Your first Pokémon comes from the bot's own list - no guessing.</p>
+      ${picks.length
+        ? `<div class="starter-grid">${picks.map(s => {
+          const dex = dexOf({ dexId: pick(s, ['dexId', 'id', 'dexNumber']) })
+          const name = cleanText(pick(s, ['name', 'species', 'title']), 'Starter')
+          const art = imgOf(s) || (dex ? pokemonImageUrl(dex) : '')
+          return `
+            <button type="button" class="starter-card" data-starter="${attr(String(toNum(pick(s, ['dexId', 'id', 'dexNumber']), '') ?? ''))}">
+              <span class="starter-art">${art
+                ? `<img src="${attr(art)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`
+                : `<span class="item-art-ph">${iconSvg('spark', 'inventory-icon')}</span>`}</span>
+              <span class="starter-name">${esc(name)}</span>
+              <span class="starter-sub">${esc(monTypes(s) || 'Starter')}</span>
+            </button>`}).join('')}</div>`
+        : emptyState('spark', 'No starters listed', 'The bot hasn’t opened its starter list yet.')}
+    </div>`
+}
+
+function wireStarter() {
+  for (const card of $$('[data-starter]')) {
+    card.onclick = async () => {
+      const dexId = Number(card.dataset.starter)
+      if (!Number.isInteger(dexId) || dexId <= 0) { toast('That starter has no dex id', 'err'); return }
+      card.disabled = true
+      try {
+        await api.pokemonStarter(dexId)
+        toast('Starter chosen', 'ok')
+        await loadPokemon()
+      } catch (err) { card.disabled = false; toast(err?.message ?? 'Could not choose that starter', 'err') }
+    }
+  }
 }
 
 function monPanel() {
@@ -1586,9 +2263,15 @@ function monPanel() {
       : emptyState('inventory', 'Dex is empty', 'Every mon you meet gets logged here.')
   }
   if (monTab === 'bag') {
-    return monData.bag.length
+    // The Pokémon bag is separate from the RPG inventory; this is the only way
+    // items cross over, and the bot reports how many actually moved.
+    const importBar = `
+      <div class="mon-actions">
+        <button type="button" class="btn btn-secondary btn-sm" id="monBagImport">${iconSvg('inventory', 'inline-icon')} Import from inventory</button>
+      </div>`
+    return `${importBar}${monData.bag.length
       ? `<div class="mgr-grid">${monData.bag.map(i => itemCard(i)).join('')}</div>`
-      : emptyState('inventory', 'Bag is empty', 'Poké Balls and berries appear here once you own some.')
+      : emptyState('inventory', 'Bag is empty', 'Poké Balls and potions appear here once you import or buy them.')}`
   }
   if (monTab === 'shop') {
     return monData.shop.length
@@ -1635,6 +2318,17 @@ function wireMonPanel() {
     if (!card.dataset.mon) continue
     card.onclick = () => openMon(card.dataset.mon)
   }
+  const bagImport = $('#monBagImport')
+  if (bagImport) bagImport.onclick = async () => {
+    bagImport.disabled = true
+    try {
+      const out = await api.pokemonBagImport()
+      const moved = toNum(pick(out, ['moved', 'imported', 'count']), null)
+      toast(moved == null ? 'Checked your inventory' : `Imported ${num(moved)} item${moved === 1 ? '' : 's'}`, 'ok')
+      await loadPokemon()
+    } catch (err) { bagImport.disabled = false; toast(err?.message ?? 'Import failed', 'err') }
+  }
+
   for (const btn of $$('[data-mon-buy]', $('#monPanel'))) {
     btn.onclick = async (e) => {
       e.stopPropagation()
@@ -1643,6 +2337,23 @@ function wireMonPanel() {
       catch (err) { btn.disabled = false; toast(err?.message ?? 'Could not buy', 'err') }
     }
   }
+}
+
+/** The owned-instance id the party routes use. */
+const monId = (m) => String(pick(m, ['id', 'monId', 'pokemonId', 'uid', 'key']) ?? '')
+
+const inParty = (id) => monData.party.some(m => monId(m) === String(id))
+
+/**
+ * The party is replaced wholesale, exactly as the route expects: send the ids
+ * that should be in it. Six is the bot's cap; if it refuses, the message from
+ * the server is the one shown.
+ */
+async function toggleParty(id) {
+  const ids = monData.party.map(monId).filter(Boolean)
+  const next = ids.includes(String(id)) ? ids.filter(x => x !== String(id)) : [...ids, String(id)]
+  await api.pokemonSetParty(next)
+  toast(ids.includes(String(id)) ? 'Removed from party' : 'Added to party', 'ok')
 }
 
 async function openMon(id) {
@@ -1674,13 +2385,9 @@ async function openMon(id) {
       ${hp != null && maxHp ? bar('HP', hp, maxHp || 1) : ''}
       ${stats && typeof stats === 'object' && Object.keys(stats).length ? `<div class="pd-sec-title">Stats</div><div class="pd-stats">${statBonusTiles(stats)}</div>` : ''}
       <div class="mgr-actions">
-        <button type="button" class="btn btn-primary btn-sm" data-mon-act="main">Set as main</button>
-        <button type="button" class="btn btn-secondary btn-sm" data-mon-act="${pick(m, ['heldItem', 'item', 'holding']) ? 'unhold' : 'hold'}">${pick(m, ['heldItem', 'item', 'holding']) ? 'Remove held item' : 'Hold item'}</button>
-        <button type="button" class="btn btn-secondary btn-sm" data-mon-act="feed">Feed</button>
-        <button type="button" class="btn btn-secondary btn-sm" data-mon-act="evolve">Evolve</button>
-        <button type="button" class="btn btn-ghost btn-sm" data-mon-act="protect">Protect</button>
-        <button type="button" class="btn btn-ghost btn-sm" data-mon-act="rename">Rename</button>
+        <button type="button" class="btn btn-primary btn-sm" data-mon-act="party">${inParty(id) ? 'Remove from party' : 'Add to party'}</button>
       </div>
+      <p class="mgr-note">Feeding, evolving, nicknames and held items are handled by the bot in chat.</p>
       ${cleanText(pick(m, ['notes', 'description', 'flavor', 'flavorText'])) ? `<p class="subtext" style="margin-top:12px">${esc(cleanText(pick(m, ['notes', 'description', 'flavor', 'flavorText'])))}</p>` : ''}
     </div>`)
 
@@ -1691,17 +2398,7 @@ async function openMon(id) {
       const act = btn.dataset.monAct
       btn.disabled = true
       try {
-        if (act === 'main') await api.pokemonMain(id)
-        else if (act === 'hold') await api.pokemonHold(id, true)
-        else if (act === 'unhold') await api.pokemonHold(id, false)
-        else if (act === 'feed') await api.pokemonFeed(id)
-        else if (act === 'evolve') await api.pokemonEvolve(id)
-        else if (act === 'protect') await api.pokemonProtect(id)
-        else if (act === 'rename') {
-          const name = window.prompt('New nickname (2-12 characters)')
-          if (!name) { btn.disabled = false; return }
-          await api.pokemonRename(id, name.trim())
-        }
+        if (act === 'party') await toggleParty(id)
         toast('Updated', 'ok')
         closeModal()
         await loadPokemon()
