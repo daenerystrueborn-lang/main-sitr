@@ -1,11 +1,13 @@
 # Mobile pages — what the pages call, and what the bot must serve
 
-The phone-only pages (Wallet, Storage, Progress, Pokémon) and the season event
-slider are all driven by the bot's API. Guilds and Empires have been removed
-from the site; their routes are no longer called. The bot's contract is
-now published, and the frontend has been rewritten against it rather than
-against guesses — this document is the map between the two, plus the handful of
-things that only the bot operator can set.
+The phone-only pages (Wallet, Storage, Progress) and the season event slider
+are driven by the bot's API. The Pokémon page has been removed from both the
+mobile and desktop site; its bot endpoints, API wrappers, local data, and art
+remain in the repository. Section 4 is retained as a backend/API reference, not
+as a description of a current website page. Guilds and Empires have also been
+removed from the site; their routes are no longer called. This document maps
+the remaining frontend pages to the bot contract, plus the handful of things
+that only the bot operator can set.
 
 Every response is `{ ok: true, … }`; failures are `{ ok: false, error }` with a
 real HTTP status. The site reads `error`, falls back to `message`, and shows it.
@@ -108,15 +110,16 @@ as a backdrop on the existing cards, never as a second card set.
 - treats a replayed `granted: true` as a replay, and `alreadyClaimed` as done;
 - shows no countdown, because Halloween has no configured end date.
 
-## 4. Pokémon
+## 4. Pokémon API reference (no website page)
 
-The server owns the rules, so the page draws returned state and posts choices.
+These server routes and payload notes are retained for backend/API consumers.
+The website no longer exposes a Pokémon route or UI on mobile or desktop.
 
 | Call | Notes |
 |---|---|
 | `GET /api/pokemon/meta` | `starters`, region keys, limits |
 | `GET /api/pokemon/overview` | `needsStarter`, party, battle status |
-| `POST /api/pokemon/starter` | `{ dexId }` — shown instead of the tabs while `needsStarter` |
+| `POST /api/pokemon/starter` | `{ dexId }` — available to API clients when `needsStarter` is true |
 | `GET /api/pokemon/mons`, `/mons/:id`, `/party` | collection and party |
 | `PUT /api/pokemon/party` | `{ ids: [owned-id] }` — replaces the party wholesale |
 | `POST /api/pokemon/heal` | — |
@@ -127,33 +130,33 @@ The server owns the rules, so the page draws returned state and posts choices.
 | `GET /api/pokemon/bag`, `POST /bag/import` | separate bag; import reports how many moved |
 | `GET /api/pokemon/shop`, `POST /shop/buy` | `{ id, qty }` |
 
-The existing client also has a `pokemonMain(id)` helper that posts to
+The API client retains a `pokemonMain(id)` helper for
 `/api/pokemon/mons/:id/main`, but this route is **not** in the published server
-contract and there is no backend source in this checkout to verify it. The
-"Set as main" control uses that existing helper, waits for success, then reloads
-server state; failures are surfaced without a client-side selection change.
-Optional `stats`, `ivs`, `evs` and `moves` returned by `/mons/:id` are display-only.
-No TM, Mega, move-edit or other undocumented mutation is sent from this page.
+contract and there is no backend source in this checkout to verify it. No site
+control invokes that helper. Optional `stats`, `ivs`, `evs` and `moves` returned
+by `/mons/:id` are display data; no undocumented mutation is implied here.
 
-Battle UI reads `battle.background`, `battle.you.active`, `battle.you.team` and
-`battle.foe.active`, uses the **1-based** move index and the **slot** from the
-team, and offers catch only when a ball is actually in the bag. Because a battle
-lives in the bot's process memory, the page re-reads `GET /api/pokemon/battle`
-on every visit instead of trusting a cached one, and a finished battle clears
-the panel and reloads the collection.
+The removed battle view consumed `battle.background`, `battle.you.active`,
+`battle.you.team` and `battle.foe.active`, used the **1-based** move index and
+the **slot** from the team, and offered catch only when a ball was in the bag.
+A battle lives in the bot's process memory, so that view re-read
+`GET /api/pokemon/battle` on every visit instead of trusting cached state. These
+notes document the old client behavior only; the site no longer renders it.
 
-The species Dex is shipped locally, so browsing and species details do not
-depend on an undocumented `/api/pokemon/dex` route. Owned Pokémon data remains
-server-backed.
+Species data and sprites remain in the repository, but the website no longer
+exposes a Dex browser. Owned Pokémon data remains server-backed.
 
 **Instance id vs dex id** is respected everywhere: `id` identifies the owned
 mon (party, actions), `dexId` identifies the species (art, starter).
 
-## 5. Art — Pokémon Showdown
+## 5. Pokémon art and data (retained repository assets)
 
-Every Pokémon sprite, item icon and type badge comes from
-**[Pokémon Showdown](https://github.com/smogon/pokemon-showdown)**, the same
-assets its own client uses (`assets/js/showdown.js`):
+The site no longer loads Pokémon artwork in a page. The repository retains
+Pokémon Showdown-derived sprites and data for reference; this section documents
+their source and conventions.
+
+The original assets are from **[Pokémon Showdown](https://github.com/smogon/pokemon-showdown)**,
+the same assets its own client uses (`assets/js/showdown.js`):
 
 ```
 https://play.pokemonshowdown.com/sprites/gen5/{id}.png        front
@@ -168,19 +171,8 @@ Ids are Showdown's: lowercase alphanumerics, accents folded
 (`Poké Ball` → `pokeball`, `Mr. Mime` → `mrmime`, `Nidoran♀` → `nidoranf`).
 A name with no id produces **no picture**, never another Pokémon's art.
 
-The site also reads Showdown's `data/moves.json` (once a week, cached) to fill in
-a move's type and power when the bot's battle payload only names the move. That
-table is optional: if it can't load, the buttons show exactly what the bot sent.
-
-A Pokémon record's own form-specific artwork is preferred for alternate
-forms; `imgOf()` also understands PokeAPI `sprites.other['official-artwork']`
-records. `battle.background` is used when the game server sends one. Otherwise,
-the field uses the player's uploaded forest-clearing image bundled at
-`assets/sprites/battle/bg-forest-clearing.jpg`. The field stays 16:9, with a
-front sprite for the foe and the back sprite for the player. The active battle
-occupies a focused screen; regions and collection navigation stay outside it.
-`/api/images` remains the manifest; `pokemonImageUrl()` builds
+The removed page used Showdown's `data/moves.json` to fill in a move's type
+and power when the bot's battle payload only named the move. The local Dex and
+art assets remain in the repository, but are not fetched by the current site UI.
+The `pokemonImageUrl()` helper remains available to API consumers and builds
 `/api/images/pokemon/:dexId?variant=…` when a dex id is all there is.
-
-**If an image host is blocked, the page shows a glyph** — never a shared
-fallback photo.

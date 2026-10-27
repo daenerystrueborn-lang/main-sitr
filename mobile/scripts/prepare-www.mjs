@@ -11,12 +11,10 @@ fs.rmSync(www, { recursive: true, force: true })
 fs.cpSync(source, www, { recursive: true })
 console.log('Bundled the Astral mobile design into', www)
 
-// Reuse the site's shared API client, excluding its unrelated public showcase.
+// Reuse the site's shared API client. The removed website showcase no longer
+// needs special extraction; keeping the client intact preserves API helpers.
 const apiSource = fs.readFileSync(path.join(mobile, '../assets/js/api.js'), 'utf8')
-const start = apiSource.indexOf('/* ─────────────────────── Pokémon home-page showcase')
-const end = apiSource.indexOf('/* ───────────────────────────── session token')
-if (start < 0 || end < start) throw new Error('API extraction anchors changed')
-fs.writeFileSync(path.join(www, 'api.js'), apiSource.slice(0, start) + apiSource.slice(end))
+fs.writeFileSync(path.join(www, 'api.js'), apiSource)
 const base = process.env.ASTRAL_API_BASE || apiSource.match(/const DEFAULT_BASE = '([^']+)'/)?.[1]
 if (!base || !/^https:\/\//.test(base)) throw new Error('ASTRAL_API_BASE must be an HTTPS URL')
 fs.writeFileSync(path.join(www, 'config.js'), `window.ASTRAL_API_BASE=${JSON.stringify(base.replace(/\/+$/, ''))};window.ASTRAL_APP_VERSION=${JSON.stringify(process.env.ASTRAL_APP_VERSION || JSON.parse(fs.readFileSync(path.join(mobile, 'package.json'), 'utf8')).version)};\n`)

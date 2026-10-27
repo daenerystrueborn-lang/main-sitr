@@ -62,7 +62,6 @@
       <a class="nav-slot" href="#/season" data-route="season">Season</a>
       <a class="nav-slot" href="#/shop" data-route="shop">Shop</a>
       <a class="nav-slot" href="#/cards" data-route="cards">Cards</a>
-      <a class="nav-slot" href="#/pokemon" data-route="pokemon">Pokémon</a>
       <a class="nav-slot" href="#/premium" data-route="premium">Premium</a>
     </nav>
 
@@ -91,7 +90,6 @@
   <a class="drawer-link" href="#/shop" data-route="shop">Shop</a>
   <a class="drawer-link" href="#/cards" data-route="cards">Cards</a>
   <a class="drawer-link" href="#/premium" data-route="premium">Premium</a>
-  <a class="drawer-link" href="#/pokemon" data-route="pokemon">Pokémon</a>
   <a class="drawer-link" href="#/profile" data-route="profile">Profile</a>
   <!-- Everything below only exists on a phone; the desktop pill nav is the
        whole site there and these routes bounce back to home. -->
@@ -264,21 +262,6 @@
           <div class="feature-content"><h3>Battle Pass</h3><p>Seasonal tiers of gold, gear and exclusive rewards.</p></div>
         </a>
       </div>
-    </section>
-
-    <section class="section home-pokemon-section">
-      <div class="section-head">
-        <div>
-          <div class="section-kicker">Sun &amp; Moon bots</div>
-          <h2>Meet the Alola roster</h2>
-          <p>Pokémon companions for the world our bots are building.</p>
-        </div>
-        <a class="section-link" href="#/pokemon" data-route="pokemon">Open Pokémon →</a>
-      </div>
-      <div class="pokemon-grid" id="homePokemon">
-        <div class="pokemon-loading" aria-live="polite">Loading the Alola roster...</div>
-      </div>
-      <p class="pokemon-credit">Artwork and dex data ship with this site. Pokémon © Nintendo, Creatures Inc. and GAME FREAK inc.</p>
     </section>
 
     <section class="section">
@@ -515,7 +498,7 @@
 
 <!-- ===================================================== -->
 <!-- MOBILE-ONLY PAGES
-     Wallet, Storage, Progress and Pokémon are phone pages.
+     Wallet, Storage and Progress are phone pages.
      The bot exposes the endpoints, but the desktop site is deliberately left
      as it was, so each route carries `mobile: true` and bounces to home on a
      wide viewport (see routes in app.js).
@@ -545,15 +528,6 @@
       <div><h1>Progress</h1><p>Quests, achievements and everything you've unlocked.</p></div>
     </header>
     <div id="progressRoot"></div>
-  </div>
-</main>
-
-<main class="view poke-view" id="view-pokemon">
-  <div class="page mob-page">
-    <header class="mob-head">
-      <div><h1>Pokémon</h1><p>Your main Pokémon, bag, party and PC — plus regions, battles and the Pokémon shop.</p></div>
-    </header>
-    <div id="pokemonRoot"></div>
   </div>
 </main>
 
