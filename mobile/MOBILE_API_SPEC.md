@@ -1,238 +1,178 @@
-# Mobile pages — the API the bot must serve
+# Mobile pages — what the pages call, and what the bot must serve
 
-The phone pages (Wallet, Guilds, Empires, Storage, Progress, Pokémon) call
-routes that live in the bot. None of them existed in this repo, so the first
-live render was built on guessed envelopes and produced exactly what you saw:
+The phone-only pages (Wallet, Guilds, Empires, Storage, Progress, Pokémon) and
+the season event slider are all driven by the bot's API. The bot's contract is
+now published, and the frontend has been rewritten against it rather than
+against guesses — this document is the map between the two, plus the handful of
+things that only the bot operator can set.
 
-| What you saw | Cause |
-|---|---|
-| Bank `NaN`, Carried `0`, everything else `0` | amounts arrived as objects/strings the page didn't parse |
-| Every guild and empire wearing the same picture | no per-record image field, so every card fell back to one shared file |
-| `NaN citizens` | count arrived as an object (`{ count: 12 }`) or a string |
-| Guild names containing `}}` | the bot names include its own interpolation braces |
-| Ender chest still "locked" after buying | ownership came back under a field the page didn't read |
-| Pokémon had no picture | the bot sends a name/id, the page only read `image` |
-| Rank showing `null` | progress sends `rank: null` |
-
-The frontend now reads all of these defensively (`assets/js/shape.js`), so most
-of the above is already fixed without backend work. What follows is the exact
-contract that makes the pages *correct* rather than merely non-broken.
-
-Every response must be `{ ok: true, ... }`, and errors `{ ok: false, error }`,
-matching the rest of the API.
+Every response is `{ ok: true, … }`; failures are `{ ok: false, error }` with a
+real HTTP status. The site reads `error`, falls back to `message`, and shows it.
 
 ---
 
-## 1. Wallet — `GET /api/wallet` (player)
+## Deployment requirements (operator side)
 
-This is the one that showed `NaN`. Send plain numbers.
+| Setting | What it must be |
+|---|---|
+| `PUBLIC_API_URL` | the bot's **public HTTPS origin**. The site calls `<origin>/api/...`. |
+| `ALLOWED_ORIGINS` | must include the website origin(s) — production **and** every preview domain used for testing. |
+| CSP / image allowlist | the `/api/images/*` routes redirect to external hosts; allow those hosts or their images are blocked. |
 
-```json
-{
-  "ok": true,
-  "wallet": {
-    "solars": 20400,
-    "bank": 5000,
-    "vault": 1200,
-    "gems": 30,
-    "loan": 0,
-    "loanDueAt": null
-  }
-}
-```
+Rules the frontend follows:
 
-- All five amounts **numbers**, not strings, not `{ amount: n }`.
-- `bank` and `vault` are the deposit balances (not the capacity).
-- If a player can have a loan, `loan` is the outstanding amount and `loanDueAt`
-  an ISO timestamp.
+- **No `localhost` in browser code.** The base is `https://…` (or same-origin
+  when the site and bot share a host in local development).
+- **Bearer first, cookie second.** `Authorization: Bearer <token>` from the
+  OTP flow is always sent; `credentials: 'include'` is set too, so the secure
+  session cookie works when the token is absent.
+- **Never send a player id.** Private routes identify the account from the
+  session. The site sends item ids, mon ids, event ids — never "who".
+- Override the API base without a deploy: `?api=https://host` (remembered), or
+  `window.ASTRAL_API_BASE` before the bundle loads.
 
-`GET /api/wallet/ledger` → `{ ok: true, rows: [{ label, amount, at }] }` where
-`amount` is signed (negative = spent). 20 most recent is enough.
+## Idempotency
 
-Writes (all player, all returning the fresh `wallet` object above):
+`assets/js/api.js` attaches an `Idempotency-Key` to **every** mutation
+(`crypto.randomUUID()`). Two behaviours matter:
 
-| Route | Body | Meaning |
+1. A **409 `IDEMPOTENCY_IN_PROGRESS`** is retried automatically after
+   `retryAfterMs` (max 2 extra attempts, 4s ceiling) with the *same* key and the
+   *same* body — that is what makes the retry a replay instead of a second
+   charge. It is not surfaced as an error.
+2. A failed mutation keeps its `retry()` closure, which replays the identical
+   key/body. The Halloween claim also keeps its key across a manual retry, and a
+   **503 `CLAIM_SAVE_PENDING` / `CLAIM_COMMIT_FAILED`** is treated as
+   *unconfirmed*, never as failed: the button stays live and the event is
+   re-read before anything is shown as claimed.
+
+## 1. Wallet — `/api/wallet`
+
+`response.wallet` is numeric: `{ solars, bank, vault, gems, loan, monds }`.
+The page prints those directly (monds gets its own tile) and falls back to the
+`/me` wallet only if the route fails.
+
+| Call | Body | Notes |
 |---|---|---|
-| `POST /api/wallet/bank` | `{ amount }` | **positive deposits, negative withdraws** |
-| `POST /api/wallet/vault` | `{ amount }` | same sign convention |
-| `POST /api/wallet/loan` | `{ amount }` | take a loan |
-| `POST /api/wallet/repay` | `{ amount }` | repay |
+| `POST /api/wallet/bank` | `{ amount }` | signed: `+` deposits, `−` withdraws |
+| `POST /api/wallet/vault` | `{ amount }` | same signed convention |
+| `POST /api/wallet/loan` | `{ amount }` | always positive |
+| `POST /api/wallet/repay` | `{ amount }` or `"all"` | "Repay all" uses `"all"` |
+| `GET /api/wallet/ledger` | — | recent transactions |
 
----
+Each successful write returns the settled wallet, and the page repaints from
+that response instead of doing arithmetic locally. `GET /api/wallet` also
+settles interest, which is why the page re-reads it after a claim.
 
-## 2. Guilds
+## 2. Guilds and empires — public lists
 
-`GET /api/guilds` (open) → `{ ok: true, guilds: [Guild] }`
+`GET /api/guilds` → `response.guilds`, `GET /api/empires` → `response.empires`.
+Each card renders the supplied `image` directly (falling back to the bot's
+`/api/guilds/:query/image` or `/api/empires/:query/image` banner), the final
+display name, `memberCount`, and — for empires — `citizenCount`. Ids used in a
+path are URL-encoded.
 
-```json
-{
-  "id": "g_123",
-  "slug": "ashen-court",
-  "name": "Ashen Court",
-  "tag": "ASH",
-  "description": "We hold the eastern gate.",
-  "memberCount": 12,
-  "level": 4,
-  "power": 8120,
-  "leaderName": "Daenerys",
-  "image": "https://…/guilds/g_123.png"
-}
-```
+- `GET /api/guilds/me` → `guild: null` when the player has none.
+- `GET /api/guilds/:query{,/board,/shop,/image}` — the sheet shows the board and
+  shop previews.
+- `GET /api/empires/me` → `empire: null` when none.
+- `GET /api/empires/:query{,/shop,/image}` — the sheet shows a **market
+  preview** (real prices and stock) and no purchasing.
+- `GET /api/empires/:query/board` returns `{ supported: false, board: null }`,
+  so **no board UI is rendered for empires at all** — an empty board would read
+  as a bug.
 
-- **`name` must be the finished string.** Right now it arrives with the bot's own
-  template braces in it (`Ashen Court}}`) — that's a server-side format call
-  that isn't being applied.
-- `memberCount` a **number** (`members: [...]` is also understood).
-- `slug` or `id` is what the page passes back as `:query`.
-- `image` optional — a guild without one now gets a generated crest instead of
-  a shared fallback.
+## 3. Storage — `/api/storage`
 
-Also needed:
+Three containers, one route. Top-level `enderChest`, `used`, `capacity`,
+`items` describe the **Ender Chest**; `bag`, `chest` and `ender` each carry
+their own `items` / `used` / `capacity`. (Reading the top-level `items` as
+"everything" was the old single-chest bug.)
 
-| Route | Access | Notes |
-|---|---|---|
-| `GET /api/guilds/me` | player | `{ ok: true, guild: Guild }` or `{ guild: null }` when guildless |
-| `GET /api/guilds/:query` | open | same `Guild`, plus `members: [{ name, role, score }]` |
-| `GET /api/guilds/:query/board` | open | `{ rows: [{ name, role, score }] }` |
-| `GET /api/guilds/:query/shop` | open | `{ items: [{ id, name, price, image }] }` |
-| `GET /api/guilds/:query/image` | open | the crest **as an image response**, 404 if none |
-
----
-
-## 3. Empires
-
-Same shape as guilds, different nouns.
-
-```json
-{
-  "id": "e_9",
-  "slug": "sol-dominion",
-  "name": "Sol Dominion",
-  "description": "The sun never sets on the inner sea.",
-  "rulerName": "Rhae",
-  "citizenCount": 340,
-  "territoryCount": 12,
-  "power": 25100,
-  "image": "https://…/empires/e_9.jpg",
-  "territories": [{ "name": "Ember Coast" }],
-  "citizens": [{ "name": "Rhae", "role": "Ruler", "power": 900 }]
-}
-```
-
-| Route | Access |
+| Call | Body |
 |---|---|
-| `GET /api/empires` | open → `{ empires: [Empire] }` |
-| `GET /api/empires/me` | player → `{ empire: Empire }` or `null` |
-| `GET /api/empires/:query` | open → one Empire |
+| `POST /api/storage/move` | `{ from, to, item, qty }` — `from`/`to` ∈ bag, chest, ender; `item` is the raw stack id; 99 max |
+| `POST /api/storage/ender/buy` | `{}` — one-off, 100,000 solars, flips `enderChest` |
+| `POST /api/storage/chest/buy` | `{ currency: "solars" \| "gems" }` — the page asks which pot pays |
 
-**Per-empire `image` is the fix for "all empires have the same image"** — the
-frontend can't tell two empires apart without it, and it will only ever have
-the one capital painting otherwise.
+A move can land **partially**: the page reads `moved` and `reason` from the
+response and reports what actually moved, then re-reads storage and inventory.
+A 200 is not treated as "the whole stack travelled".
 
----
+## 4. Progress — quests, achievements, events
 
-## 4. Storage — `GET /api/storage` (player)
+`GET /api/progress` → `{ progress: { level, rank, xp, badges, quests, achievements } }`
+with `rank` as a **string**.
 
-This is the ender-chest bug.
+`GET /api/quests` / `GET /api/achievements` and their `claim` routes are
+unchanged. Each quest row and achievement card also carries the painting of the
+track it belongs to (Mastery, Social, Adventure, Wealth, Collection, Combat) —
+as a backdrop on the existing cards, never as a second card set.
 
-```json
-{
-  "ok": true,
-  "storage": {
-    "used": 18,
-    "capacity": 60,
-    "enderChest": true,
-    "enderCapacity": 27,
-    "items": [{ "instanceId": "i_1", "name": "Iron Ore", "qty": 12 }]
-  }
-}
-```
+### Halloween
 
-- **`enderChest: true` once bought.** Purchased but still false is what made the
-  card show "locked". Any of `enderChest`, `enderChestOwned`, `enderOwned`,
-  `enderUnlocked`, `ender: true` or `enderChestSlots > 0` is now accepted — but
-  one of them has to actually flip after the purchase.
-- `POST /api/storage/move` `{ itemInstanceId, qty, to: "storage" | "inventory" }`
-- `POST /api/storage/chest/buy` → `{ ok: true, storage: {…} }`
-- `POST /api/storage/ender/buy` → `{ ok: true, storage: {…} }` (must set
-  `enderChest: true` in the response)
+`GET /api/events` (or `/api/events/halloween`) supplies `active`, `claimed`,
+`reward` and `badge`. The card:
 
----
+- shows the claim button **only** when `active && !claimed`;
+- prints the reward **from `reward`** (solars / gems / monds / badge), never a
+  hard-coded amount, and never credits anything itself;
+- posts `{ eventId: "halloween" }` with an idempotency key, then re-reads
+  `/api/wallet`, `/api/progress` and `/api/events`;
+- treats a replayed `granted: true` as a replay, and `alreadyClaimed` as done;
+- shows no countdown, because Halloween has no configured end date.
 
-## 5. Progress
+## 5. Pokémon
 
-| Route | Needs |
+The server owns the rules, so the page draws returned state and posts choices.
+
+| Call | Notes |
 |---|---|
-| `GET /api/quests` | `{ quests: [{ id, name, description, progress, goal, claimable, claimed }] }` |
-| `POST /api/quests/claim` | `{ id }` → the updated quest or the reward granted |
-| `GET /api/achievements` | `{ achievements: [{ id, name, description, claimed, claimable }] }` |
-| `POST /api/achievements/claim` | `{ id }` |
-| `GET /api/progress` | `{ progress: { level, rank, questsDone, achievementsUnlocked, fame, streak } }` |
+| `GET /api/pokemon/meta` | `starters`, region keys, limits |
+| `GET /api/pokemon/overview` | `needsStarter`, party, battle status |
+| `POST /api/pokemon/starter` | `{ dexId }` — shown instead of the tabs while `needsStarter` |
+| `GET /api/pokemon/mons`, `/mons/:id`, `/party` | collection and party |
+| `PUT /api/pokemon/party` | `{ ids: [owned-id] }` — replaces the party wholesale |
+| `POST /api/pokemon/heal` | — |
+| `POST /api/pokemon/hunt` | `{}` or `{ region }` |
+| `GET /api/pokemon/battle` | reconnects to the fight in progress |
+| `POST /api/pokemon/battle/act` | `{action:"move",index}` / `{action:"catch",itemId}` / `{action:"item",itemId}` / `{action:"switch",slot}` / `{action:"run"}` |
+| `POST /api/pokemon/battle/forfeit` | ends the battle |
+| `GET /api/pokemon/bag`, `POST /bag/import` | separate bag; import reports how many moved |
+| `GET /api/pokemon/shop`, `POST /shop/buy` | `{ id, qty }` |
 
-`rank: null` was rendering as the word "null"; the page now falls back to
-`/me.rank.title` and hides the tile if neither exists. Sending `rank` as a
-**string** (`"Warlord"`) rather than an object is the simplest fix.
+Battle UI reads `battle.background`, `battle.you.active`, `battle.you.team` and
+`battle.foe.active`, uses the **1-based** move index and the **slot** from the
+team, and offers catch only when a ball is actually in the bag. Because a battle
+lives in the bot's process memory, the page re-reads `GET /api/pokemon/battle`
+on every visit instead of trusting a cached one, and a finished battle clears
+the panel and reloads the collection.
+
+`/api/pokemon/dex` is not part of the published contract; the Dex tab hides
+itself when that route isn't there rather than rendering a dead end.
+
+**Instance id vs dex id** is respected everywhere: `id` identifies the owned
+mon (party, actions), `dexId` identifies the species (art, starter).
+
+## 6. Images
+
+`GET /api/images` is the manifest. The page builds art URLs through
+`pokemonImageUrl(dexId, { variant, shiny })`:
+
+```
+/api/images/pokemon/:dexId?variant=artwork|sprite|animated[&shiny=1]
+/api/images/backgrounds/pokemon-battle
+/api/images/badges/halloween
+```
+
+Order of preference for a mon's picture: whatever the record carries
+(`image`, `art.front`) → the bot's image service by `dexId` → PokeAPI by species
+name (cached 7 days) → a glyph. No shared fallback file, ever. Battles use the
+`battle.background` URL the API returned rather than guessing a path.
 
 ---
 
-## 6. Pokémon
+## When a page still looks wrong
 
-`GET /api/pokemon/mons` (player) → `{ ok: true, mons: [Mon] }`
-
-```json
-{
-  "id": 25,
-  "name": "Pikachu",
-  "nickname": "Sparky",
-  "level": 22,
-  "types": ["electric"],
-  "hp": 60,
-  "maxHp": 74,
-  "heldItem": { "name": "Oran Berry" },
-  "image": "https://…/pokemon/25.png"
-}
-```
-
-- **`id` must be the National Dex number** for the artwork fallback to work. The
-  page now falls back to PokeAPI's official artwork using that number, which
-  fixes missing pictures for the common case — but the real fix is `image`.
-- `types` an array of strings (`["electric"]`) or of `{ name }`.
-- `GET /api/pokemon/{overview,party,dex,bag,shop}` mirror the list shapes
-  (`mons`, `party`, `dex`, `bag`, `items`).
-- `POST /api/pokemon/shop/buy` `{ id, qty }`, `POST /api/pokemon/hunt`,
-  `POST /api/pokemon/heal`, and `POST /api/pokemon/mons/:id/{main,hold,unhold,feed,evolve,protect,rename}`.
-
----
-
-## 7. Events — `POST /api/events/claim` (player)
-
-The one route that doesn't exist at all yet. Needed for the Halloween card
-(30 gems + 20,000 solars).
-
-```json
-// request
-{ "id": "halloween" }
-
-// response
-{ "ok": true, "granted": { "gems": 30, "solars": 20000 } }
-```
-
-Rules the frontend assumes:
-
-- **Idempotent per account** — a second claim returns `{ ok: false, error: "Already claimed" }`,
-  never a second payout.
-- Unknown event id → `{ ok: false, error: "Unknown event" }` (the page shows
-  "isn't live yet" on a 404/405 and re-enables the button).
-
----
-
-## Optional: how to hand me the real shapes
-
-If a page still looks wrong, open it with the console and run:
-
-```js
-astralDebugCopy()   // copies every raw response the page has seen
-```
-
-Paste that back and the renderers can be written against the real envelopes
-instead of the defensive ones.
+Open it and run `astralDebugCopy()` in the console: it copies every raw payload
+the page has seen, with the endpoint it came from.

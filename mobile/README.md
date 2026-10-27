@@ -8,10 +8,11 @@ API data fills existing screen elements; missing data does not trigger a redesig
 
 The site's phone experience (floating bottom bar, season event carousel,
 inventory manager, Guilds/Empires/Wallet/Storage/Progress/Pokémon pages) talks
-to bot routes that are specified in **[MOBILE_API_SPEC.md](MOBILE_API_SPEC.md)**.
-That file is the contract to hand the bot: exact paths, required envelopes, and
-the field-level bugs it explains (wallet NaN, identical guild/empire art, ender
-chest stuck locked, missing Pokémon art, `null` rank).
+to the bot's API, and **[MOBILE_API_SPEC.md](MOBILE_API_SPEC.md)** is the map:
+every route the pages call, the envelope each one reads, the idempotency rules
+(replayed keys, `IDEMPOTENCY_IN_PROGRESS`, unconfirmed claims) and the operator
+settings the bot needs (`PUBLIC_API_URL`, `ALLOWED_ORIGINS`, image hosts for the
+`/api/images` redirects).
 
 To report a broken page, run `astralDebugCopy()` in the browser console and paste
 the result — it copies the raw response of every endpoint the page touched.
