@@ -2350,7 +2350,13 @@ function battleHud(m, { foe = false, id }) {
  */
 function battleMon(m, { foe = false } = {}) {
   const species = monSpecies(m)
-  const sprite = imgOf(m) || monSprite(species, { back: !foe }) || ''
+  // A field is drawn the way the games draw one: the foe faces you, your own
+  // Pokémon has its back to you. The bot's `image` is a front-facing artwork,
+  // so it can only ever be the last resort - using it first is why your Eevee
+  // was staring back at you instead of turning around.
+  const dexNo = numOf(m)
+  const facing = { back: !foe }
+  const sprite = (dexNo ? spriteUrl(dexNo, facing) : '') || monSprite(species, facing) || imgOf(m) || ''
   return `
     <div class="pb-mon${foe ? ' is-foe' : ' is-you'}" data-mon-side="${foe ? 'foe' : 'you'}">
       ${sprite
@@ -2391,6 +2397,7 @@ function battlePanel() {
     <div class="poke-battle" id="monBattle">
       <div class="pb-scene"${bg ? ` style="--bg:url('${attr(bg)}')"` : ''}>
         ${bg ? `<img class="pb-bg" src="${attr(bg)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}
+        <span class="pb-ground" aria-hidden="true"></span>
         <span class="pb-flash" aria-hidden="true"></span>
         <span class="pb-badge">${esc(cleanText(pick(b, ['kind', 'type', 'mode']), 'Wild battle'))}</span>
 
