@@ -17,7 +17,7 @@ import {
 } from './items.js'
 import {
   isMobileView, mountSeasonEvents, openInventoryManager, paintMobileBar,
-  loadGuilds, loadEmpires, loadWallet, loadStoragePage, loadProgress, loadPokemon,
+  loadWallet, loadStoragePage, loadProgress, loadPokemon,
 } from './mobile-pages.js'
 
 /** astral's checkmark, used in every `.plan-features` list. */
@@ -82,8 +82,6 @@ const routes = {
   // Phone-only. The bot exposes these endpoints, but the desktop site is
   // deliberately unchanged, so `mobile: true` makes render() send a wide
   // viewport back to home instead of showing a page with no way in.
-  guilds: { view: 'view-guilds', title: 'Guilds', load: loadGuilds, mobile: true },
-  empires: { view: 'view-empires', title: 'Empires', load: loadEmpires, mobile: true },
   wallet: { view: 'view-wallet', title: 'Wallet', load: loadWallet, mobile: true, auth: true },
   storage: { view: 'view-storage', title: 'Storage', load: loadStoragePage, mobile: true, auth: true },
   progress: { view: 'view-progress', title: 'Progress', load: loadProgress, mobile: true, auth: true },

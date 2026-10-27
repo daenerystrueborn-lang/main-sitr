@@ -1,7 +1,7 @@
 /**
  * shape.js - defends the UI against payloads it hasn't seen.
  *
- * Every phone page (wallet, guilds, empires, storage, progress, Pokémon) talks
+ * Every phone page (wallet, storage, progress, Pokémon) talks
  * to routes that live in the bot, not in this repo. The bot's exact envelopes
  * aren't documented anywhere we can read, so the first live render produced the
  * predictable mess: `NaN` where a number was wrapped in an object, `0` where the
@@ -13,7 +13,7 @@
  *   pick()      - first matching key, also looking one level into common
  *                 wrappers (balances, wallet, stats, counts, data, ...)
  *   toNum()     - a number out of 12, "1,240", { amount: 900 }, null -> fallback
- *   listOf()    - an array out of { items }, { guilds }, or the array itself
+ *   listOf()    - an array out of { items }, or the array itself
  *   imgOf()     - an image URL out of the six spellings the bot might use
  *   cleanText() - strips template leftovers (`{{name}}` -> `name`)
  *   isOwned()   - a boolean out of true, 1, "yes", { owned: true }, [...]
@@ -79,7 +79,7 @@ export function toNum(value, fallback = null) {
 /** Same as toNum but always resolves to a number, for display. */
 export const counted = (value, fallback = 0) => toNum(value, fallback) ?? fallback
 
-/** An array out of `{ items }`, `{ guilds: [...] }`, or the array itself. */
+/** An array out of `{ items: [...] }`, or the array itself. */
 export function listOf(payload, keys = []) {
   if (Array.isArray(payload)) return payload
   if (!payload || typeof payload !== 'object') return []
@@ -158,22 +158,3 @@ export function isOwned(value) {
   return false
 }
 
-/**
- * A stable hue from a name, for generated crests. Same guild, same colour, on
- * every device - and different guilds look different without the bot having to
- * ship artwork for each one.
- */
-export function hueOf(name) {
-  const s = String(name ?? '')
-  let h = 0
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360
-  return h
-}
-
-/** Up to two initials for a crest. */
-export function crestInitials(name) {
-  const words = cleanText(name, '?').split(' ').filter(Boolean)
-  if (!words.length) return '?'
-  if (words.length === 1) return words[0].slice(0, 2).toUpperCase()
-  return (words[0][0] + words[1][0]).toUpperCase()
-}

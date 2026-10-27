@@ -1,7 +1,8 @@
 # Mobile pages — what the pages call, and what the bot must serve
 
-The phone-only pages (Wallet, Guilds, Empires, Storage, Progress, Pokémon) and
-the season event slider are all driven by the bot's API. The bot's contract is
+The phone-only pages (Wallet, Storage, Progress, Pokémon) and the season event
+slider are all driven by the bot's API. Guilds and Empires have been removed
+from the site; their routes are no longer called. The bot's contract is
 now published, and the frontend has been rewritten against it rather than
 against guesses — this document is the map between the two, plus the handful of
 things that only the bot operator can set.
@@ -64,25 +65,7 @@ Each successful write returns the settled wallet, and the page repaints from
 that response instead of doing arithmetic locally. `GET /api/wallet` also
 settles interest, which is why the page re-reads it after a claim.
 
-## 2. Guilds and empires — public lists
-
-`GET /api/guilds` → `response.guilds`, `GET /api/empires` → `response.empires`.
-Each card renders the supplied `image` directly (falling back to the bot's
-`/api/guilds/:query/image` or `/api/empires/:query/image` banner), the final
-display name, `memberCount`, and — for empires — `citizenCount`. Ids used in a
-path are URL-encoded.
-
-- `GET /api/guilds/me` → `guild: null` when the player has none.
-- `GET /api/guilds/:query{,/board,/shop,/image}` — the sheet shows the board and
-  shop previews.
-- `GET /api/empires/me` → `empire: null` when none.
-- `GET /api/empires/:query{,/shop,/image}` — the sheet shows a **market
-  preview** (real prices and stock) and no purchasing.
-- `GET /api/empires/:query/board` returns `{ supported: false, board: null }`,
-  so **no board UI is rendered for empires at all** — an empty board would read
-  as a bug.
-
-## 3. Storage — `/api/storage`
+## 2. Storage — `/api/storage`
 
 Three containers, one route. Top-level `enderChest`, `used`, `capacity`,
 `items` describe the **Ender Chest**; `bag`, `chest` and `ender` each carry
@@ -95,11 +78,14 @@ their own `items` / `used` / `capacity`. (Reading the top-level `items` as
 | `POST /api/storage/ender/buy` | `{}` — one-off, 100,000 solars, flips `enderChest` |
 | `POST /api/storage/chest/buy` | `{ currency: "solars" \| "gems" }` — the page asks which pot pays |
 
-A move can land **partially**: the page reads `moved` and `reason` from the
-response and reports what actually moved, then re-reads storage and inventory.
-A 200 is not treated as "the whole stack travelled".
+The page has an explicit **transfer panel**: choose *From* and *To* (Bag, Chest
+or Ender chest) and the direction is printed in a sentence, then tap a stack and
+choose the amount with a stepper before confirming "Move N to …". A move can
+land **partially**: the page reads `moved` and `reason` from the response and
+reports what actually moved, then re-reads storage. A 200 is not treated as
+"the whole stack travelled".
 
-## 4. Progress — quests, achievements, events
+## 3. Progress — quests, achievements, events
 
 `GET /api/progress` → `{ progress: { level, rank, xp, badges, quests, achievements } }`
 with `rank` as a **string**.
@@ -122,7 +108,7 @@ as a backdrop on the existing cards, never as a second card set.
 - treats a replayed `granted: true` as a replay, and `alreadyClaimed` as done;
 - shows no countdown, because Halloween has no configured end date.
 
-## 5. Pokémon
+## 4. Pokémon
 
 The server owns the rules, so the page draws returned state and posts choices.
 
@@ -154,25 +140,33 @@ itself when that route isn't there rather than rendering a dead end.
 **Instance id vs dex id** is respected everywhere: `id` identifies the owned
 mon (party, actions), `dexId` identifies the species (art, starter).
 
-## 6. Images
+## 5. Art — Pokémon Showdown
 
-`GET /api/images` is the manifest. The page builds art URLs through
-`pokemonImageUrl(dexId, { variant, shiny })`:
+Every Pokémon sprite, item icon and type badge comes from
+**[Pokémon Showdown](https://github.com/smogon/pokemon-showdown)**, the same
+assets its own client uses (`assets/js/showdown.js`):
 
 ```
-/api/images/pokemon/:dexId?variant=artwork|sprite|animated[&shiny=1]
-/api/images/backgrounds/pokemon-battle
-/api/images/badges/halloween
+https://play.pokemonshowdown.com/sprites/gen5/{id}.png        front
+https://play.pokemonshowdown.com/sprites/gen5-back/{id}.png   your side of a battle
+https://play.pokemonshowdown.com/sprites/ani/{id}.gif         animated
+https://play.pokemonshowdown.com/sprites/ani-shiny/{id}.gif   animated + shiny
+https://play.pokemonshowdown.com/sprites/itemicons/{id}.png   items, incl. the Poké Ball
+https://play.pokemonshowdown.com/sprites/types/{Type}.png     move type badges
 ```
 
-Order of preference for a mon's picture: whatever the record carries
-(`image`, `art.front`) → the bot's image service by `dexId` → PokeAPI by species
-name (cached 7 days) → a glyph. No shared fallback file, ever. Battles use the
-`battle.background` URL the API returned rather than guessing a path.
+Ids are Showdown's: lowercase alphanumerics, accents folded
+(`Poké Ball` → `pokeball`, `Mr. Mime` → `mrmime`, `Nidoran♀` → `nidoranf`).
+A name with no id produces **no picture**, never another Pokémon's art.
 
----
+The site also reads Showdown's `data/moves.json` (once a week, cached) to fill in
+a move's type and power when the bot's battle payload only names the move. That
+table is optional: if it can't load, the buttons show exactly what the bot sent.
 
-## When a page still looks wrong
+The bot's own image routes are still preferred when a record carries art of its
+own (`image`, `art.front`), and `battle.background` is used for the arena rather
+than a guessed path. `/api/images` remains the manifest; `pokemonImageUrl()`
+builds `/api/images/pokemon/:dexId?variant=…` when a dex id is all there is.
 
-Open it and run `astralDebugCopy()` in the console: it copies every raw payload
-the page has seen, with the endpoint it came from.
+**If an image host is blocked, the page shows a glyph** — never a shared
+fallback photo.
