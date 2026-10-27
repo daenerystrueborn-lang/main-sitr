@@ -143,6 +143,78 @@ export async function fetchSunMoonPokemon() {
   }
 }
 
+/**
+ * Artwork for a species, looked up by name.
+ *
+ * The Pokémon page can't trust the mon's `id`: the bot's records carry its own
+ * ids there, and parsing the digits out of one produced a picture of an
+ * entirely different Pokémon. A name is unambiguous, so the art is resolved
+ * from the species name and only falls back to a dex number when the record
+ * genuinely carries one.
+ *
+ * Results are cached for a week (memory + localStorage), because a party of six
+ * would otherwise mean six requests every time the page opens.
+ */
+const MON_ART_KEY = 'astral:mon-art:v1'
+const monArtCache = new Map()
+
+function loadMonArtCache() {
+  if (monArtCache.size) return
+  try {
+    const saved = JSON.parse(localStorage.getItem(MON_ART_KEY) || '{}')
+    for (const [k, v] of Object.entries(saved)) if (v?.url) monArtCache.set(k, v)
+  } catch {}
+}
+
+function saveMonArtCache() {
+  try {
+    const entries = [...monArtCache.entries()].slice(-80)
+    localStorage.setItem(MON_ART_KEY, JSON.stringify({ ...Object.fromEntries(entries), savedAt: Date.now() }))
+  } catch {}
+}
+
+const monSlug = (name) => String(name ?? '')
+  .toLowerCase()
+  .trim()
+  // "Mr. Mime" -> "mr-mime", "Farfetch'd" -> "farfetchd", "Nidoran♀" -> nidoran-f
+  .replace(/\u2640/g, '-f').replace(/\u2642/g, '-m')
+  .replace(/[^a-z0-9]+/g, '-')
+  .replace(/^-+|-+$/g, '')
+
+export async function fetchPokemonArt(name) {
+  const slug = monSlug(name)
+  if (!slug) return null
+  loadMonArtCache()
+  const cached = monArtCache.get(slug)
+  if (cached && (!cached.savedAt || Date.now() - cached.savedAt < 604_800_000)) return cached
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 8_000)
+  try {
+    const res = await fetch(`${POKEMON_API_BASE}/pokemon/${encodeURIComponent(slug)}`, {
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    const art = {
+      id: Number(data?.id) || null,
+      name: data?.name ?? slug,
+      url: data?.sprites?.other?.['official-artwork']?.front_default
+        || data?.sprites?.other?.home?.front_default
+        || data?.sprites?.front_default
+        || '',
+      savedAt: Date.now(),
+    }
+    if (art.url) { monArtCache.set(slug, art); saveMonArtCache() }
+    return art.url ? art : null
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 /* ───────────────────────────── session token ───────────────────────────── */
 
 let token = null

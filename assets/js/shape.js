@@ -98,9 +98,10 @@ export function listOf(payload, keys = []) {
   return []
 }
 
-const IMAGE_KEYS = ['image', 'imageUrl', 'imageURL', 'img', 'icon', 'iconUrl', 'crest',
-  'emblem', 'banner', 'bannerUrl', 'art', 'artwork', 'artworkUrl', 'sprite', 'spriteUrl',
-  'thumbnail', 'thumb', 'photo', 'avatar', 'avatarUrl', 'picture', 'url']
+const IMAGE_KEYS = ['image', 'imageUrl', 'imageURL', 'imagePath', 'image_path', 'img', 'icon',
+  'iconUrl', 'iconPath', 'crest', 'emblem', 'banner', 'bannerUrl', 'art', 'artwork', 'artworkUrl',
+  'artPath', 'sprite', 'spriteUrl', 'spritePath', 'thumbnail', 'thumb', 'photo', 'avatar',
+  'avatarUrl', 'picture', 'url']
 
 /** An image URL out of the spellings above, including PokeAPI sprite shapes. */
 export function imgOf(obj) {

@@ -9,6 +9,7 @@
  */
 import { API_BASE } from './api.js'
 import { esc, attr, num, titleCase, iconSvg } from './ui.js'
+import { imgOf, cleanText, toNum } from './shape.js'
 
 /**
  * Items are served by the bot itself at `<publicApiUrl>/assets/items/<id>.png`.
@@ -41,6 +42,10 @@ export function itemAccent(rarity) {
 }
 
 /** Rarity/type/slot, as the one line printed under an item's name. */
+export function itemDescription(item) {
+  return cleanText(item?.description ?? item?.desc ?? item?.flavor ?? item?.flavorText, '')
+}
+
 export function itemMeta(item) {
   const parts = [
     item?.rarity && titleCase(item.rarity),
@@ -52,6 +57,11 @@ export function itemMeta(item) {
 
 /** A stack's quantity, whichever way the API spelled it. */
 export const itemQty = (item) => Number(item?.qty ?? item?.quantity ?? 0)
+
+/** The picture for an item record, whichever field the bot used. */
+export function itemImage(item) {
+  return resolveArt(imgOf(item))
+}
 
 /**
  * The art block, shared by every tile and the modal. A missing or dead plate
@@ -73,7 +83,7 @@ export function itemSheetHtml(item, qty = 0) {
   return `
     <div class="item-sheet ${itemAccent(item?.rarity)}">
       <div class="item-sheet-art">
-        ${itemArt(item?.image, 'item-sheet-img')}
+        ${itemArt(itemImage(item), 'item-sheet-img')}
         ${qty > 1 ? `<span class="item-card-qty">×${num(qty)}</span>` : ''}
       </div>
       <div class="item-sheet-head">
@@ -101,10 +111,51 @@ export function itemCard(item, { attrs = '', qty = itemQty(item), meta = itemMet
     <button type="button" class="item-card ${itemAccent(item?.rarity)}"
             ${attrs} title="${attr(item?.name)}" aria-label="${attr(item?.name)}">
       <span class="item-card-art">
-        ${itemArt(item?.image)}
+        ${itemArt(itemImage(item))}
         ${qty > 1 ? `<span class="item-card-qty">×${num(qty)}</span>` : ''}
       </span>
       <span class="item-card-name">${esc(item?.name)}</span>
       ${meta ? `<span class="item-card-sub">${esc(meta)}</span>` : ''}
     </button>`
+}
+
+/**
+ * The item popup - one card, used by the profile inventory and by the mobile
+ * manager.
+ *
+ * It used to be a naked sheet with a big plate and nothing else: no rarity, no
+ * quantity, no value, and no way to act on the item. On the desktop it was
+ * read-only, which is why it read as "not made".
+ *
+ * `actions` is the caller's markup for the buttons (the profile wires
+ * use/sell/discard to the API; the manager wires equip/store/sell), so the
+ * card stays one component and the behaviour stays with the page that owns it.
+ */
+export function itemPopupHtml(item, { qty = itemQty(item), actions = '', note = '' } = {}) {
+  const bonuses = statBonusTiles(item?.statBonuses)
+  const meta = itemMeta(item)
+  const sellPrice = toNum(item?.sellPrice ?? item?.salePrice, null)
+  const accent = itemAccent(item?.rarity)
+
+  return `
+    <div class="item-pop ${accent}">
+      <div class="item-pop-hero">
+        <div class="item-pop-art">
+          ${itemArt(itemImage(item), 'item-pop-img')}
+          ${item?.rarity ? `<span class="rarity-pill r-${attr(String(item.rarity).toLowerCase())}">${esc(titleCase(item.rarity))}</span>` : ''}
+          ${qty > 1 ? `<span class="item-pop-qty">×${num(qty)}</span>` : ''}
+        </div>
+      </div>
+      <div class="item-pop-head">
+        <h3>${esc(cleanText(item?.name, 'Item'))}</h3>
+        ${meta ? `<p class="item-pop-sub">${esc(meta)}</p>` : ''}
+      </div>
+      <div class="item-pop-body">
+        ${itemDescription(item) ? `<p class="item-pop-desc">${esc(itemDescription(item))}</p>` : ''}
+        ${bonuses ? `<div class="pd-sec-title">Stat bonuses</div><div class="pd-stats">${bonuses}</div>` : ''}
+        ${sellPrice != null ? `<div class="item-pop-value">${iconSvg('gem', 'inline-icon')} Sells for <strong>${num(sellPrice)}</strong> solars each</div>` : ''}
+        ${note}
+        ${actions ? `<div class="item-pop-actions">${actions}</div>` : ''}
+      </div>
+    </div>`
 }
