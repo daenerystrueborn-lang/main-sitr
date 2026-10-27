@@ -94,8 +94,6 @@
   <!-- Everything below only exists on a phone; the desktop pill nav is the
        whole site there and these routes bounce back to home. -->
   <div class="drawer-group">On your phone</div>
-  <a class="drawer-link drawer-link-mobile" href="#/guilds" data-route="guilds">Guilds</a>
-  <a class="drawer-link drawer-link-mobile" href="#/empires" data-route="empires">Empires</a>
   <a class="drawer-link drawer-link-mobile" href="#/wallet" data-route="wallet">Wallet</a>
   <a class="drawer-link drawer-link-mobile" href="#/storage" data-route="storage">Storage</a>
   <a class="drawer-link drawer-link-mobile" href="#/progress" data-route="progress">Progress</a>
@@ -515,30 +513,12 @@
 
 <!-- ===================================================== -->
 <!-- MOBILE-ONLY PAGES
-     Guilds, Empires, Wallet, Storage, Progress and Pokémon are phone pages.
+     Wallet, Storage, Progress and Pokémon are phone pages.
      The bot exposes the endpoints, but the desktop site is deliberately left
      as it was, so each route carries `mobile: true` and bounces to home on a
      wide viewport (see routes in app.js).
 -->
 <!-- ===================================================== -->
-<main class="view mob-view" id="view-guilds">
-  <div class="page mob-page">
-    <header class="mob-head">
-      <div><h1>Guilds</h1><p>Ride with your people. Guild boards, shops and crests.</p></div>
-    </header>
-    <div id="guildRoot"></div>
-  </div>
-</main>
-
-<main class="view mob-view" id="view-empires">
-  <div class="page mob-page">
-    <header class="mob-head">
-      <div><h1>Empires</h1><p>Territory, citizens and the long game.</p></div>
-    </header>
-    <div id="empireRoot"></div>
-  </div>
-</main>
-
 <main class="view mob-view" id="view-wallet">
   <div class="page mob-page">
     <header class="mob-head">

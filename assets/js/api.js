@@ -109,134 +109,41 @@ export async function uploadToImgbb(dataUrl, name) {
 
 /* ─────────────────────── Pokémon home-page showcase ────────────────────── */
 
-const POKEMON_API_BASE = 'https://pokeapi.co/api/v2'
-// Bumped from 'astral:sun-moon-pokemon' when Solgaleo was added. The entry
-// below caches for a full day, so reusing the old key would have kept every
-// returning visitor on the seven-strong roster until their cache aged out -
-// which looks exactly like the new Pokemon never shipped. Bump this suffix
-// again on any future change to the id list.
-const POKEMON_CACHE_KEY = 'astral:sun-moon-pokemon:v2'
-// Rowlet, Litten, Popplio (the Alola starters), Mimikyu, Tapu Koko, Cosmog,
-// Solgaleo and Necrozma. Solgaleo is Cosmog's final form and the Sun mascot,
-// so it belongs beside the Cosmog already here.
-const SUN_MOON_POKEMON_IDS = [722, 725, 728, 778, 785, 789, 791, 800]
+/**
+ * A small Alola roster for the home page: the Gen VII Pokémon tied to the Sun
+ * and Moon eras, so the showcase matches the two bots.
+ *
+ * Every sprite comes from Pokémon Showdown (see showdown.js), which has an id
+ * for each of these, so the roster costs no requests at all - it used to be
+ * eight PokéAPI calls on every cold load.
+ */
+const SUN_MOON_ROSTER = [
+  { id: 722, name: 'Rowlet', types: ['grass', 'flying'] },
+  { id: 725, name: 'Litten', types: ['fire'] },
+  { id: 728, name: 'Popplio', types: ['water'] },
+  { id: 778, name: 'Mimikyu', types: ['ghost', 'fairy'] },
+  { id: 785, name: 'Tapu Koko', types: ['electric', 'fairy'] },
+  { id: 789, name: 'Cosmog', types: ['psychic'] },
+  { id: 791, name: 'Solgaleo', types: ['psychic', 'steel'] },
+  { id: 800, name: 'Necrozma', types: ['psychic'] },
+]
 
 /**
- * Loads a small Alola roster for the home page. These are the Gen VII
- * Pokémon associated with the Sun and Moon era, so the showcase matches the
- * two bots instead of showing an unrelated random list.
- *
- * The public PokéAPI is read-only and needs no key. Cache the normalized
- * response for a day so the home page stays fast and respectful of the API.
+ * Showdown's sprite path for a species. Kept local (rather than imported from
+ * showdown.js) because the standalone mobile bundle extracts this file without
+ * that module - the showcase is the only part of api.js that needs a sprite.
  */
+const showdownSprite = (name) => {
+  const id = String(name ?? '').toLowerCase().normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '')
+  return id ? `https://play.pokemonshowdown.com/sprites/gen5/${id}.png` : ''
+}
+
 export async function fetchSunMoonPokemon() {
-  try {
-    const cached = JSON.parse(localStorage.getItem(POKEMON_CACHE_KEY) || 'null')
-    if (cached?.savedAt && Date.now() - cached.savedAt < 86_400_000 && Array.isArray(cached.items)) {
-      return cached.items
-    }
-  } catch {}
-
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 8_000)
-  try {
-    const responses = await Promise.all(SUN_MOON_POKEMON_IDS.map(async id => {
-      const res = await fetch(`${POKEMON_API_BASE}/pokemon/${id}`, {
-        headers: { Accept: 'application/json' },
-        signal: controller.signal,
-      })
-      if (!res.ok) throw new Error(`Pokémon request failed (${res.status})`)
-      return res.json()
-    }))
-
-    const items = responses.map(pokemon => ({
-      id: pokemon.id,
-      name: pokemon.name,
-      types: pokemon.types.map(entry => entry.type.name),
-      image: pokemon.sprites?.other?.['official-artwork']?.front_default
-        || pokemon.sprites?.front_default
-        || '',
-    }))
-
-    try {
-      localStorage.setItem(POKEMON_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), items }))
-    } catch {}
-    return items
-  } finally {
-    clearTimeout(timer)
-  }
-}
-
-/**
- * Artwork for a species, looked up by name.
- *
- * The Pokémon page can't trust the mon's `id`: the bot's records carry its own
- * ids there, and parsing the digits out of one produced a picture of an
- * entirely different Pokémon. A name is unambiguous, so the art is resolved
- * from the species name and only falls back to a dex number when the record
- * genuinely carries one.
- *
- * Results are cached for a week (memory + localStorage), because a party of six
- * would otherwise mean six requests every time the page opens.
- */
-const MON_ART_KEY = 'astral:mon-art:v1'
-const monArtCache = new Map()
-
-function loadMonArtCache() {
-  if (monArtCache.size) return
-  try {
-    const saved = JSON.parse(localStorage.getItem(MON_ART_KEY) || '{}')
-    for (const [k, v] of Object.entries(saved)) if (v?.url) monArtCache.set(k, v)
-  } catch {}
-}
-
-function saveMonArtCache() {
-  try {
-    const entries = [...monArtCache.entries()].slice(-80)
-    localStorage.setItem(MON_ART_KEY, JSON.stringify({ ...Object.fromEntries(entries), savedAt: Date.now() }))
-  } catch {}
-}
-
-const monSlug = (name) => String(name ?? '')
-  .toLowerCase()
-  .trim()
-  // "Mr. Mime" -> "mr-mime", "Farfetch'd" -> "farfetchd", "Nidoran♀" -> nidoran-f
-  .replace(/\u2640/g, '-f').replace(/\u2642/g, '-m')
-  .replace(/[^a-z0-9]+/g, '-')
-  .replace(/^-+|-+$/g, '')
-
-export async function fetchPokemonArt(name) {
-  const slug = monSlug(name)
-  if (!slug) return null
-  loadMonArtCache()
-  const cached = monArtCache.get(slug)
-  if (cached && (!cached.savedAt || Date.now() - cached.savedAt < 604_800_000)) return cached
-
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 8_000)
-  try {
-    const res = await fetch(`${POKEMON_API_BASE}/pokemon/${encodeURIComponent(slug)}`, {
-      headers: { Accept: 'application/json' },
-      signal: controller.signal,
-    })
-    if (!res.ok) return null
-    const data = await res.json()
-    const art = {
-      id: Number(data?.id) || null,
-      name: data?.name ?? slug,
-      url: data?.sprites?.other?.['official-artwork']?.front_default
-        || data?.sprites?.other?.home?.front_default
-        || data?.sprites?.front_default
-        || '',
-      savedAt: Date.now(),
-    }
-    if (art.url) { monArtCache.set(slug, art); saveMonArtCache() }
-    return art.url ? art : null
-  } catch {
-    return null
-  } finally {
-    clearTimeout(timer)
-  }
+  return SUN_MOON_ROSTER.map(entry => ({
+    ...entry,
+    image: showdownSprite(entry.name) || pokemonImageUrl(entry.id),
+  }))
 }
 
 /* ───────────────────────────── session token ───────────────────────────── */
@@ -686,38 +593,6 @@ export const api = {
   vaultMove: (amount) => post('/wallet/vault', { amount }),
   takeLoan: (amount) => post('/wallet/loan', { amount }),
   repayLoan: (amount) => post('/wallet/repay', { amount }),
-
-  /* ── guilds ────────────────────────────────────────────────────────────
-     `/guilds/me` is the only player-scoped read; everything else is public
-     and browsable signed out, same as the shop. */
-  guilds: (params = {}) => {
-    const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v != null && v !== ''))
-    const qs = q.toString()
-    return get(`/guilds${qs ? `?${qs}` : ''}`)
-  },
-  myGuild: () => get('/guilds/me'),
-  guild: (query) => get(`/guilds/${encodeURIComponent(query)}`),
-  guildBoard: (query) => get(`/guilds/${encodeURIComponent(query)}/board`),
-  guildShop: (query) => get(`/guilds/${encodeURIComponent(query)}/shop`),
-  guildImage: (query) => imageApi(`/guilds/${encodeURIComponent(query)}/image`),
-
-  /* ── empires ───────────────────────────────────────────────────────────── */
-  empires: (params = {}) => {
-    const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v != null && v !== ''))
-    const qs = q.toString()
-    return get(`/empires${qs ? `?${qs}` : ''}`)
-  },
-  myEmpire: () => get('/empires/me'),
-  empire: (query) => get(`/empires/${encodeURIComponent(query)}`),
-  /** Real material prices and market stock. Preview only - the bot sells. */
-  empireShop: (query) => get(`/empires/${encodeURIComponent(query)}/shop`),
-  /**
-   * Empires have no guild-style board. This always answers
-   * `{ supported: false, board: null }`, which is why the empire sheet shows no
-   * board at all rather than an empty one that looks broken.
-   */
-  empireBoard: (query) => get(`/empires/${encodeURIComponent(query)}/board`),
-  empireImage: (query) => imageApi(`/empires/${encodeURIComponent(query)}/image`),
 
   /* ── progress ──────────────────────────────────────────────────────────── */
   quests: () => get('/quests'),

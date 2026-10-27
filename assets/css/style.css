@@ -1707,7 +1707,7 @@ html.no-motion .gold-fx{animation:none;background:var(--grad-1);-webkit-backgrou
 .ev-dot:focus-visible{outline:2px solid var(--gold);outline-offset:3px;}
 
 /* Full-bleed event preview sheet. */
-.ev-sheet,.guild-sheet{display:flex;flex-direction:column;}
+.ev-sheet{display:flex;flex-direction:column;}
 .ev-sheet-art{position:relative;aspect-ratio:4/5;max-height:56svh;overflow:hidden;background:var(--bg-3);}
 .ev-sheet-art img{width:100%;height:100%;object-fit:cover;object-position:center 20%;display:block;}
 .ev-sheet-art .ev-badge{top:12px;left:12px;}
@@ -1723,59 +1723,6 @@ html.no-motion .gold-fx{animation:none;background:var(--grad-1);-webkit-backgrou
 .sec-head h2{font-size:16px;font-weight:800;}
 .sec-head .subtext{font-size:11.5px;}
 .mgr-note{margin:10px 0 0;font-size:11.5px;line-height:1.5;color:var(--text-subtle);}
-
-/* ── guilds / empires ──────────────────────────────────────────────────── */
-.guild-list{display:flex;flex-direction:column;gap:10px;}
-.guild-card{
-  display:flex;align-items:center;gap:12px;width:100%;text-align:left;
-  padding:10px;border:1px solid var(--border);border-radius:var(--r-lg);
-  background:var(--bg-2);font:inherit;color:inherit;cursor:pointer;
-  transition:transform var(--dur) var(--ease-out),border-color var(--dur) var(--ease-out),box-shadow var(--dur) var(--ease-out);
-}
-.guild-card:hover{transform:translateY(-2px);border-color:rgb(212 175 55 / 45%);box-shadow:var(--shadow);}
-.guild-card:active{transform:scale(.99);}
-.guild-card.is-mine{border-color:rgb(212 175 55 / 55%);box-shadow:inset 0 0 0 1px rgb(212 175 55 / 12%);}
-.guild-card:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
-.guild-art{
-  position:relative;flex:0 0 62px;width:62px;height:62px;overflow:hidden;
-  border:1px solid var(--border-soft);border-radius:14px;
-  background:radial-gradient(circle at 50% 30%,rgb(212 175 55 / 14%),var(--bg-3) 72%);
-  display:grid;place-items:center;
-}
-.guild-art img{width:100%;height:100%;object-fit:cover;display:block;}
-.guild-art-ph{display:grid;place-items:center;width:100%;height:100%;color:var(--gold);opacity:.8;}
-.guild-body{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;}
-.guild-name{font-size:14px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.guild-tag{color:var(--gold);font-weight:800;}
-.guild-sub{font-size:11.5px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.guild-desc{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
-  margin-top:3px;font-size:11.5px;line-height:1.45;color:var(--text-subtle);}
-.guild-go{flex:0 0 auto;color:var(--text-subtle);display:flex;}
-.guild-go .icon{width:16px;height:16px;}
-.empire-card .guild-art{flex-basis:72px;width:72px;height:78px;border-radius:12px;}
-
-.guild-sheet-art{position:relative;aspect-ratio:16/9;overflow:hidden;background:var(--bg-3);}
-.guild-sheet-art img{width:100%;height:100%;object-fit:cover;display:block;}
-.guild-sheet-title{position:absolute;left:0;right:0;bottom:0;z-index:1;padding:14px 18px;}
-.guild-sheet-title h3{font-size:20px;font-weight:800;overflow-wrap:anywhere;}
-.guild-sheet-title p{margin-top:4px;font-size:12px;color:var(--gold);font-weight:700;}
-
-.stat-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px;}
-.stat-chip{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:999px;
-  border:1px solid var(--border);background:var(--bg-3);font-size:11.5px;color:var(--text-muted);}
-.stat-chip strong{color:var(--text);font-weight:800;}
-.chips-wrap{display:flex;flex-wrap:wrap;gap:7px;}
-.chip-sm{display:inline-flex;align-items:center;padding:5px 10px;border-radius:999px;
-  border:1px solid var(--border);background:var(--bg-3);font-size:11.5px;color:var(--text-muted);white-space:nowrap;}
-.lb-row.is-static{cursor:default;}
-
-.empire-hero{position:relative;border-radius:var(--r-xl);overflow:hidden;
-  border:1px solid rgb(212 175 55 / 22%);margin-bottom:22px;aspect-ratio:16/11;min-height:190px;}
-.empire-hero img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;
-  filter:saturate(.92) brightness(.85);}
-.empire-hero-body{position:absolute;inset:auto 0 0;z-index:1;padding:16px 16px 18px;}
-.empire-hero-body h2{margin-top:8px;font-size:21px;font-weight:800;line-height:1.15;}
-.empire-hero-body p{margin-top:6px;font-size:12.5px;line-height:1.5;color:var(--text-muted);}
 
 /* ── wallet ────────────────────────────────────────────────────────────── */
 .wallet-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:18px;}
@@ -1951,55 +1898,179 @@ button.loadout-slot:hover{transform:translateY(-2px);border-color:var(--gold);}
 }
 html.no-motion .view,html.no-motion .ev-slide,html.no-motion .mobile-bar{animation:none;}
 
-/* ══════════════════════════════════════════════════════════════════════════
-   GUILD / EMPIRE CRESTS, AND THE SECOND PASS ON THE PHONE PAGES
-   The first render of these pages put a shared photograph on every record and
-   printed raw numbers, so a list of thirty guilds looked like one guild
-   repeated and a wallet full of solars read 0 / NaN. Crests are now generated
-   per record, and the layouts below give the generated art room to do its job.
-   ══════════════════════════════════════════════════════════════════════════ */
+/* ── wallet ────────────────────────────────────────────────────────────── */
+.wallet-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:18px;}
+.wallet-card{display:flex;flex-direction:column;gap:3px;padding:13px 14px;
+  border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bg-2);}
+.wallet-ico{color:var(--gold);display:flex;margin-bottom:3px;}
+.wallet-k{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-subtle);}
+.wallet-v{font-size:19px;font-weight:800;font-family:'Space Grotesk',sans-serif;}
+.wallet-u{font-size:11px;color:var(--text-subtle);}
+.wallet-loan{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;
+  border-color:rgb(212 175 55 / 40%);}
+.wallet-form{display:flex;flex-direction:column;gap:8px;}
+.wallet-form label{font-size:11.5px;font-weight:700;color:var(--text-muted);}
+.wallet-form input{width:100%;padding:12px 13px;border-radius:var(--r);border:1px solid var(--border);
+  background:var(--bg-3);color:var(--text);font:inherit;font-size:15px;}
+.wallet-form input:focus{outline:none;border-color:var(--gold);}
+.wallet-btns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:2px;}
+.ledger{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--r-lg);
+  background:var(--bg-2);overflow:hidden;}
+.ledger-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 14px;
+  border-bottom:1px solid var(--border-soft);}
+.ledger-row:last-child{border-bottom:0;}
+.ledger-what{display:flex;flex-direction:column;gap:2px;font-size:12.5px;font-weight:700;min-width:0;}
+.ledger-what .subtext{font-weight:500;font-size:11px;}
+.ledger-amt{font-size:13px;font-weight:800;color:var(--gold);white-space:nowrap;}
+.ledger-amt.is-out{color:var(--text-subtle);}
 
-.crest{
-  position:relative;display:grid;place-items:center;flex:0 0 auto;
-  overflow:hidden;border-radius:16px;
-  background:
-    radial-gradient(circle at 32% 22%,hsl(var(--h,45) 70% 62% / 55%),transparent 62%),
-    linear-gradient(150deg,hsl(var(--h,45) 46% 20%),hsl(calc(var(--h,45) + 28) 40% 9%));
-  border:1px solid hsl(var(--h,45) 55% 45% / 45%);
-  box-shadow:inset 0 1px 0 rgb(255 255 255 / 10%);
+/* ── storage ───────────────────────────────────────────────────────────── */
+.storage-cards{display:flex;flex-direction:column;gap:10px;margin-bottom:22px;}
+.storage-card{display:flex;align-items:center;gap:12px;padding:13px 14px;
+  border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bg-2);}
+.storage-card>div{flex:1;min-width:0;}
+.storage-card strong{font-size:13.5px;}
+.storage-card .subtext{font-size:11.5px;margin-top:2px;}
+
+/* ── progress ──────────────────────────────────────────────────────────── */
+.quest-list{display:flex;flex-direction:column;gap:10px;}
+.quest-row{display:flex;align-items:flex-start;gap:11px;padding:12px;
+  border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bg-2);}
+.quest-ico{flex:0 0 auto;color:var(--gold);display:flex;margin-top:2px;}
+.quest-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
+.quest-body strong{font-size:13px;}
+.quest-body .subtext{font-size:11.5px;line-height:1.45;}
+.quest-bar{margin-top:6px;}
+.ach-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+.ach-card{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:13px;
+  border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bg-2);}
+.ach-card strong{font-size:12.5px;line-height:1.3;}
+.ach-card .subtext{font-size:11px;line-height:1.45;}
+.ach-ico{color:var(--gold);display:flex;}
+.ach-card.is-done{border-color:rgb(212 175 55 / 40%);background:rgb(212 175 55 / 6%);}
+
+/* ── pokémon ───────────────────────────────────────────────────────────── */
+.mon-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-bottom:12px;}
+.mon-summary>div{display:flex;flex-direction:column;align-items:center;gap:1px;padding:11px 6px;
+  border:1px solid var(--border);border-radius:var(--r);background:var(--bg-2);}
+.mon-summary strong{font-size:17px;font-weight:800;color:var(--gold);}
+.mon-summary span{font-size:10.5px;color:var(--text-subtle);}
+.mon-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-bottom:16px;}
+.mon-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+.mon-card{display:flex;flex-direction:column;gap:3px;width:100%;padding:8px;text-align:left;
+  border:1px solid var(--border);border-radius:var(--r-lg);background:var(--bg-2);
+  font:inherit;color:inherit;cursor:pointer;-webkit-appearance:none;appearance:none;
+  transition:transform var(--dur) var(--ease-out),border-color var(--dur) var(--ease-out);}
+button.mon-card:hover{transform:translateY(-2px);border-color:rgb(212 175 55 / 45%);}
+.mon-card.is-dex{cursor:default;}
+.mon-art{position:relative;display:grid;place-items:center;width:100%;aspect-ratio:1;overflow:hidden;
+  border-radius:var(--r);background:radial-gradient(circle at 50% 30%,rgb(212 175 55 / 12%),var(--bg-3) 74%);}
+.mon-art img{width:84%;height:84%;object-fit:contain;}
+.mon-lv{position:absolute;right:6px;bottom:6px;padding:1px 7px;border-radius:999px;font-size:10px;
+  font-weight:800;background:rgb(0 0 0 / 68%);border:1px solid var(--border);}
+.mon-name{margin-top:8px;font-size:12.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mon-sub{font-size:10.5px;color:var(--text-subtle);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.mon-held{margin-top:3px;font-size:10.5px;font-weight:700;color:var(--gold);}
+
+/* ── inventory manager (profile → Manage) ──────────────────────────────── */
+.mgr-head h3{font-size:19px;font-weight:800;}
+.mgr-cap{margin:12px 0 14px;padding:12px 13px;border:1px solid var(--border);
+  border-radius:var(--r-lg);background:var(--bg-2);}
+.mgr-cap-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
+.mgr-cap-top strong{font-size:14px;}
+.mgr-cap-top .subtext{font-weight:500;font-size:11.5px;}
+.mgr-cap-tag{padding:2px 9px;border-radius:999px;font-size:9.5px;font-weight:800;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--gold);background:rgb(212 175 55 / 12%);border:1px solid rgb(212 175 55 / 35%);}
+.mgr-cap-track{margin-top:9px;height:7px;border-radius:999px;background:var(--bg-4);overflow:hidden;}
+.mgr-cap-track i{display:block;height:100%;border-radius:inherit;background:var(--grad-1);
+  transition:width .5s var(--ease-out);}
+.mgr-tabs{display:flex;gap:5px;padding:4px;margin-bottom:14px;border-radius:999px;
+  border:1px solid var(--border);background:var(--bg-2);}
+.mgr-tab{flex:1 1 0;padding:8px 6px;border:0;border-radius:999px;background:none;
+  font:inherit;font-size:12.5px;font-weight:700;color:var(--text-muted);cursor:pointer;
+  transition:background .18s ease,color .18s ease;}
+.mgr-tab.is-on{background:var(--bg-4);color:var(--gold);}
+.mgr-tab:focus-visible{outline:2px solid var(--gold);outline-offset:-2px;}
+.mgr-body{min-height:120px;}
+.mgr-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+.filter-pills{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;margin-bottom:4px;
+  scrollbar-width:none;-ms-overflow-style:none;}
+.filter-pills::-webkit-scrollbar{display:none;}
+.filter-pill{flex:0 0 auto;padding:6px 13px;border-radius:999px;border:1px solid var(--border);
+  background:var(--bg-2);color:var(--text-muted);font:inherit;font-size:12px;font-weight:700;
+  cursor:pointer;transition:var(--transition);white-space:nowrap;}
+.filter-pill.is-on{background:rgb(212 175 55 / 14%);border-color:rgb(212 175 55 / 45%);color:var(--gold);}
+.filter-pill:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+
+.mgr-back{align-self:flex-start;margin-bottom:12px;padding:6px 12px;border-radius:999px;
+  border:1px solid var(--border);background:var(--bg-2);color:var(--text-muted);
+  font:inherit;font-size:12px;font-weight:700;cursor:pointer;}
+.mgr-back:hover{color:var(--text);border-color:var(--gold);}
+.mgr-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:16px;}
+
+.loadout-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px;}
+.loadout-slot{display:flex;flex-direction:column;align-items:center;gap:2px;width:100%;padding:8px;
+  border:1px dashed var(--border);border-radius:var(--r-lg);background:var(--bg-2);
+  font:inherit;color:inherit;cursor:pointer;-webkit-appearance:none;appearance:none;
+  transition:border-color var(--dur) var(--ease-out),transform var(--dur) var(--ease-out);}
+.loadout-slot.is-filled{border-style:solid;border-color:rgb(212 175 55 / 35%);}
+button.loadout-slot:hover{transform:translateY(-2px);border-color:var(--gold);}
+.loadout-slot:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+.loadout-grid.is-static .loadout-slot{cursor:default;}
+.loadout-art{display:grid;place-items:center;width:100%;aspect-ratio:1;overflow:hidden;
+  border-radius:var(--r);background:radial-gradient(circle at 50% 30%,rgb(212 175 55 / 10%),var(--bg-3) 74%);}
+.loadout-art .item-card-img{width:84%;height:84%;}
+.loadout-empty{display:grid;place-items:center;color:var(--text-subtle);opacity:.6;}
+.loadout-name{margin-top:7px;font-size:11.5px;font-weight:700;text-align:center;line-height:1.3;
+  width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.loadout-kind{font-size:10px;color:var(--text-subtle);letter-spacing:.02em;}
+
+.mgr-pvp{display:flex;flex-direction:column;}
+.mgr-pvp-head{display:flex;gap:11px;padding:12px 13px;border-radius:var(--r-lg);
+  border:1px solid rgb(212 175 55 / 30%);background:rgb(212 175 55 / 7%);}
+.mgr-pvp-head .inline-icon{flex:0 0 auto;color:var(--gold);margin-top:2px;}
+.mgr-pvp-head strong{font-size:12.5px;}
+.mgr-pvp-head .subtext{font-size:11.5px;line-height:1.5;margin-top:3px;}
+
+/* ── phones: two tiles per line, everywhere ─────────────────────────────
+   One card per line made every collection four scrolls long. Two-up is the
+   phone-native shape: the art still reads, the names are still whole. */
+@media (max-width:820px){
+  .grid-4,.grid-3,.grid-2{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;}
+  .inv-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+  .shop-card .item-card-desc{display:none;}
+  .pricing-grid{grid-template-columns:minmax(0,1fr);}
 }
-.crest-glyph{
-  font-family:'Space Grotesk',sans-serif;font-weight:800;letter-spacing:.02em;
-  color:#fff;opacity:.92;text-shadow:0 2px 10px rgb(0 0 0 / 55%);
-}
-.crest img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
-.crest-md{width:100%;aspect-ratio:1;border-radius:14px;}
-.crest-md .crest-glyph{font-size:clamp(20px,7vw,30px);}
-.crest-lg{width:62px;height:62px;border-radius:16px;}
-.crest-lg .crest-glyph{font-size:19px;}
 
-/* Two per line, like every other collection on a phone. */
-.guild-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
-.guild-grid .guild-card{flex-direction:column;align-items:stretch;gap:9px;padding:9px;}
-.guild-grid .guild-card .crest-md{width:100%;}
-.guild-grid .guild-body{gap:2px;}
-.guild-grid .guild-name{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
-.guild-grid .guild-sub{white-space:normal;}
-.guild-grid .guild-desc{-webkit-line-clamp:2;}
-.guild-grid .guild-go{display:none;}
-/* Your own guild/empire keeps the wide row - it is the one you came for. */
-.guild-card.is-mine{flex-direction:row;align-items:center;gap:12px;}
-.guild-card.is-mine .crest-md{width:64px;height:64px;flex:0 0 64px;}
-.guild-card.is-mine .guild-go{display:flex;}
-
-@media (min-width:640px){
-  .guild-grid{grid-template-columns:repeat(3,minmax(0,1fr));}
+/* The bar's "More" opens the drawer; the drawer needs to sit above the bar. */
+@media (max-width:820px){
+  .drawer{top:auto;bottom:calc(84px + env(safe-area-inset-bottom,0px));right:12px;left:auto;
+    width:min(260px,calc(100vw - 24px));max-height:min(64svh,calc(100dvh - 120px));
+    transform-origin:bottom right;}
+  .mgr-body .item-card-name{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;
+    -webkit-box-orient:vertical;overflow:hidden;}
 }
 
-.guild-sheet-head{display:flex;align-items:center;gap:13px;padding:18px 18px 0;}
-.guild-sheet-id{min-width:0;}
-.guild-sheet-id h3{font-size:19px;font-weight:800;line-height:1.2;overflow-wrap:anywhere;}
-.guild-sheet-id p{margin-top:4px;font-size:12px;font-weight:700;color:var(--gold);}
+@media (prefers-reduced-motion:reduce){
+  .mobile-bar,.mbar-slot,.ev-dot,.mgr-cap-track i{transition:none;}
+}
+
+/* The phone season header that stands in for the hidden hero's title. */
+.mob-season-head{display:none;}
+@media (max-width:820px){
+  .mob-season-head{display:block;padding:14px 20px 2px;}
+  .mob-season-title{font-size:24px;font-weight:800;line-height:1.15;}
+  .mob-season-desc{margin-top:6px;font-size:12.5px;line-height:1.5;color:var(--text-muted);}
+}
+
+/* Page switches on a phone are mostly taps on the bottom bar, so the arrival
+   animation is shorter and softer than the desktop one - long enough to read
+   as a change of place, short enough that a fast tapper never waits for it. */
+@media (max-width:820px){
+  .view{animation:viewInMob .26s var(--ease-out);}
+  @keyframes viewInMob{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+}
+html.no-motion .view,html.no-motion .ev-slide,html.no-motion .mobile-bar{animation:none;}
 
 /* ── storage: the ender chest now reads as owned ───────────────────────── */
 .storage-card.is-owned{border-color:rgb(212 175 55 / 45%);background:rgb(212 175 55 / 6%);}
@@ -2199,8 +2270,16 @@ html.no-motion .view,html.no-motion .ev-slide,html.no-motion .mobile-bar{animati
 }
 .ev-card .ev-media{aspect-ratio:16/9;border-bottom:1px solid var(--border);}
 .ev-card .ev-media img{object-position:center 34%;}
-.ev-card .ev-body{padding:12px 14px 14px;margin-top:-24px;}
+/* The slider pulls its caption up over the photograph; this card must not.
+   The title sat on top of the art and collided with the badge, so the body
+   starts below the image and keeps its own background. */
+.ev-card .ev-body{margin-top:0;padding:13px 14px 14px;background:var(--bg-2);}
+.ev-card .ev-title{font-size:19px;letter-spacing:-.01em;}
+.ev-card .ev-rewards{margin-top:4px;}
+/* A single chip is a label, not a button: it must not stretch the full width. */
+.ev-card .ev-body>.chip-sm{align-self:flex-start;}
 .ev-card.is-quiet{border-color:var(--border);background:var(--bg-2);}
+.ev-card.is-quiet .ev-body{background:transparent;}
 
 /* ══════════════════════════════════════════════════════════════════════════
    POKÉMON → BATTLE, STARTER
@@ -2216,10 +2295,18 @@ html.no-motion .view,html.no-motion .ev-slide,html.no-motion .mobile-bar{animati
   background:linear-gradient(170deg,var(--bg-3),#070606);
 }
 .pb-scene{
-  position:relative;display:flex;flex-direction:column;justify-content:space-between;gap:14px;
-  min-height:190px;padding:12px;
-  background:radial-gradient(ellipse at 50% 10%,rgb(212 175 55 / 12%),transparent 62%),var(--bg-2);
-  overflow:hidden;
+  position:relative;display:flex;flex-direction:column;justify-content:space-between;gap:10px;
+  min-height:230px;padding:12px;overflow:hidden;
+  /* An arena drawn with gradients, the way Showdown's own client does it: a
+     lit sky over a darker floor, so the battlers have somewhere to stand even
+     when the bot sends no background. */
+  background:
+    radial-gradient(ellipse at 50% 0%,rgb(212 175 55 / 16%),transparent 58%),
+    linear-gradient(180deg,#1a2431 0%,#22303f 44%,#1b2119 44%,#0e120c 100%);
+}
+.pb-scene::after{
+  content:"";position:absolute;left:-10%;right:-10%;top:44%;height:60%;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 0%,rgb(255 255 255 / 8%),transparent 62%);
 }
 .pb-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.55;}
 .pb-scene>*{position:relative;z-index:1;}
@@ -2284,3 +2371,37 @@ html.no-motion .view,html.no-motion .ev-slide,html.no-motion .mobile-bar{animati
 .starter-art img{width:84%;height:84%;object-fit:contain;}
 .starter-name{padding:0 8px;font-size:13px;font-weight:800;}
 .starter-sub{padding:0 8px;font-size:10.5px;color:var(--text-subtle);}
+
+/* ── Showdown battlers and move badges ──────────────────────────────────── */
+
+.pb-sprite{display:flex;justify-content:center;align-items:flex-end;flex:1 0 100%;height:74px;}
+.pb-sprite-img{height:100%;width:auto;max-width:100%;object-fit:contain;
+  image-rendering:pixelated;filter:drop-shadow(0 8px 14px rgb(0 0 0 / 55%));}
+.pb-sprite-img.is-foe{transform:scaleX(-1);}
+.pb-foe .pb-sprite{justify-content:flex-start;}
+.pb-you .pb-sprite{justify-content:flex-end;}
+.pb-type{width:auto;height:12px;vertical-align:-2px;margin-right:4px;}
+.pb-move-sub{display:flex;align-items:center;flex-wrap:wrap;gap:2px;}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   STORAGE → TRANSFER PANEL
+   Moving things between the bag, the chest and the Ender chest has to be said
+   out loud: the direction is chosen first, in words, and every stack under it
+   moves that way. Previously the only hint was a button on a card.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.storage-move{display:flex;flex-direction:column;gap:10px;padding:14px;}
+.mv-row{display:flex;align-items:center;gap:10px;}
+.mv-label{
+  flex:0 0 42px;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--text-subtle);
+}
+.mv-row .filter-pills{flex:1;flex-wrap:wrap;margin:0;}
+.mv-sum{
+  margin:2px 0 0;padding-top:10px;border-top:1px solid var(--border);
+  font-size:12px;line-height:1.5;color:var(--text-muted);
+}
+.mv-sum b{color:var(--gold);font-weight:800;}
+
+/* Showdown sprites are 96px pixel art; keep them crisp when scaled up. */
+.pokemon-card-art img{image-rendering:pixelated;}
