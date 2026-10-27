@@ -2533,3 +2533,196 @@ html.no-motion .view,html.no-motion .ev-slide,html.no-motion .mobile-bar{animati
   .pb-mon.is-faint{opacity:.25;}
   .pb-hp i{transition:none;}
 }
+
+/* ===== POKÉMON: TYPE CHIPS =====
+   One chip for every type, tinted with the type's own colour from
+   showdown.js. The colour is passed in as --tc so the palette lives in one
+   place (the data layer) and the CSS only decides the shape. */
+.type-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:var(--r-full);
+  font-size:10.5px;font-weight:800;letter-spacing:.2px;line-height:1.6;color:#0b0906;
+  background:var(--tc,var(--gold));white-space:nowrap;}
+.type-chip.is-sm{padding:1px 7px;font-size:9.5px;}
+.type-chip em{font-style:normal;opacity:.75;font-weight:700;}
+.chips-wrap{display:flex;flex-wrap:wrap;gap:6px;}
+
+/* ===== POKÉMON: HUNT =====
+   The hunt hero is the first thing on the tab: a short pitch, then the region
+   cards, then a strip of dex sprites so the tab never looks empty. */
+.mon-search{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px;}
+.mon-hunt-btn,.mon-heal-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  padding:11px 10px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg-3);
+  font:inherit;font-size:12.5px;font-weight:800;color:var(--text);cursor:pointer;
+  transition:border-color var(--transition),background var(--transition);}
+.mon-hunt-btn{background:var(--grad-1);border-color:transparent;color:#0b0906;}
+.mon-hunt-btn:hover:not(:disabled),.mon-heal-btn:hover:not(:disabled){border-color:rgb(212 175 55 / 55%);}
+.mon-hunt-btn:disabled,.mon-heal-btn:disabled{opacity:.55;cursor:default;}
+.mon-tabs{margin-bottom:14px;}
+
+.hunt-hero{position:relative;display:flex;align-items:flex-end;gap:14px;justify-content:space-between;
+  padding:16px;margin-bottom:12px;border:1px solid var(--border);border-radius:var(--r-lg);
+  background:radial-gradient(circle at 12% 0%,rgb(212 175 55 / 18%),transparent 62%),var(--bg-2);}
+.hunt-hero-body{min-width:0;}
+.hunt-kicker{display:block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--gold);}
+.hunt-hero h2{margin:5px 0 6px;font-size:18px;line-height:1.25;}
+.hunt-hero p{margin:0;font-size:12px;line-height:1.5;color:var(--text-muted);max-width:46ch;}
+
+.hunt-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;}
+.hunt-card{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:13px 12px;
+  border:1px solid var(--border);border-radius:var(--r);background:var(--bg-2);
+  font:inherit;color:inherit;text-align:left;cursor:pointer;
+  transition:transform var(--transition),border-color var(--transition);}
+.hunt-card:hover:not(:disabled){transform:translateY(-2px);border-color:rgb(212 175 55 / 50%);}
+.hunt-card:disabled{opacity:.5;cursor:default;}
+.hunt-ico{width:20px;height:20px;color:var(--gold);margin-bottom:5px;}
+.hunt-ico svg{width:20px;height:20px;}
+.hunt-name{font-size:13px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
+.hunt-sub{font-size:10.5px;color:var(--text-subtle);}
+
+.hunt-strip{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;}
+.hunt-strip::-webkit-scrollbar{display:none;}
+.hunt-thumb{flex:0 0 auto;width:56px;height:56px;padding:5px;border-radius:12px;
+  border:1px solid var(--border);background:var(--bg-3);cursor:pointer;display:grid;place-items:center;}
+.hunt-thumb img{width:100%;height:100%;object-fit:contain;}
+.hunt-thumb:hover{border-color:rgb(212 175 55 / 55%);}
+
+/* ===== POKÉMON: DEX ===== */
+.dex-search{display:flex;align-items:center;gap:9px;padding:0 12px;margin-bottom:10px;
+  border:1px solid var(--border);border-radius:var(--r);background:var(--bg-2);color:var(--text-subtle);}
+.dex-search svg{width:16px;height:16px;flex-shrink:0;}
+.dex-search input{flex:1;min-width:0;padding:11px 0;border:0;background:none;outline:none;
+  font:inherit;font-size:13px;color:var(--text);}
+.dex-clear{width:26px;height:26px;border:0;border-radius:999px;background:var(--bg-4);
+  color:var(--text-muted);font-size:15px;line-height:1;cursor:pointer;flex-shrink:0;}
+.dex-clear:hover{color:var(--text);}
+
+.dex-filters{display:flex;flex-direction:column;gap:7px;margin-bottom:10px;}
+.dex-pill-row{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;}
+.dex-pill-row::-webkit-scrollbar{display:none;}
+.dex-pill{flex:0 0 auto;padding:5px 11px;border-radius:var(--r-full);border:1px solid var(--border);
+  background:var(--bg-2);font:inherit;font-size:11px;font-weight:700;color:var(--text-muted);
+  cursor:pointer;white-space:nowrap;transition:var(--transition);}
+.dex-pill:hover{color:var(--text);border-color:rgb(212 175 55 / 40%);}
+.dex-pill.is-on{background:var(--tc,var(--gold));border-color:transparent;color:#0b0906;}
+.dex-pill.is-quiet.is-on{background:var(--bg-4);border-color:var(--gold);color:var(--gold);}
+
+.dex-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin:0 0 10px;font-size:11px;color:var(--text-subtle);}
+.dex-clear-filters{border:0;background:none;font:inherit;font-size:11px;font-weight:700;
+  color:var(--gold);cursor:pointer;padding:2px;}
+.dex-clear-filters:hover{text-decoration:underline;}
+
+.dex-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:9px;}
+.dex-card{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 7px 10px;
+  border:1px solid var(--border);border-radius:var(--r);background:var(--bg-2);
+  font:inherit;color:inherit;cursor:pointer;text-align:center;
+  transition:transform var(--transition),border-color var(--transition);}
+.dex-card:hover{transform:translateY(-2px);border-color:rgb(212 175 55 / 55%);}
+.dex-card.is-owned{border-color:rgb(212 175 55 / 34%);background:
+  radial-gradient(circle at 50% 0%,rgb(212 175 55 / 12%),transparent 70%),var(--bg-2);}
+.dex-card-num{position:absolute;top:6px;left:8px;font-size:9.5px;font-weight:800;
+  letter-spacing:.2px;color:var(--text-subtle);font-family:'Space Grotesk',sans-serif;}
+.dex-card-owned{position:absolute;top:5px;right:6px;color:var(--gold);display:flex;}
+.dex-card-owned svg{width:12px;height:12px;}
+.dex-card-img{width:64px;height:64px;object-fit:contain;margin-top:9px;image-rendering:auto;}
+.dex-card-name{font-size:11.5px;font-weight:700;line-height:1.3;overflow-wrap:anywhere;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.dex-card-types{display:flex;flex-wrap:wrap;gap:3px;justify-content:center;}
+.dex-more{display:flex;justify-content:center;padding:16px 0 4px;}
+
+/* The species sheet, in the modal. */
+.dex-sheet{display:flex;flex-direction:column;}
+.dex-hero{display:flex;align-items:center;gap:16px;padding:18px 20px 14px;
+  background:radial-gradient(circle at 18% 20%,rgb(212 175 55 / 16%),transparent 65%),var(--bg-3);
+  border-bottom:1px solid var(--border);}
+.dex-hero-img{flex:0 0 auto;width:112px;height:112px;padding:0;border:0;background:none;cursor:pointer;
+  display:grid;place-items:center;transition:transform var(--transition);}
+.dex-hero-img img{width:100%;height:100%;object-fit:contain;
+  filter:drop-shadow(0 8px 16px rgb(0 0 0 / 60%));}
+.dex-hero-img:hover{transform:scale(1.04);}
+.dex-hero-id{min-width:0;flex:1;}
+.dex-num{font-size:11px;font-weight:800;letter-spacing:.6px;color:var(--gold);font-family:'Space Grotesk',sans-serif;}
+.dex-hero-id h3{font-size:21px;line-height:1.2;margin:3px 0 7px;overflow-wrap:anywhere;}
+.dex-hero-types{display:flex;flex-wrap:wrap;gap:5px;}
+.dex-hero-id .subtext{margin:7px 0 0;font-size:11.5px;}
+.dex-hero-id .chip-sm{margin-top:8px;}
+
+.dex-bst{margin-left:7px;font-size:10px;font-weight:700;letter-spacing:0;text-transform:none;color:var(--gold);}
+.dex-stats{display:flex;flex-direction:column;gap:7px;}
+.dex-stat{display:grid;grid-template-columns:64px 34px 1fr;align-items:center;gap:9px;}
+.dex-stat-k{font-size:10.5px;font-weight:700;color:var(--text-muted);}
+.dex-stat-v{font-size:12.5px;font-weight:800;font-family:'Space Grotesk',sans-serif;text-align:right;}
+.dex-stat-bar{height:7px;border-radius:999px;background:var(--bg-4);overflow:hidden;}
+.dex-stat-bar i{display:block;height:100%;border-radius:999px;background:var(--grad-1);}
+
+.dex-evo{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.dex-evo-arrow{color:var(--text-subtle);font-size:13px;}
+.dex-evo-stage{display:flex;flex-direction:column;gap:6px;}
+.dex-evo-btn{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 8px;
+  border:1px solid var(--border);border-radius:var(--r);background:var(--bg-2);
+  font:inherit;font-size:10.5px;font-weight:700;color:var(--text-muted);cursor:pointer;
+  transition:var(--transition);}
+.dex-evo-btn img{width:46px;height:46px;object-fit:contain;}
+.dex-evo-btn:hover{border-color:rgb(212 175 55 / 50%);color:var(--text);}
+.dex-evo-btn.is-on{border-color:var(--gold);color:var(--text);background:var(--bg-3);}
+
+.dex-move-search{margin-bottom:9px;}
+.dex-move-search input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r);
+  background:var(--bg-2);font:inherit;font-size:12.5px;color:var(--text);outline:none;}
+.dex-move-search input:focus{border-color:rgb(212 175 55 / 55%);}
+.dex-move-count{margin:0 0 8px;font-size:10.5px;font-weight:700;color:var(--text-subtle);}
+.dex-moves{display:flex;flex-direction:column;gap:1px;max-height:340px;overflow-y:auto;}
+.dex-move{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;
+  padding:7px 2px;border-bottom:1px solid var(--border-soft);}
+.dex-move:last-child{border-bottom:0;}
+.dex-move-name{font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dex-move-meta{font-size:10px;color:var(--text-subtle);white-space:nowrap;font-variant-numeric:tabular-nums;}
+.dex-move-desc{grid-column:1/-1;font-size:10.5px;line-height:1.45;color:var(--text-subtle);margin-top:-3px;}
+
+@media (max-width:560px){
+  .dex-grid{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .dex-card-img{width:56px;height:56px;}
+  .dex-hero{gap:12px;padding:14px 16px 12px;}
+  .dex-hero-img{width:88px;height:88px;}
+  .dex-hero-id h3{font-size:18px;}
+  .hunt-hero{flex-direction:column;align-items:stretch;}
+}
+@media (prefers-reduced-motion:reduce){
+  .dex-card,.hunt-card,.mon-hunt-btn,.mon-heal-btn,.dex-hero-img{transition:none;}
+  .dex-card:hover,.hunt-card:hover,.dex-hero-img:hover{transform:none;}
+}
+
+/* ===== POKÉDEX PAGE ON A WIDE SCREEN =====
+   The same markup as the phone, laid out for a desktop: four dex columns, three
+   hunt cards across, and the collection in a four-up grid. Nothing here changes
+   what the page does, only how much of it you can see at once. */
+@media (min-width:821px){
+  .poke-view .page{max-width:1180px;}
+  .poke-view .mob-head{padding:22px 0 20px;}
+  .poke-view .mob-head h1{font-size:34px;}
+  .poke-view .mon-search{grid-template-columns:180px 150px 130px;justify-content:start;}
+  .poke-view .mon-summary{grid-template-columns:repeat(3,minmax(0,180px));}
+  .poke-view .mon-grid{grid-template-columns:repeat(4,minmax(0,1fr));}
+  .poke-view .mgr-grid{grid-template-columns:repeat(4,minmax(0,1fr));}
+  .poke-view .hunt-grid{grid-template-columns:repeat(4,minmax(0,1fr));}
+  .poke-view .hunt-hero{align-items:center;padding:22px 24px;}
+  .poke-view .hunt-hero h2{font-size:24px;}
+  .poke-view .hunt-hero p{font-size:13px;}
+  .poke-view .dex-grid{grid-template-columns:repeat(auto-fill,minmax(122px,1fr));gap:11px;}
+  .poke-view .dex-card-img{width:76px;height:76px;}
+  .poke-view .dex-hero-img{width:132px;height:132px;}
+  .poke-view .dex-moves{max-height:300px;}
+  .poke-view .mon-tabs{max-width:560px;}
+}
+
+/* A quiet "go deeper" link that sits beside a section heading. */
+.section-link{align-self:flex-end;flex-shrink:0;font-size:12px;font-weight:700;color:var(--gold);
+  text-decoration:none;padding:6px 2px;white-space:nowrap;transition:var(--transition);}
+.section-link:hover{color:var(--text);}
+
+/* A bot that isn't answering must read as a notice, not as an empty page.
+   The dex underneath it is local, so it keeps working. */
+.mon-offline{display:flex;align-items:flex-start;gap:9px;margin-bottom:14px;padding:12px 14px;
+  border:1px solid rgb(212 175 55 / 34%);border-radius:var(--r);background:rgb(212 175 55 / 8%);
+  font-size:12px;line-height:1.5;color:var(--text-muted);}
+.mon-offline svg{width:16px;height:16px;flex-shrink:0;color:var(--gold);margin-top:1px;}
+.mon-offline strong{color:var(--text);}
