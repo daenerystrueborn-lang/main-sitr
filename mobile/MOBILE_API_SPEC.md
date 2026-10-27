@@ -127,6 +127,14 @@ The server owns the rules, so the page draws returned state and posts choices.
 | `GET /api/pokemon/bag`, `POST /bag/import` | separate bag; import reports how many moved |
 | `GET /api/pokemon/shop`, `POST /shop/buy` | `{ id, qty }` |
 
+The existing client also has a `pokemonMain(id)` helper that posts to
+`/api/pokemon/mons/:id/main`, but this route is **not** in the published server
+contract and there is no backend source in this checkout to verify it. The
+"Set as main" control uses that existing helper, waits for success, then reloads
+server state; failures are surfaced without a client-side selection change.
+Optional `stats`, `ivs`, `evs` and `moves` returned by `/mons/:id` are display-only.
+No TM, Mega, move-edit or other undocumented mutation is sent from this page.
+
 Battle UI reads `battle.background`, `battle.you.active`, `battle.you.team` and
 `battle.foe.active`, uses the **1-based** move index and the **slot** from the
 team, and offers catch only when a ball is actually in the bag. Because a battle
@@ -134,8 +142,9 @@ lives in the bot's process memory, the page re-reads `GET /api/pokemon/battle`
 on every visit instead of trusting a cached one, and a finished battle clears
 the panel and reloads the collection.
 
-`/api/pokemon/dex` is not part of the published contract; the Dex tab hides
-itself when that route isn't there rather than rendering a dead end.
+The species Dex is shipped locally, so browsing and species details do not
+depend on an undocumented `/api/pokemon/dex` route. Owned Pokémon data remains
+server-backed.
 
 **Instance id vs dex id** is respected everywhere: `id` identifies the owned
 mon (party, actions), `dexId` identifies the species (art, starter).
@@ -163,10 +172,15 @@ The site also reads Showdown's `data/moves.json` (once a week, cached) to fill i
 a move's type and power when the bot's battle payload only names the move. That
 table is optional: if it can't load, the buttons show exactly what the bot sent.
 
-The bot's own image routes are still preferred when a record carries art of its
-own (`image`, `art.front`), and `battle.background` is used for the arena rather
-than a guessed path. `/api/images` remains the manifest; `pokemonImageUrl()`
-builds `/api/images/pokemon/:dexId?variant=…` when a dex id is all there is.
+A Pokémon record's own form-specific artwork is preferred for alternate
+forms; `imgOf()` also understands PokeAPI `sprites.other['official-artwork']`
+records. `battle.background` is used when the game server sends one. Otherwise,
+the field uses the player's uploaded forest-clearing image bundled at
+`assets/sprites/battle/bg-forest-clearing.jpg`. The field stays 16:9, with a
+front sprite for the foe and the back sprite for the player. The active battle
+occupies a focused screen; regions and collection navigation stay outside it.
+`/api/images` remains the manifest; `pokemonImageUrl()` builds
+`/api/images/pokemon/:dexId?variant=…` when a dex id is all there is.
 
 **If an image host is blocked, the page shows a glyph** — never a shared
 fallback photo.

@@ -142,6 +142,13 @@ const missingMethods = [...called].filter(m => !apiMethods.has(m)).sort()
 if (missingMethods.length) fail(`app.js calls api.${missingMethods.join(', api.')} - not defined in api.js`)
 else ok(`all ${called.size} api.* methods called by app.js exist`)
 
+/* ── 4b. mobile pages call only methods that exist on the API client ──── */
+
+const mobileApiCalls = new Set([...js['assets/js/mobile-pages.js'].matchAll(/\bapi\.([A-Za-z0-9_]+)\(/g)].map(m => m[1]))
+const missingMobileMethods = [...mobileApiCalls].filter(m => !apiMethods.has(m)).sort()
+if (missingMobileMethods.length) fail(`mobile-pages.js calls missing API methods: ${missingMobileMethods.join(', ')}`)
+else ok(`all ${mobileApiCalls.size} API methods used by the mobile pages exist`)
+
 /* ── 5. routes, views and nav links line up ────────────────────────────── */
 
 const routeNames = new Set(
@@ -175,6 +182,48 @@ if (!cardsView || !/<h2>Browse the collection<\/h2>/.test(cardsView) || cardsSec
 if (/\b(?:buyCardPull|buyCardTier)\b|data-buytier/.test(allJs))
   fail('card purchase code is still reachable from the frontend')
 else ok('frontend has no card purchase action')
+
+/* ── 5c. battle scene and Halloween success states stay true to the UI ─── */
+
+const mobilePages = js['assets/js/mobile-pages.js']
+const sceneRule = css.match(/\.pb-scene\s*\{([^}]*)\}/)?.[1] ?? ''
+if (!/width:\s*100%/.test(sceneRule) || !/aspect-ratio:\s*16\s*\/\s*9/.test(sceneRule))
+  fail('Pokémon battlefield should remain a full-width 16:9 scene')
+else ok('Pokémon battlefield is locked to a responsive 16:9 frame')
+
+const battleMonSource = mobilePages.match(/function battleMon\(m, \{ foe = false \} = \{\}\) \{([\s\S]*?)\n\}/)?.[0] ?? ''
+if (!/spriteUrl\(dexNo,\s*\{\s*back:\s*!foe\s*\}\)/.test(battleMonSource) || /\bimgOf\(m\)/.test(battleMonSource))
+  fail('battle Pokémon should use local front/back sprites, not front-facing portrait fallbacks')
+else ok('battle uses the correct local front/back sprite for each side')
+
+const battleBackground = mobilePages.match(/UPLOADED_BATTLE_BACKGROUND\s*=\s*'([^']+)'/)?.[1]
+if (battleBackground !== 'assets/sprites/battle/bg-forest-clearing.jpg'
+  || !fs.existsSync(path.join(ROOT, battleBackground)))
+  fail('the uploaded forest battlefield should be the local battle fallback')
+else ok('the uploaded forest battlefield is the local battle fallback')
+
+if (!/data-route=\"pokemon\">Pokémon<\/a>/.test(html)
+  || /data-route=\"pokemon\">Pokédex<\/a>/.test(html)
+  || !/title: 'Pokémon'/.test(js['assets/js/app.js']))
+  fail('Pokémon navigation and the route title should use “Pokémon”, not “Pokédex”')
+else ok('Pokémon navigation and route title use the requested label')
+
+if (!/export async function loadPokemon\(tab = 'overview'/.test(mobilePages)
+  || !/function overviewPanel\(\)/.test(mobilePages)
+  || !/Your lead Pokémon/.test(mobilePages)
+  || !/PC &amp; Collection/.test(mobilePages)
+  || !/function regionDetailPanel\(region\)/.test(mobilePages)
+  || !/function renderPokemonPage\([\s\S]*?No region browser,[\s\S]{0,100}page tabs are rendered alongside it/.test(mobilePages))
+  fail('the Pokémon hub should open on the collection home and isolate an active battle')
+else ok('the Pokémon hub home and focused battle view are wired')
+
+const eventClaim = mobilePages.match(/async function claimEvent\(ev\) \{([\s\S]*?)\n\}/)?.[1] ?? ''
+const progressClaim = mobilePages.match(/async function claimHalloween\(btn\) \{([\s\S]*?)\n\}/)?.[1] ?? ''
+if (!/HALLOWEEN_THANKS_IMAGE\s*=\s*'https:\/\/i\.ibb\.co\/kWHW2FX\/8f3ab6e286d4bde647441b59eaefc882\.jpg'/.test(mobilePages)
+  || !/ev\.id === 'halloween'\) showHalloweenThanks\(\)/.test(eventClaim)
+  || !/showHalloweenThanks\(\)/.test(progressClaim))
+  fail('both Halloween claim flows should show the requested thank-you popup after success')
+else ok('both Halloween claim flows show the thank-you popup')
 
 /* ── 6. every asset the markup references is on disk ───────────────────── */
 

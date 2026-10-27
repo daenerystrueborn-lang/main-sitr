@@ -1,11 +1,10 @@
 /**
  * showdown.js - the Pokémon data and artwork that ship with this site.
  *
- * Everything here is local. The sprite files were copied into the repo from
- * Pokémon Showdown's own graphics (see assets/sprites/README.md for the source
- * and the licence), and the dex/move tables were generated from the
- * `pokemon-showdown` package, so the Pokémon section loads nothing from another
- * host: no sprite CDN, no PokéAPI, no CORS, and it works offline.
+ * The standard sprite files and dex/move tables ship locally, so the core
+ * Pokémon experience works offline. A server record may optionally provide
+ * form-specific artwork (including a PokeAPI sprite object); no alternate-form
+ * image is guessed when the payload does not identify one.
  *
  * The two tables are fetched once and kept for the life of the tab:
  *
