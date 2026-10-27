@@ -62,6 +62,7 @@
       <a class="nav-slot" href="#/season" data-route="season">Season</a>
       <a class="nav-slot" href="#/shop" data-route="shop">Shop</a>
       <a class="nav-slot" href="#/cards" data-route="cards">Cards</a>
+      <a class="nav-slot" href="#/pokemon" data-route="pokemon">Pokédex</a>
       <a class="nav-slot" href="#/premium" data-route="premium">Premium</a>
     </nav>
 
@@ -90,6 +91,7 @@
   <a class="drawer-link" href="#/shop" data-route="shop">Shop</a>
   <a class="drawer-link" href="#/cards" data-route="cards">Cards</a>
   <a class="drawer-link" href="#/premium" data-route="premium">Premium</a>
+  <a class="drawer-link" href="#/pokemon" data-route="pokemon">Pokédex</a>
   <a class="drawer-link" href="#/profile" data-route="profile">Profile</a>
   <!-- Everything below only exists on a phone; the desktop pill nav is the
        whole site there and these routes bounce back to home. -->
@@ -97,7 +99,6 @@
   <a class="drawer-link drawer-link-mobile" href="#/wallet" data-route="wallet">Wallet</a>
   <a class="drawer-link drawer-link-mobile" href="#/storage" data-route="storage">Storage</a>
   <a class="drawer-link drawer-link-mobile" href="#/progress" data-route="progress">Progress</a>
-  <a class="drawer-link drawer-link-mobile" href="#/pokemon" data-route="pokemon">Pokémon</a>
   <a class="drawer-link" href="#/settings" data-route="settings">Settings</a>
   <a class="drawer-link" id="drawerAuth" href="#/login" data-route="login">Sign in</a>
 </div>
@@ -272,11 +273,12 @@
           <h2>Meet the Alola roster</h2>
           <p>Pokémon companions for the world our bots are building.</p>
         </div>
+        <a class="section-link" href="#/pokemon" data-route="pokemon">Open the Pokédex →</a>
       </div>
       <div class="pokemon-grid" id="homePokemon">
         <div class="pokemon-loading" aria-live="polite">Loading the Alola roster...</div>
       </div>
-      <p class="pokemon-credit">Powered by PokéAPI. Pokémon data and artwork belong to their respective owners.</p>
+      <p class="pokemon-credit">Artwork and dex data ship with this site. Pokémon © Nintendo, Creatures Inc. and GAME FREAK inc.</p>
     </section>
 
     <section class="section">
@@ -546,10 +548,10 @@
   </div>
 </main>
 
-<main class="view mob-view" id="view-pokemon">
+<main class="view poke-view" id="view-pokemon">
   <div class="page mob-page">
     <header class="mob-head">
-      <div><h1>Pokémon</h1><p>Catch, train and battle alongside your team.</p></div>
+      <div><h1>Pokédex</h1><p>All 1025 species, nine regions, wild hunts and battles - the whole thing, on one page.</p></div>
     </header>
     <div id="pokemonRoot"></div>
   </div>

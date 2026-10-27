@@ -104,11 +104,20 @@ const IMAGE_KEYS = ['image', 'imageUrl', 'imageURL', 'imagePath', 'image_path', 
   'avatarUrl', 'picture', 'url']
 
 /** An image URL out of the spellings above, including PokeAPI sprite shapes. */
+/**
+ * Anything that can be an <img src>.
+ *
+ * `assets/...` counts: the sprites that ship in this repo are addressed
+ * relatively from the page, and treating them as "no image" is what left every
+ * local Pokémon and item picture as a placeholder glyph.
+ */
+const isImageUrl = (value) => /^(?:https?:)?\/\/|^data:|^\/|^\.?\/?assets\//.test(String(value ?? ''))
+
 export function imgOf(obj) {
   if (!obj) return ''
-  if (typeof obj === 'string') return /^(https?:)?\/\/|^data:|^\//.test(obj) ? obj : ''
+  if (typeof obj === 'string') return isImageUrl(obj) ? obj : ''
   const direct = pick(obj, IMAGE_KEYS)
-  if (typeof direct === 'string' && /^(https?:)?\/\/|^data:|^\//.test(direct)) return direct
+  if (typeof direct === 'string' && isImageUrl(direct)) return direct
   // PokeAPI: sprites.other['official-artwork'].front_default, or sprites.front_default
   const sprites = obj.sprites ?? obj.pokemon?.sprites
   if (sprites && typeof sprites === 'object') {

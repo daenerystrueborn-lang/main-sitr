@@ -129,20 +129,22 @@ const SUN_MOON_ROSTER = [
 ]
 
 /**
- * Showdown's sprite path for a species. Kept local (rather than imported from
- * showdown.js) because the standalone mobile bundle extracts this file without
- * that module - the showcase is the only part of api.js that needs a sprite.
+ * The sprite that ships with this site, by dex number.
+ *
+ * Kept local (rather than imported from showdown.js) because the standalone
+ * mobile bundle extracts this file without that module - the showcase is the
+ * only part of api.js that needs a sprite. Nothing is fetched from Showdown's
+ * own servers: the files live in assets/sprites/.
  */
-const showdownSprite = (name) => {
-  const id = String(name ?? '').toLowerCase().normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '')
-  return id ? `https://play.pokemonshowdown.com/sprites/gen5/${id}.png` : ''
+const localSprite = (num) => {
+  const n = Number(num)
+  return Number.isInteger(n) && n > 0 && n <= 1025 ? `assets/sprites/pokemon/${n}.png` : ''
 }
 
 export async function fetchSunMoonPokemon() {
   return SUN_MOON_ROSTER.map(entry => ({
     ...entry,
-    image: showdownSprite(entry.name) || pokemonImageUrl(entry.id),
+    image: localSprite(entry.id) || pokemonImageUrl(entry.id),
   }))
 }
 

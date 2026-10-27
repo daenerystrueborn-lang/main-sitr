@@ -28,6 +28,10 @@ export function resolveArt(url) {
   // Keep the path, swap the host for the live API, or every plate 404s.
   const plate = /^(?:https?:)?\/\/[^/]+(\/assets\/items\/[^?#]+)/i.exec(s)
   if (plate) return `${API_BASE}${plate[1]}`
+  // Site-owned art (the sprites that ship in this repo) must stay on this
+  // origin - re-basing them onto the API host is what turned every local
+  // sprite into a 404.
+  if (/^\.?\/?assets\//.test(s)) return s.replace(/^\.\//, '')
   if (/^(https?:)?\/\//i.test(s) || s.startsWith('data:')) return s
   return `${API_BASE}${s.startsWith('/') ? '' : '/'}${s}`
 }

@@ -7,24 +7,30 @@
  *
  *   1. the floating bottom bar that replaces the curved desktop pill nav;
  *   2. the season page's event slider, which stands in for the hero photo;
- *   3. the pages the desktop site deliberately doesn't show - Guilds, Empires,
- *      Wallet, Storage, Progress and Pokémon - plus the inventory manager that
- *      opens from the profile.
+ *   3. the pages the desktop site deliberately doesn't show - Wallet, Storage,
+ *      Progress and the Pokémon section - plus the inventory manager that opens
+ *      from the profile.
  *
  * Every loader is written to survive an endpoint that isn't live yet: the bot
  * ships these routes separately, so a 404 must read as "not available yet",
  * never as a blank screen or a dead button.
  */
-import { api, hasSession, newIdempotencyKey, pokemonImageUrl } from './api.js'
+import { api, hasSession, newIdempotencyKey } from './api.js'
 import {
   $, $$, esc, attr, num, titleCase, iconSvg,
   toast, emptyState, openModal, closeModal, skeletonCards, bar,
 } from './ui.js'
-import { itemCard, itemArt, itemMeta, itemPopupHtml, itemQty, resolveArt } from './items.js'
+import {
+  itemCard, itemArt, itemMeta, itemPopupHtml, itemQty, resolveArt, statBonusTiles,
+} from './items.js'
 import {
   pick, toNum, counted, listOf, imgOf, cleanText, isOwned, plural,
 } from './shape.js'
-import { monSprite, itemIcon, typeIcon, moveInfo, warmMoveData, typeColor } from './showdown.js'
+import {
+  monSprite, spriteUrl, itemIcon, typeColor, showdownId, slugOf,
+  ALL_TYPES, REGIONS, loadDex, loadMoves, loadLearnsets,
+  speciesByNum, speciesByName, numOfName, statTotal, regionOf, searchDex, evolutionChain,
+} from './showdown.js'
 
 /* ───────────────────────────── breakpoint ─────────────────────────────── */
 
@@ -1556,18 +1562,38 @@ export async function loadProgress() {
 
 /* ──────────────────────────────── pokémon ─────────────────────────────── */
 
-let monTab = 'mons'
-let dexAvailable = false
+/**
+ * The Pokémon section: a full dex browser, region-based hunting, your
+ * collection and the battle itself.
+ *
+ * Artwork and data are local (see showdown.js) - 1025 species with their
+ * sprites in this repo - so the dex works whether or not the bot is reachable.
+ * Everything the *player* owns comes from the bot, and the bot remains the only
+ * thing that can start a hunt, roll a turn or award a catch.
+ */
+
+let monTab = 'hunt'
+let monMeta = null
+let monBattle = null
+let battleLog = []
+let battleBusy = false
+let dexTable = null
+let moveTable = null
+
 let monData = { mons: [], party: [], dex: [], bag: [], shop: [], overview: null }
+
+/** Dex browser state. Kept module-level so a re-render doesn't reset the search. */
+const dexState = { q: '', type: '', gen: 0, sort: 'num', limit: 60 }
+
+const DEX_SORTS = [['num', 'Number'], ['name', 'A–Z'], ['bst', 'Strongest']]
+const DEX_PAGE = 60
 
 /**
  * A dex number, but only when the record really carries one.
  *
- * This is the bug behind "the picture doesn't match the name": `id` on a mon row
- * is the bot's own record id, and parsing the digits out of it ("mon_44")
- * fetched Vileplume's artwork for something else entirely. So only explicit dex
- * fields count, and a bare `id` is trusted only when it is a plain integer in
- * dex range.
+ * `id` on a bot row is the bot's own record id ("mon_44"), and parsing the
+ * digits out of one showed the wrong Pokémon's artwork. Only explicit dex
+ * fields count, plus a plain integer id in range.
  */
 const dexRange = (n) => n != null && Number.isInteger(n) && n > 0 && n <= 1025
 
@@ -1587,66 +1613,18 @@ function dexOf(m) {
 const monSpecies = (m) => cleanText(pick(m, ['species', 'speciesName', 'name', 'pokemon']), '')
 const monName = (m) => cleanText(pick(m, ['nickname', 'name', 'species', 'pokemon']), 'Pokémon')
 
-/**
- * A mon's picture, in the order that will actually resolve:
- * whatever the bot sent -> confirmed dex artwork -> nothing (the caller then
- * asks PokeAPI by name, which is the only trustworthy key).
- */
-function monArt(m) {
-  const direct = imgOf(m)
-  if (direct) return direct
-  // Mon detail and battle state expose ordered fallbacks here.
-  const front = pick(m, ['art'])?.front
-  if (front) return resolveArt(String(front))
-  // Showdown is the sprite source for everything on this site: it has an id for
-  // every species, so a name is all that's needed.
-  const sprite = monSprite(monSpecies(m))
-  if (sprite) return sprite
-  const dex = dexOf(m)
-  if (dex) return pokemonImageUrl(dex)
-  return ''
-}
+/** The dex number for a mon record: an explicit one, else the species name. */
+const numOf = (m) => dexOf(m) ?? numOfName(monSpecies(m)) ?? 0
 
 /**
- * A Pokémon-bag stack as a card.
- *
- * The bot's own `image` wins when it sends one. Otherwise the Showdown item
- * icon is used, which is the same sprite the games use for that item - so a
- * Poké Ball doesn't fall back to the generic inventory glyph.
+ * A mon's picture: the sprite that ships with this site, then whatever the bot
+ * sent, then nothing. `back` is the view from behind, for your own side of a
+ * battle.
  */
-function monItemCard(i, opts = {}) {
-  const name = cleanText(pick(i, ['name', 'itemName', 'title']), '')
-  const icon = itemIcon(name)
-  return itemCard(icon && !imgOf(i) ? { ...i, image: icon } : i, opts)
-}
-
-/**
- * Fills in art for cards that were rendered without a picture.
- *
- * Each one is looked up by species name and patched in place. When the lookup
- * returns a different Pokémon than the dex number we guessed from, the name
- * wins - that is exactly the mismatch being fixed - so the src is replaced
- * rather than left alone.
- */
-async function hydrateMonArt(scope) {
-  const targets = [...(scope?.querySelectorAll('[data-mon-art]') ?? [])]
-  for (const img of targets) {
-    const name = img.dataset.monArt
-    if (!name) continue
-    // Showdown has an id for every species, so the name resolves locally.
-    const art = { url: monSprite(name) }
-    if (!art.url) {
-      // Nothing to show: swap the broken box for the spark glyph.
-      const holder = img.parentElement
-      if (holder && !holder.querySelector('.item-art-ph')) {
-        img.remove()
-        holder.insertAdjacentHTML('beforeend', `<span class="item-art-ph">${iconSvg('spark', 'inventory-icon')}</span>`)
-      }
-      continue
-    }
-    img.src = art.url
-    img.hidden = false
-  }
+function monArt(m, { back = false } = {}) {
+  const n = numOf(m)
+  const local = n ? spriteUrl(n, { back }) : ''
+  return local || imgOf(m) || ''
 }
 
 function monTypes(m) {
@@ -1655,9 +1633,53 @@ function monTypes(m) {
   return arr
     .map(x => cleanText(typeof x === 'string' ? x : pick(x, ['name', 'type', 'label']), ''))
     .filter(Boolean)
-    .map(titleCase)
-    .join(' · ')
 }
+
+/** The species record for a mon or a name, when the dex is loaded. */
+function speciesOf(m) {
+  return speciesByNum(numOf(m)) ?? speciesByName(monSpecies(m)) ?? null
+}
+
+
+/**
+ * A Pokémon-bag stack as a card.
+ *
+ * The bot's own `image` wins when it sends one. Otherwise the item sprite that
+ * ships with the site is used, so a Poké Ball doesn't fall back to the generic
+ * inventory glyph.
+ */
+function monItemCard(i, opts = {}) {
+  const name = cleanText(pick(i, ['name', 'itemName', 'title']), '')
+  const icon = itemIcon(name)
+  return itemCard(icon && !imgOf(i) ? { ...i, image: icon } : i, opts)
+}
+
+/* ── shared bits ─────────────────────────────────────────────────────────── */
+
+/** A type chip in the type's own colour. */
+function typeChip(type, { sm = false } = {}) {
+  const label = cleanText(type, '')
+  if (!label) return ''
+  return `<span class="type-chip${sm ? ' is-sm' : ''}" style="--tc:${attr(typeColor(label))}">${esc(label)}</span>`
+}
+
+const typeChips = (types, opts) => (types ?? []).map(t => typeChip(t, opts)).join('')
+
+/** "#0025" - the way the games print a dex number. */
+const dexNumber = (n) => `#${String(n ?? 0).padStart(4, '0')}`
+
+/** A stat row: label, value, and a bar scaled against a 180 point ceiling. */
+function statRow(label, value, max = 180) {
+  const pct = Math.max(0, Math.min(100, Math.round((Number(value) || 0) / max * 100)))
+  return `
+    <div class="dex-stat">
+      <span class="dex-stat-k">${esc(label)}</span>
+      <span class="dex-stat-v">${num(value)}</span>
+      <span class="dex-stat-bar"><i style="width:${pct}%"></i></span>
+    </div>`
+}
+
+/* ── loading ─────────────────────────────────────────────────────────────── */
 
 export async function loadPokemon(tab = monTab) {
   const root = $('#pokemonRoot')
@@ -1665,41 +1687,35 @@ export async function loadPokemon(tab = monTab) {
   monTab = tab
   root.innerHTML = skeletonCards(2)
 
-  // One failing endpoint shouldn't blank the page: the tabs are independent,
-  // so each is caught on its own and simply renders empty. The battle route is
-  // also how an interrupted fight is picked back up after a reload.
-  const [meta, overview, mons, party, dexIn, bag, shop, battle] = await Promise.all([
+  // The dex table is local and small; if it fails the rest of the page still
+  // works, so it is caught rather than thrown.
+  dexTable = await loadDex().catch(() => null)
+
+  const [meta, overview, mons, party, bag, shop, battle] = await Promise.all([
     api.pokemonMeta().catch(() => null),
     api.pokemonOverview().catch(() => null),
     api.pokemonMons().catch(err => ({ __error: err })),
     api.pokemonParty().catch(() => null),
-    api.pokemonDex().catch(err => ({ __error: err })),
     api.pokemonBag().catch(() => null),
     api.pokemonShop().catch(() => null),
     api.pokemonBattle().catch(() => null),
   ])
 
-  if (mons?.__error) {
-    root.innerHTML = emptyState('warning', 'Pokémon aren’t live yet', mons.__error.message ?? 'The bot hasn’t opened this route.')
-    return
-  }
+  // The dex is local, so a bot that isn't answering must not blank the page:
+  // the species browser still works, and the notice explains what's missing.
+  const offline = mons?.__error ?? null
 
-  const dex = dexIn?.__error ? null : dexIn
   monMeta = pick(meta, ['meta']) ?? meta ?? null
   monData = {
     overview: pick(overview, ['overview']) ?? overview ?? null,
     mons: listOf(mons, ['mons', 'pokemon', 'items', 'caught']),
     party: listOf(party, ['party', 'members', 'mons']),
-    dex: listOf(dex, ['dex', 'entries', 'species', 'pokemon']),
+    dex: listOf(pick(meta, ['dex']) ?? null, ['dex', 'entries']),
     bag: listOf(bag, ['bag', 'items']),
     shop: listOf(shop, ['items', 'shop', 'stock']),
   }
   monBattle = liveBattle(battle) ?? liveBattle(pick(monData.overview, ['battle']))
-  // Showdown's move table adds a move's type badge and power when the bot only
-  // names the move. It is loaded before the panel is drawn (once a week, then
-  // from cache) so the first paint is the finished one; if it can't load, the
-  // buttons simply show what the bot sent.
-  if (monBattle) await warmMoveData().catch(() => false)
+  if (monBattle) await loadMoves().then(m => { moveTable = m }).catch(() => null)
 
   const o = monData.overview ?? {}
   // A brand-new account picks a starter before anything else makes sense.
@@ -1708,93 +1724,580 @@ export async function loadPokemon(tab = monTab) {
     wireStarter()
     return
   }
-  const dexSeen = toNum(pick(o, ['dexSeen', 'seen', 'seenCount']), monData.dex.length)
-  // `/pokemon/dex` is not part of the bot's published Pokémon routes. When it
-  // isn't there the tab is left out instead of being a dead end.
-  dexAvailable = !dex?.__error && monData.dex.length > 0
-  if (!dexAvailable && monTab === 'dex') monTab = 'mons'
-  const tabs = [
-    ['mons', 'Mons'],
-    ['party', 'Party'],
-    ...(dexAvailable ? [['dex', 'Dex']] : []),
-    ['bag', 'Bag'],
-    ['shop', 'Shop'],
-  ]
+
+  const tabs = offline
+    ? [['dex', 'Dex']]
+    : [
+      ['hunt', 'Hunt'],
+      ['dex', 'Dex'],
+      ['mons', 'Mine'],
+      ['party', 'Party'],
+      ['bag', 'Bag'],
+      ['shop', 'Shop'],
+    ]
+  if (!tabs.some(([id]) => id === monTab)) monTab = tabs[0][0]
+  if (offline) monTab = 'dex'
 
   root.innerHTML = `
-    ${battlePanel()}
-    <div class="mon-summary">
+    ${offline ? (dexTable
+      ? `<div class="mon-offline">${iconSvg('warning', 'inline-icon')}
+           <span><strong>Your collection isn’t reachable.</strong> ${esc(offline.message ?? 'The bot isn’t answering.')}
+           The dex below is built into the site, so it still works.</span></div>`
+      : emptyState('warning', 'Pokémon aren’t live yet', offline.message ?? 'The bot hasn’t opened this route.')) : ''}
+    ${offline ? '' : battlePanel()}
+    ${offline ? '' : `<div class="mon-summary">
       <div><strong>${num(monData.mons.length)}</strong><span>caught</span></div>
-      <div><strong>${num(monData.party.length)}</strong><span>in party</span></div>
-      <div><strong>${num(dexSeen)}</strong><span>seen</span></div>
-    </div>
-    <div class="mon-actions">
-      <button type="button" class="btn btn-primary btn-sm" id="monHunt" ${monBattle ? 'disabled' : ''}>
-        ${iconSvg('spark', 'inline-icon')} ${monBattle ? 'Battle in progress' : 'Hunt'}
-      </button>
-      <button type="button" class="btn btn-secondary btn-sm" id="monHeal">${iconSvg('gift', 'inline-icon')} Heal party</button>
-      ${monBattle ? `<button type="button" class="btn btn-ghost btn-sm" id="monForfeit">Forfeit</button>` : ''}
-    </div>
+      <div><strong>${num(monData.party.length)}</strong><span>party</span></div>
+      <div><strong>${dexTable ? num(dexTable.length) : '—'}</strong><span>in the dex</span></div>
+    </div>`}
 
-    <div class="filter-pills" role="tablist" aria-label="Pokémon sections">
+    ${offline ? '' : `<div class="mon-search">
+      <button type="button" class="mon-hunt-btn" id="monHunt" ${monBattle ? 'disabled' : ''}>
+        ${iconSvg('spark', 'inline-icon')} ${monBattle ? 'In a battle' : 'Hunt'}
+      </button>
+      <button type="button" class="mon-heal-btn" id="monHeal">${iconSvg('gift', 'inline-icon')} Heal</button>
+      ${monBattle ? `<button type="button" class="mon-heal-btn" id="monForfeit">Forfeit</button>` : ''}
+    </div>`}
+
+    <div class="filter-pills mon-tabs" role="tablist" aria-label="Pokémon sections">
       ${tabs.map(([id, label]) => `<button type="button" class="filter-pill${monTab === id ? ' is-on' : ''}"
         data-mon-tab="${id}" role="tab" aria-selected="${monTab === id}">${label}</button>`).join('')}
     </div>
 
     <div id="monPanel">${monPanel()}</div>`
 
+  wireMonPage()
+}
+
+function wireMonPage() {
+  const root = $('#pokemonRoot')
+
   for (const pill of $$('[data-mon-tab]', root)) {
     pill.onclick = () => {
       monTab = pill.dataset.monTab
-      for (const p of $$('[data-mon-tab]', root)) { const on = p === pill; p.classList.toggle('is-on', on); p.setAttribute('aria-selected', String(on)) }
+      for (const p of $$('[data-mon-tab]', root)) {
+        const on = p === pill
+        p.classList.toggle('is-on', on)
+        p.setAttribute('aria-selected', String(on))
+      }
       const panel = $('#monPanel')
       panel.innerHTML = monPanel()
       wireMonPanel()
-      hydrateMonArt(panel)
     }
   }
-  $('#monHunt').onclick = async (e) => {
-    e.currentTarget.disabled = true
-    try {
-      const out = await api.pokemonHunt()
-      await applyBattle(out)
-      // A hunt either starts a fight (the panel replaces the button state) or
-      // ends in a catch, which is a collection change - both need a repaint.
-      if (monBattle) await loadPokemon()
-    } catch (err) { e.currentTarget.disabled = false; toast(err?.message ?? 'Hunt failed', 'err') }
-  }
-  const forfeit = $('#monForfeit')
+
+  const hunt = $('#monHunt', root)
+  if (hunt) hunt.onclick = () => huntIn('')
+
+  const forfeit = $('#monForfeit', root)
   if (forfeit) forfeit.onclick = async () => {
     forfeit.disabled = true
     try { await api.pokemonForfeit(); toast('Battle forfeited', 'ok'); monBattle = null; await loadPokemon() }
     catch (err) { forfeit.disabled = false; toast(err?.message ?? 'Could not forfeit', 'err') }
   }
-  $('#monHeal').onclick = async (e) => {
-    e.currentTarget.disabled = true
+
+  const heal = $('#monHeal', root)
+  if (heal) heal.onclick = async () => {
+    heal.disabled = true
     try { await api.pokemonHeal(); toast('Party healed', 'ok'); await loadPokemon() }
-    catch (err) { e.currentTarget.disabled = false; toast(err?.message ?? 'Could not heal', 'err') }
+    catch (err) { heal.disabled = false; toast(err?.message ?? 'Could not heal', 'err') }
   }
-  wireMonPanel()
+
   wireBattle()
-  // Cards rendered without art get it filled in by species name.
-  hydrateMonArt($('#monPanel'))
+  wireMonPanel()
 }
 
-/* ───────────────────────────── pokémon battle ─────────────────────────── */
+/** Starts a hunt, optionally in one of the bot's regions. */
+async function huntIn(region) {
+  const btn = $('#monHunt') ?? null
+  if (btn) btn.disabled = true
+  try {
+    const out = await api.pokemonHunt(region || undefined)
+    await applyBattle(out)
+    if (monBattle) await loadPokemon()
+  } catch (err) {
+    if (btn) btn.disabled = false
+    toast(err?.message ?? 'Hunt failed', 'err')
+  }
+}
+
+/* ── the panels ──────────────────────────────────────────────────────────── */
+
+function monPanel() {
+  if (monTab === 'hunt') return huntPanel()
+  if (monTab === 'dex') return dexPanel()
+  if (monTab === 'party') {
+    return monData.party.length
+      ? `<div class="mon-grid">${monData.party.map(m => monCard(m, { party: true })).join('')}</div>`
+      : emptyState('rank', 'Party is empty', 'Open one of your Pokémon and add it to the party.')
+  }
+  if (monTab === 'bag') {
+    const importBar = `
+      <div class="mon-actions">
+        <button type="button" class="btn btn-secondary btn-sm" id="monBagImport">${iconSvg('inventory', 'inline-icon')} Import from inventory</button>
+      </div>`
+    return `${importBar}${monData.bag.length
+      ? `<div class="mgr-grid">${monData.bag.map(i => monItemCard(i)).join('')}</div>`
+      : emptyState('inventory', 'Bag is empty', 'Poké Balls and potions appear here once you import or buy them.')}`
+  }
+  if (monTab === 'shop') {
+    return monData.shop.length
+      ? `<div class="mon-grid">${monData.shop.map(i => `
+          <div class="mon-card">
+            <span class="mon-art">${itemArt(imgOf(i) || itemIcon(cleanText(pick(i, ['name', 'title']), '')))}</span>
+            <span class="mon-name">${esc(cleanText(pick(i, ['name', 'title']), 'Item'))}</span>
+            <span class="mon-sub">${toNum(pick(i, ['price', 'cost']), null) != null
+              ? `${num(toNum(pick(i, ['price', 'cost']), 0))} solars` : esc(itemMeta(i))}</span>
+            <button type="button" class="btn btn-secondary btn-sm btn-block" data-mon-buy="${attr(pick(i, ['id', 'itemId', 'key']))}">Buy</button>
+          </div>`).join('')}</div>`
+      : emptyState('inventory', 'Shop is empty', 'Stock rotates with the bot.')
+  }
+  return monData.mons.length
+    ? `<div class="mon-grid">${monData.mons.map(m => monCard(m)).join('')}</div>`
+    : emptyState('spark', 'No Pokémon yet', 'Hunt for your first one - or pick a starter.')
+}
+
+/* ── hunt: the bot's regions ─────────────────────────────────────────────── */
 
 /**
- * The bot owns the fight.
+ * Regions as the bot publishes them.
  *
- * Every rule - who moves first, how much lands, whether a ball catches, what a
- * berry does - lives in the bot, and an active battle lives in its memory. So
- * this page never rolls anything: it posts one action, then draws the battle,
- * events and bag the server sends back. A restart on the bot's side ends the
- * fight, which is why `battle` is re-read on every load instead of being kept.
+ * Region keys come from `/pokemon/meta`; the page never invents a region name
+ * or a roster, because only the bot knows what lives where. A region that lists
+ * its species shows how many; one that doesn't simply says "Hunt here".
  */
-let monMeta = null
-let monBattle = null
-let battleLog = []
-let battleBusy = false
+function huntRegions() {
+  const rows = listOf(monMeta, ['regions', 'regionKeys', 'areas', 'zones'])
+  return rows.map((r, i) => {
+    if (typeof r === 'string') {
+      return { key: r, label: titleCase(r.replace(/[-_]/g, ' ')), species: [] }
+    }
+    const key = cleanText(pick(r, ['key', 'id', 'slug', 'region', 'name']), String(i))
+    return {
+      key,
+      label: cleanText(pick(r, ['label', 'name', 'title', 'region']), titleCase(key.replace(/[-_]/g, ' '))),
+      species: listOf(r, ['species', 'mons', 'pokemon', 'encounters']),
+    }
+  }).filter(r => r.key)
+}
+
+function huntPanel() {
+  const regions = huntRegions()
+  const caught = monData.mons.length
+  const total = dexTable?.length ?? 0
+
+  return `
+    <div class="hunt-hero">
+      <div class="hunt-hero-body">
+        <span class="hunt-kicker">${caught && total ? `${num(caught)} species caught` : 'Wild encounters'}</span>
+        <h2>Where will you hunt?</h2>
+        <p>${regions.length
+          ? 'Pick a region and the bot rolls the encounter. What you find is its call, not the page’s.'
+          : 'The bot hasn’t published its regions yet - a hunt still works, it just picks for you.'}</p>
+      </div>
+      <button type="button" class="btn btn-primary btn-sm" id="huntNow" ${monBattle ? 'disabled' : ''}>
+        ${iconSvg('spark', 'inline-icon')} Hunt anywhere
+      </button>
+    </div>
+
+    ${regions.length ? `
+      <div class="hunt-grid">
+        ${regions.map(r => `
+          <button type="button" class="hunt-card" data-hunt-region="${attr(r.key)}" ${monBattle ? 'disabled' : ''}>
+            <span class="hunt-ico">${iconSvg('compass', 'inline-icon')}</span>
+            <span class="hunt-name">${esc(r.label)}</span>
+            <span class="hunt-sub">${r.species.length ? `${num(r.species.length)} species` : 'Hunt here'}</span>
+          </button>`).join('')}
+      </div>` : ''}
+
+    ${dexTable ? `
+      <section class="mob-sec" style="margin-top:18px">
+        <div class="sec-head"><h2>Browse the dex</h2>
+          <button type="button" class="btn btn-ghost btn-sm" data-mon-tab="dex">Open</button></div>
+        <div class="hunt-strip">
+          ${dexTable.slice(0, 12).map(s => `
+            <button type="button" class="hunt-thumb" data-dex="${s.n}" title="${attr(s.name)}">
+              <img src="${attr(spriteUrl(s.n))}" alt="${attr(s.name)}" loading="lazy">
+            </button>`).join('')}
+        </div>
+      </section>` : ''}`
+}
+/* ── dex: search, filters, and the entry sheet ───────────────────────────── */
+
+function dexPanel() {
+  if (!dexTable) {
+    return emptyState('warning', 'The dex didn’t load', 'The species list ships with the site - a hard refresh usually fixes it.')
+  }
+  return `
+    <div class="dex-search">
+      ${iconSvg('compass', 'inline-icon')}
+      <input id="dexSearch" type="search" inputmode="search" autocomplete="off"
+             placeholder="Search a Pokémon, number or type…" value="${attr(dexState.q)}"
+             aria-label="Search the Pokédex">
+      <button type="button" class="dex-clear" id="dexClear" aria-label="Clear search" ${dexState.q ? '' : 'hidden'}>×</button>
+    </div>
+
+    <div class="dex-filters">
+      <div class="dex-pill-row" role="tablist" aria-label="Filter by type">
+        <button type="button" class="dex-pill${dexState.type ? '' : ' is-on'}" data-dex-type="">All</button>
+        ${ALL_TYPES.map(t => `<button type="button" class="dex-pill${dexState.type === t ? ' is-on' : ''}"
+          data-dex-type="${attr(t)}" style="--tc:${attr(typeColor(t))}">${esc(titleCase(t))}</button>`).join('')}
+      </div>
+      <div class="dex-pill-row" role="tablist" aria-label="Filter by region">
+        <button type="button" class="dex-pill${dexState.gen ? '' : ' is-on'}" data-dex-gen="0">Every region</button>
+        ${REGIONS.map(r => `<button type="button" class="dex-pill${dexState.gen === r.gen ? ' is-on' : ''}"
+          data-dex-gen="${r.gen}">${esc(r.label)}</button>`).join('')}
+      </div>
+      <div class="dex-pill-row" role="tablist" aria-label="Sort the dex">
+        ${DEX_SORTS.map(([id, label]) => `<button type="button" class="dex-pill is-quiet${dexState.sort === id ? ' is-on' : ''}"
+          data-dex-sort="${id}">${esc(label)}</button>`).join('')}
+      </div>
+    </div>
+
+    <div class="dex-meta"><span id="dexCount"></span>
+      <button type="button" class="dex-clear-filters" id="dexReset">Reset filters</button></div>
+    <div id="dexGrid" class="dex-grid"></div>
+    <div id="dexMore" class="dex-more"></div>`
+}
+
+/** Paints the grid for the current filters; called on every keystroke. */
+function paintDex() {
+  const grid = $('#dexGrid')
+  if (!grid || !dexTable) return
+
+  const results = searchDex(dexTable, dexState)
+  const shown = results.slice(0, dexState.limit)
+  const owned = new Set(monData.mons.map(m => numOf(m)).filter(Boolean))
+
+  grid.innerHTML = shown.length
+    ? shown.map(s => `
+      <button type="button" class="dex-card${owned.has(s.n) ? ' is-owned' : ''}" data-dex="${s.n}">
+        <span class="dex-card-num">${dexNumber(s.n)}</span>
+        ${owned.has(s.n) ? `<span class="dex-card-owned">${iconSvg('security', 'px-icon')}</span>` : ''}
+        <img class="dex-card-img" src="${attr(spriteUrl(s.n))}" alt="${attr(s.name)}" loading="lazy" decoding="async">
+        <span class="dex-card-name">${esc(s.name)}</span>
+        <span class="dex-card-types">${typeChips(s.t, { sm: true })}</span>
+      </button>`).join('')
+    : emptyState('compass', 'Nothing matches', 'Try a different name, type or region.')
+
+  const count = $('#dexCount')
+  if (count) {
+    count.textContent = `${num(results.length)} ${results.length === 1 ? 'Pokémon' : 'Pokémon'}`
+      + (results.length > shown.length ? ` · showing ${num(shown.length)}` : '')
+  }
+  const more = $('#dexMore')
+  if (more) {
+    more.innerHTML = results.length > shown.length
+      ? `<button type="button" class="btn btn-secondary btn-sm" id="dexLoadMore">Show ${num(Math.min(DEX_PAGE, results.length - shown.length))} more</button>`
+      : ''
+    const btn = $('#dexLoadMore')
+    if (btn) btn.onclick = () => { dexState.limit += DEX_PAGE; paintDex() }
+  }
+
+  for (const card of $$('[data-dex]', grid)) {
+    card.onclick = () => openDexEntry(Number(card.dataset.dex))
+  }
+}
+
+/** Wires the search box and the filter pills (once per paint of the panel). */
+function wireDex() {
+  const search = $('#dexSearch')
+  if (search) {
+    search.oninput = () => {
+      dexState.q = search.value
+      dexState.limit = DEX_PAGE
+      const clear = $('#dexClear')
+      if (clear) clear.hidden = !search.value
+      paintDex()
+    }
+  }
+  const clear = $('#dexClear')
+  if (clear) clear.onclick = () => {
+    dexState.q = ''
+    dexState.limit = DEX_PAGE
+    if (search) search.value = ''
+    clear.hidden = true
+    paintDex()
+    search?.focus?.()
+  }
+  for (const pill of $$('[data-dex-type]')) {
+    pill.onclick = () => {
+      dexState.type = pill.dataset.dexType
+      dexState.limit = DEX_PAGE
+      for (const p of $$('[data-dex-type]')) p.classList.toggle('is-on', p === pill)
+      paintDex()
+    }
+  }
+  for (const pill of $$('[data-dex-gen]')) {
+    pill.onclick = () => {
+      dexState.gen = Number(pill.dataset.dexGen) || 0
+      dexState.limit = DEX_PAGE
+      for (const p of $$('[data-dex-gen]')) p.classList.toggle('is-on', p === pill)
+      paintDex()
+    }
+  }
+  for (const pill of $$('[data-dex-sort]')) {
+    pill.onclick = () => {
+      dexState.sort = pill.dataset.dexSort
+      for (const p of $$('[data-dex-sort]')) p.classList.toggle('is-on', p === pill)
+      paintDex()
+    }
+  }
+  const reset = $('#dexReset')
+  if (reset) reset.onclick = () => {
+    dexState.q = ''
+    dexState.type = ''
+    dexState.gen = 0
+    dexState.limit = DEX_PAGE
+    const panel = $('#monPanel')
+    if (panel) { panel.innerHTML = dexPanel(); wireDex(); paintDex() }
+  }
+  paintDex()
+}
+
+/**
+ * One species, in full.
+ *
+ * Everything here is from the tables that ship with the site - base stats,
+ * abilities, height and weight, the evolution family and the moves it can
+ * learn - plus a line about whether you own one, which comes from the bot.
+ */
+async function openDexEntry(dexNo) {
+  const species = speciesByNum(dexNo)
+  if (!species) return
+
+  const [moves, learn] = await Promise.all([
+    loadMoves().catch(() => null),
+    loadLearnsets().catch(() => null),
+  ])
+  moveTable = moves
+
+  const owned = monData.mons.find(m => numOf(m) === dexNo)
+  const region = regionOf(species)
+  const chain = dexTable ? evolutionChain(species, dexTable) : []
+  const learnIds = learn?.[slugOf(species.name)] ?? []
+  const statLabels = [['HP', 'hp'], ['Attack', 'atk'], ['Defense', 'def'], ['Sp. Atk', 'spa'], ['Sp. Def', 'spd'], ['Speed', 'spe']]
+
+  const body = `
+    <div class="dex-sheet">
+      <div class="dex-hero">
+        <button type="button" class="dex-hero-img" id="dexFlip" aria-label="Turn the Pokémon around">
+          <img src="${attr(spriteUrl(dexNo))}" alt="${attr(species.name)}">
+        </button>
+        <div class="dex-hero-id">
+          <span class="dex-num">${dexNumber(dexNo)}</span>
+          <h3>${esc(species.name)}</h3>
+          <div class="dex-hero-types">${typeChips(species.t)}</div>
+          <p class="subtext">${[
+            region?.label,
+            species.h ? `${species.h} m` : '',
+            species.w ? `${species.w} kg` : '',
+          ].filter(Boolean).map(esc).join(' · ')}</p>
+          ${owned ? '<span class="chip-sm is-on">In your collection</span>' : ''}
+        </div>
+      </div>
+
+      <div class="pd-body">
+        <div class="pd-sec-title">Base stats <span class="dex-bst">${num(statTotal(species))} total</span></div>
+        <div class="dex-stats">${statLabels.map(([label], i) => statRow(label, species.s[i])).join('')}</div>
+
+        <div class="pd-sec-title">Abilities</div>
+        <div class="chips-wrap">${species.ab.map(([slot, name]) => `
+          <span class="chip-sm">${esc(name)}${slot === 'H' ? ' <em>(hidden)</em>' : ''}</span>`).join('')}</div>
+
+        ${chain.length > 1 ? `
+          <div class="pd-sec-title">Evolution</div>
+          <div class="dex-evo">
+            ${chain.map((stage, i) => `
+              ${i ? '<span class="dex-evo-arrow">→</span>' : ''}
+              <span class="dex-evo-stage">
+                ${stage.map(s => `
+                  <button type="button" class="dex-evo-btn${s.n === dexNo ? ' is-on' : ''}" data-dex="${s.n}">
+                    <img src="${attr(spriteUrl(s.n))}" alt="" loading="lazy">
+                    <span>${esc(s.name)}</span>
+                  </button>`).join('')}
+              </span>`).join('')}
+          </div>` : ''}
+
+        <div class="pd-sec-title">Moves it can learn <span class="dex-bst">${num(learnIds.length)}</span></div>
+        ${learnIds.length
+          ? `<div class="dex-move-search">
+               <input id="dexMoveSearch" type="search" placeholder="Filter moves…" aria-label="Filter moves">
+             </div>
+             <div class="dex-moves" id="dexMoves"></div>`
+          : '<p class="subtext">No move data for this species.</p>'}
+      </div>
+    </div>`
+
+  openModal(body)
+
+  // Turn the sprite around, the way the games do.
+  const flip = $('#dexFlip')
+  if (flip) flip.onclick = () => {
+    const img = flip.querySelector('img')
+    if (!img) return
+    const isBack = img.dataset.back === '1'
+    img.src = spriteUrl(dexNo, { back: !isBack })
+    img.dataset.back = isBack ? '0' : '1'
+  }
+
+  // Evolution buttons swap the sheet for another species.
+  for (const btn of $$('[data-dex]', $('#modalBody'))) {
+    if (Number(btn.dataset.dex) === dexNo) continue
+    btn.onclick = () => openDexEntry(Number(btn.dataset.dex))
+  }
+
+  const paintMoves = (filter = '') => {
+    const host = $('#dexMoves')
+    if (!host) return
+    const q = filter.trim().toLowerCase()
+    const hits = learnIds
+      .map(id => ({ id, ...moves?.[id] }))
+      .filter(m => m.name && (!q || m.name.toLowerCase().includes(q)))
+      .sort((a, b) => a.name.localeCompare(b.name))
+
+    host.innerHTML = hits.length
+      ? `<p class="dex-move-count">${num(hits.length)} moves</p>` + hits.slice(0, 80).map(m => `
+        <div class="dex-move">
+          ${typeChip(m.type, { sm: true })}
+          <span class="dex-move-name">${esc(m.name)}</span>
+          <span class="dex-move-meta">${esc([m.past ? 'past' : '', m.cat, m.pow ? `${m.pow} pow` : '', m.acc ? `${m.acc}%` : ''].filter(Boolean).join(' · '))}</span>
+          ${m.d ? `<span class="dex-move-desc">${esc(m.d)}</span>` : ''}
+        </div>`).join('')
+        + (hits.length > 80 ? `<p class="dex-move-count">Showing the first 80 — search to narrow it down.</p>` : '')
+      : `<p class="subtext">No move matches “${esc(filter)}”.</p>`
+  }
+  paintMoves()
+
+  const moveSearch = $('#dexMoveSearch')
+  if (moveSearch) moveSearch.oninput = () => paintMoves(moveSearch.value)
+}
+
+/* ── owned Pokémon ───────────────────────────────────────────────────────── */
+
+function monCard(m, { party = false } = {}) {
+  const art = monArt(m)
+  const level = toNum(pick(m, ['level', 'lvl']), null)
+  const held = pick(m, ['heldItem', 'item', 'holding'])
+  const heldName = held ? cleanText(typeof held === 'string' ? held : pick(held, ['name', 'title']), '') : ''
+  const id = pick(m, ['id', 'monId', 'pokemonId', 'uid', 'key'])
+  const types = monTypes(m).length ? monTypes(m) : (speciesOf(m)?.t ?? [])
+
+  return `
+    <button type="button" class="mon-card" data-mon="${attr(String(id ?? ''))}">
+      <span class="mon-art">
+        ${art ? `<img src="${attr(art)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`
+          : `<span class="item-art-ph">${iconSvg('spark', 'inventory-icon')}</span>`}
+        ${level != null ? `<span class="mon-lv">Lv ${num(level)}</span>` : ''}
+      </span>
+      <span class="mon-name">${esc(monName(m))}</span>
+      <span class="mon-sub">${types.length ? typeChips(types, { sm: true }) : (party ? 'In party' : '')}</span>
+      ${heldName ? `<span class="mon-held">Holding ${esc(heldName)}</span>` : ''}
+    </button>`
+}
+
+/** The owned-instance id the party routes use. */
+const monId = (m) => String(pick(m, ['id', 'monId', 'pokemonId', 'uid', 'key']) ?? '')
+
+const inParty = (id) => monData.party.some(m => monId(m) === String(id))
+
+/**
+ * The party is replaced wholesale, exactly as the route expects: send the ids
+ * that should be in it.
+ */
+async function toggleParty(id) {
+  const ids = monData.party.map(monId).filter(Boolean)
+  const next = ids.includes(String(id)) ? ids.filter(x => x !== String(id)) : [...ids, String(id)]
+  await api.pokemonSetParty(next)
+  toast(ids.includes(String(id)) ? 'Removed from party' : 'Added to party', 'ok')
+}
+
+async function openMon(id) {
+  openModal(skeletonCards(1))
+  const out = await api.pokemonMon(id).catch(err => ({ __error: err }))
+  if (out?.__error) { openModal(emptyState('warning', 'Pokémon unavailable', out.__error.message ?? '')); return }
+  const m = pick(out, ['mon', 'pokemon']) ?? out
+  const species = speciesOf(m)
+  const num = numOf(m)
+  const level = toNum(pick(m, ['level', 'lvl']), null)
+  const hp = toNum(pick(m, ['hp', 'currentHp']), null)
+  const maxHp = toNum(pick(m, ['maxHp', 'hpMax']), null)
+  const stats = pick(m, ['stats', 'baseStats'])
+
+  openModal(`
+    <div class="item-sheet">
+      <div class="item-sheet-art">
+        ${num
+          ? `<img class="item-sheet-img" src="${attr(spriteUrl(num))}" alt="" referrerpolicy="no-referrer">`
+          : `<span class="item-art-ph">${iconSvg('spark', 'inventory-icon')}</span>`}
+      </div>
+      <div class="item-sheet-head">
+        <h3>${esc(monName(m))}</h3>
+        <p class="item-sheet-sub">${esc([species?.name && species.name !== monName(m) ? species.name : '', level != null && `Lv ${num(level)}`].filter(Boolean).join(' · '))}</p>
+        <div class="dex-hero-types">${typeChips(monTypes(m).length ? monTypes(m) : (species?.t ?? []))}</div>
+      </div>
+    </div>
+    <div class="pd-body">
+      ${hp != null && maxHp ? bar('HP', hp, maxHp || 1) : ''}
+      ${stats && typeof stats === 'object' && Object.keys(stats).length ? `<div class="pd-sec-title">Stats</div><div class="pd-stats">${statBonusTiles(stats)}</div>` : ''}
+      <div class="mgr-actions">
+        <button type="button" class="btn btn-primary btn-sm" data-mon-act="party">${inParty(id) ? 'Remove from party' : 'Add to party'}</button>
+        ${species ? `<button type="button" class="btn btn-secondary btn-sm" data-dex="${species.n}">Open its dex entry</button>` : ''}
+      </div>
+      <p class="mgr-note">Feeding, evolving, nicknames and held items are handled by the bot in chat.</p>
+    </div>`)
+
+  const dexBtn = $('#modalBody [data-dex]')
+  if (dexBtn) dexBtn.onclick = () => openDexEntry(Number(dexBtn.dataset.dex))
+
+  const act = $('#modalBody [data-mon-act="party"]')
+  if (act) act.onclick = async () => {
+    act.disabled = true
+    try { await toggleParty(id); toast('Updated', 'ok'); closeModal(); await loadPokemon() }
+    catch (err) { act.disabled = false; toast(err?.message ?? 'That didn’t work', 'err') }
+  }
+}
+
+function wireMonPanel() {
+  const root = $('#monPanel')
+
+  if (monTab === 'dex') { wireDex(); return }
+
+  for (const card of $$('[data-mon]', root)) {
+    if (!card.dataset.mon) continue
+    card.onclick = () => openMon(card.dataset.mon)
+  }
+  for (const thumb of $$('[data-dex]', root)) {
+    thumb.onclick = () => openDexEntry(Number(thumb.dataset.dex))
+  }
+  for (const btn of $$('[data-hunt-region]', root)) {
+    btn.onclick = () => huntIn(btn.dataset.huntRegion)
+  }
+  const huntNow = $('#huntNow', root)
+  if (huntNow) huntNow.onclick = () => huntIn('')
+
+  const bagImport = $('#monBagImport', root)
+  if (bagImport) bagImport.onclick = async () => {
+    bagImport.disabled = true
+    try {
+      const out = await api.pokemonBagImport()
+      const moved = toNum(pick(out, ['moved', 'imported', 'count']), null)
+      toast(moved == null ? 'Checked your inventory' : `Imported ${num(moved)} item${moved === 1 ? '' : 's'}`, 'ok')
+      await loadPokemon()
+    } catch (err) { bagImport.disabled = false; toast(err?.message ?? 'Import failed', 'err') }
+  }
+
+  for (const btn of $$('[data-mon-buy]', root)) {
+    btn.onclick = async (e) => {
+      e.stopPropagation()
+      btn.disabled = true
+      try { await api.pokemonBuy(btn.dataset.monBuy, 1); toast('Purchased', 'ok'); await loadPokemon() }
+      catch (err) { btn.disabled = false; toast(err?.message ?? 'Could not buy', 'err') }
+    }
+  }
+}
+
+/* ── the battle ──────────────────────────────────────────────────────────── */
 
 /** A battle payload that is actually in progress, or null. */
 function liveBattle(payload) {
@@ -1913,10 +2416,10 @@ function battlePanel() {
             const maxPp = toNum(pick(mv, ['maxPp', 'ppMax']), null)
             // The bot's own type wins; Showdown's table fills the gap when the
             // payload only names the move.
-            const info = moveInfo(name)
+            const info = moveTable?.[showdownId(name)] ?? null
             const type = cleanText(pick(mv, ['type', 'element']), cleanText(info?.type, ''))
-            const power = toNum(pick(mv, ['power', 'basePower']), toNum(info?.basePower, null))
-            const badge = type ? typeIcon(type) : ''
+            const power = toNum(pick(mv, ['power', 'basePower']), toNum(info?.pow, null))
+            const badge = type ? typeChip(type, { sm: true }) : ''
             return `
             <button type="button" class="pb-move"
                     style="--tc:${attr(typeColor(type))}"
@@ -2131,14 +2634,14 @@ function starterPicker() {
         ? `<div class="starter-grid">${picks.map(s => {
           const dex = dexOf({ dexId: pick(s, ['dexId', 'id', 'dexNumber']) })
           const name = cleanText(pick(s, ['name', 'species', 'title']), 'Starter')
-          const art = imgOf(s) || monSprite(name) || (dex ? pokemonImageUrl(dex) : '')
+          const art = imgOf(s) || monSprite(name) || (dex ? spriteUrl(dex) : '')
           return `
             <button type="button" class="starter-card" data-starter="${attr(String(toNum(pick(s, ['dexId', 'id', 'dexNumber']), '') ?? ''))}">
               <span class="starter-art">${art
                 ? `<img src="${attr(art)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`
                 : `<span class="item-art-ph">${iconSvg('spark', 'inventory-icon')}</span>`}</span>
               <span class="starter-name">${esc(name)}</span>
-              <span class="starter-sub">${esc(monTypes(s) || 'Starter')}</span>
+              <span class="starter-sub">${esc(monTypes(s).join(' · ') || 'Starter')}</span>
             </button>`}).join('')}</div>`
         : emptyState('spark', 'No starters listed', 'The bot hasn’t opened its starter list yet.')}
     </div>`
@@ -2159,177 +2662,7 @@ function wireStarter() {
   }
 }
 
-function monPanel() {
-  if (monTab === 'party') {
-    return monData.party.length
-      ? `<div class="mon-grid">${monData.party.map(m => monCard(m, { party: true })).join('')}</div>`
-      : emptyState('rank', 'Party is empty', 'Set a main mon from your collection to fill it.')
-  }
-  if (monTab === 'dex') {
-    return monData.dex.length
-      ? `<div class="mon-grid">${monData.dex.slice(0, 120).map(d => {
-        const art = monArt(d)
-        const species = monSpecies(d)
-        const seen = isOwned(pick(d, ['caught', 'owned'])) || pick(d, ['seen']) !== undefined
-        return `
-          <div class="mon-card is-dex${seen ? '' : ' is-unseen'}">
-            <span class="mon-art">${art
-              ? `<img src="${attr(art)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`
-              : species
-                ? `<img data-mon-art="${attr(species)}" alt="" loading="lazy" referrerpolicy="no-referrer" hidden>`
-                : `<span class="item-art-ph">${iconSvg('spark', 'inventory-icon')}</span>`}</span>
-            <span class="mon-name">${esc(monName(d))}</span>
-            <span class="mon-sub">${isOwned(pick(d, ['caught', 'owned'])) ? 'Caught' : 'Seen'}</span>
-          </div>`}).join('')}</div>`
-      : emptyState('inventory', 'Dex is empty', 'Every mon you meet gets logged here.')
-  }
-  if (monTab === 'bag') {
-    // The Pokémon bag is separate from the RPG inventory; this is the only way
-    // items cross over, and the bot reports how many actually moved.
-    const importBar = `
-      <div class="mon-actions">
-        <button type="button" class="btn btn-secondary btn-sm" id="monBagImport">${iconSvg('inventory', 'inline-icon')} Import from inventory</button>
-      </div>`
-    return `${importBar}${monData.bag.length
-      ? `<div class="mgr-grid">${monData.bag.map(i => monItemCard(i)).join('')}</div>`
-      : emptyState('inventory', 'Bag is empty', 'Poké Balls and potions appear here once you import or buy them.')}`
-  }
-  if (monTab === 'shop') {
-    return monData.shop.length
-      ? `<div class="mon-grid">${monData.shop.map(i => `
-          <div class="mon-card">
-            <span class="mon-art">${itemArt(imgOf(i) || itemIcon(cleanText(pick(i, ['name', 'title']), '')))}</span>
-            <span class="mon-name">${esc(cleanText(pick(i, ['name', 'title']), 'Item'))}</span>
-            <span class="mon-sub">${toNum(pick(i, ['price', 'cost']), null) != null
-              ? `${num(toNum(pick(i, ['price', 'cost']), 0))} solars` : esc(itemMeta(i))}</span>
-            <button type="button" class="btn btn-secondary btn-sm btn-block" data-mon-buy="${attr(pick(i, ['id', 'itemId', 'key']))}">Buy</button>
-          </div>`).join('')}</div>`
-      : emptyState('inventory', 'Shop is empty', 'Stock rotates with the bot.')
-  }
-  return monData.mons.length
-    ? `<div class="mon-grid">${monData.mons.map(m => monCard(m)).join('')}</div>`
-    : emptyState('spark', 'No Pokémon yet', 'Use Hunt to find your first one.')
-}
 
-function monCard(m, { party = false } = {}) {
-  const art = monArt(m)
-  const species = monSpecies(m)
-  const level = toNum(pick(m, ['level', 'lvl']), null)
-  const held = pick(m, ['heldItem', 'item', 'holding'])
-  const heldName = held ? cleanText(typeof held === 'string' ? held : pick(held, ['name', 'title']), '') : ''
-  const id = pick(m, ['id', 'monId', 'pokemonId', 'uid', 'key'])
-
-  return `
-    <button type="button" class="mon-card" data-mon="${attr(String(id ?? ''))}">
-      <span class="mon-art">
-        ${art ? `<img src="${attr(art)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`
-          : species
-            ? `<img data-mon-art="${attr(species)}" alt="" loading="lazy" referrerpolicy="no-referrer" hidden>`
-            : `<span class="item-art-ph">${iconSvg('spark', 'inventory-icon')}</span>`}
-        ${level != null ? `<span class="mon-lv">Lv ${num(level)}</span>` : ''}
-      </span>
-      <span class="mon-name">${esc(monName(m))}</span>
-      <span class="mon-sub">${esc(monTypes(m) || (party ? 'In party' : ''))}</span>
-      ${heldName ? `<span class="mon-held">Holding ${esc(heldName)}</span>` : ''}
-    </button>`
-}
-
-function wireMonPanel() {
-  for (const card of $$('[data-mon]', $('#monPanel'))) {
-    if (!card.dataset.mon) continue
-    card.onclick = () => openMon(card.dataset.mon)
-  }
-  const bagImport = $('#monBagImport')
-  if (bagImport) bagImport.onclick = async () => {
-    bagImport.disabled = true
-    try {
-      const out = await api.pokemonBagImport()
-      const moved = toNum(pick(out, ['moved', 'imported', 'count']), null)
-      toast(moved == null ? 'Checked your inventory' : `Imported ${num(moved)} item${moved === 1 ? '' : 's'}`, 'ok')
-      await loadPokemon()
-    } catch (err) { bagImport.disabled = false; toast(err?.message ?? 'Import failed', 'err') }
-  }
-
-  for (const btn of $$('[data-mon-buy]', $('#monPanel'))) {
-    btn.onclick = async (e) => {
-      e.stopPropagation()
-      btn.disabled = true
-      try { await api.pokemonBuy(btn.dataset.monBuy, 1); toast('Purchased', 'ok'); await loadPokemon() }
-      catch (err) { btn.disabled = false; toast(err?.message ?? 'Could not buy', 'err') }
-    }
-  }
-}
-
-/** The owned-instance id the party routes use. */
-const monId = (m) => String(pick(m, ['id', 'monId', 'pokemonId', 'uid', 'key']) ?? '')
-
-const inParty = (id) => monData.party.some(m => monId(m) === String(id))
-
-/**
- * The party is replaced wholesale, exactly as the route expects: send the ids
- * that should be in it. Six is the bot's cap; if it refuses, the message from
- * the server is the one shown.
- */
-async function toggleParty(id) {
-  const ids = monData.party.map(monId).filter(Boolean)
-  const next = ids.includes(String(id)) ? ids.filter(x => x !== String(id)) : [...ids, String(id)]
-  await api.pokemonSetParty(next)
-  toast(ids.includes(String(id)) ? 'Removed from party' : 'Added to party', 'ok')
-}
-
-async function openMon(id) {
-  openModal(skeletonCards(1))
-  const out = await api.pokemonMon(id).catch(err => ({ __error: err }))
-  if (out?.__error) { openModal(emptyState('warning', 'Pokémon unavailable', out.__error.message ?? '')); return }
-  const m = pick(out, ['mon', 'pokemon']) ?? out
-  const art = monArt(m)
-  const species = monSpecies(m)
-  const stats = pick(m, ['stats', 'baseStats'])
-  const level = toNum(pick(m, ['level', 'lvl']), null)
-  const hp = toNum(pick(m, ['hp', 'currentHp']), null)
-  const maxHp = toNum(pick(m, ['maxHp', 'hpMax']), null)
-
-  openModal(`
-    <div class="item-sheet">
-      <div class="item-sheet-art">
-        ${art ? `<img class="item-sheet-img" src="${attr(art)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">`
-          : species
-            ? `<img class="item-sheet-img" data-mon-art="${attr(species)}" alt="" referrerpolicy="no-referrer" hidden>`
-            : `<span class="item-art-ph">${iconSvg('spark', 'inventory-icon')}</span>`}
-      </div>
-      <div class="item-sheet-head">
-        <h3>${esc(monName(m))}</h3>
-        <p class="item-sheet-sub">${esc([monTypes(m), level != null && `Lv ${num(level)}`].filter(Boolean).join(' · '))}</p>
-      </div>
-    </div>
-    <div class="pd-body">
-      ${hp != null && maxHp ? bar('HP', hp, maxHp || 1) : ''}
-      ${stats && typeof stats === 'object' && Object.keys(stats).length ? `<div class="pd-sec-title">Stats</div><div class="pd-stats">${statBonusTiles(stats)}</div>` : ''}
-      <div class="mgr-actions">
-        <button type="button" class="btn btn-primary btn-sm" data-mon-act="party">${inParty(id) ? 'Remove from party' : 'Add to party'}</button>
-      </div>
-      <p class="mgr-note">Feeding, evolving, nicknames and held items are handled by the bot in chat.</p>
-      ${cleanText(pick(m, ['notes', 'description', 'flavor', 'flavorText'])) ? `<p class="subtext" style="margin-top:12px">${esc(cleanText(pick(m, ['notes', 'description', 'flavor', 'flavorText'])))}</p>` : ''}
-    </div>`)
-
-  hydrateMonArt($('#modalBody'))
-
-  for (const btn of $$('[data-mon-act]')) {
-    btn.onclick = async () => {
-      const act = btn.dataset.monAct
-      btn.disabled = true
-      try {
-        if (act === 'party') await toggleParty(id)
-        toast('Updated', 'ok')
-        closeModal()
-        await loadPokemon()
-      } catch (err) {
-        btn.disabled = false
-        toast(err?.message ?? 'That didn’t work', 'err')
-      }
-    }
-  }
-}
 
 /* Keep the carousel honest when the viewport flips between phone and desktop. */
 MOBILE_MQ.addEventListener?.('change', () => {
