@@ -13,7 +13,7 @@ import {
   emptyState, openModal, closeModal, initials, bar, copyText, initMotion, iconSvg,
 } from './ui.js'
 import {
-  resolveArt, itemAccent, itemMeta, itemArt, itemSheetHtml, statBonusTiles, itemCard,
+  resolveArt, itemAccent, itemMeta, itemArt, itemSheetHtml, statBonusTiles, itemCard, itemPopupHtml,
 } from './items.js'
 import {
   isMobileView, mountSeasonEvents, openInventoryManager, paintMobileBar,
@@ -1308,15 +1308,65 @@ async function openCharacter(id) {
 function openItem(item) {
   if (!item) return
   const qty = Number(item.qty ?? item.quantity ?? 0)
-  const bonuses = statBonusTiles(item.statBonuses)
+  // Writes need the stack id and a session; a shop preview or a stale row has
+  // neither, and in that case the card is read-only rather than showing
+  // buttons that would fail.
+  const instanceId = item.instanceId ?? item.stackId ?? null
+  const canAct = !!instanceId && isSignedIn()
 
-  openModal(`
-    ${itemSheetHtml(item, qty)}
-    <div class="pd-body">
-      ${item.description ? `<p class="subtext">${esc(item.description)}</p>` : ''}
-      ${bonuses ? `<div class="pd-sec-title">Stat bonuses</div><div class="pd-stats">${bonuses}</div>` : ''}
-      ${item.sellPrice ? `<div class="pd-sec-title">Value</div><p class="subtext">Sells for ${num(item.sellPrice)} solars each.</p>` : ''}
-    </div>`)
+  // Two-tap confirm for the destructive one, the same rule the manager uses.
+  let confirming = null
+
+  const actions = canAct ? `
+    <button type="button" class="btn btn-primary btn-sm" data-item-act="use">Use</button>
+    ${(item.sellPrice ?? item.salePrice) != null
+      ? '<button type="button" class="btn btn-secondary btn-sm" data-item-act="sell">Sell 1</button>'
+      : ''}
+    <button type="button" class="btn btn-ghost btn-sm" data-item-act="discard" id="itemDiscardBtn">Discard</button>` : ''
+
+  const paint = () => {
+    const btn = $('#itemDiscardBtn')
+    if (btn) btn.textContent = confirming === 'discard' ? 'Tap again to discard' : 'Discard'
+  }
+
+  openModal(itemPopupHtml(item, {
+    qty,
+    actions,
+    note: canAct ? '' : `<p class="item-pop-note">${isSignedIn() ? 'This stack can’t be changed from here.' : 'Sign in to use or sell this.'}</p>`,
+  }))
+  paint()
+
+  const closeAndRefresh = async () => {
+    closeModal()
+    invalidate('profile')
+    await loadProfile()
+  }
+
+  for (const btn of $$('[data-item-act]')) {
+    btn.onclick = async () => {
+      const act = btn.dataset.itemAct
+
+      if (act === 'discard' && confirming !== 'discard') {
+        confirming = 'discard'
+        paint()
+        return
+      }
+
+      btn.disabled = true
+      try {
+        if (act === 'use') await api.useItem(instanceId)
+        else if (act === 'sell') await api.sellItem(instanceId, 1)
+        else if (act === 'discard') await api.discardItem(instanceId, 1)
+
+        const label = { use: 'Used', sell: 'Sold', discard: 'Discarded' }[act]
+        toast(`${label} ${item.name}`, 'ok')
+        await closeAndRefresh()
+      } catch (err) {
+        btn.disabled = false
+        toast(err?.message ?? 'That didn’t work', 'err')
+      }
+    }
+  }
 }
 
 /* ─────────────────────────────── page: season ─────────────────────────── */

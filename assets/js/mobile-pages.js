@@ -15,12 +15,12 @@
  * ships these routes separately, so a 404 must read as "not available yet",
  * never as a blank screen or a dead button.
  */
-import { api, hasSession } from './api.js'
+import { api, hasSession, fetchPokemonArt } from './api.js'
 import {
   $, $$, esc, attr, num, titleCase, iconSvg,
   toast, emptyState, openModal, closeModal, skeletonCards, bar,
 } from './ui.js'
-import { itemCard, itemArt, itemMeta, itemSheetHtml, statBonusTiles, itemQty } from './items.js'
+import { itemCard, itemArt, itemMeta, itemPopupHtml, itemQty } from './items.js'
 import {
   pick, toNum, counted, listOf, imgOf, cleanText, isOwned, plural, hueOf, crestInitials,
 } from './shape.js'
@@ -303,6 +303,7 @@ const mgr = {
   sheetId: null,
   pickSlot: null,
   confirm: null,         // { action, id }
+  qty: 1,                // amount for the sell/discard stepper
   busy: false,
 }
 
@@ -470,26 +471,38 @@ function mgrPvpPanel() {
 function mgrSheet(id) {
   const item = mgrItemById(id)
   if (!item) return emptyState('warning', 'Item not found', 'It may have moved or been used.')
-  const qty = itemQty(item)
-  const bonuses = statBonusTiles(item.statBonuses)
+  const qty = itemQty(item) || 1
   const slot = item.slot || item.equipmentSlot
   const confirming = mgr.confirm?.id === String(id) ? mgr.confirm.action : null
+  // The stepper is clamped to the stack, so "sell 9" on a stack of 3 can't be
+  // sent to the bot at all.
+  const amount = Math.min(Math.max(1, mgr.qty || 1), qty)
+  const price = toNum(item.sellPrice ?? item.salePrice, null)
+  const total = price != null ? price * amount : null
+
+  const stepper = qty > 1 ? `
+    <div class="item-pop-stepper">
+      <span>Amount</span>
+      <div class="stepper">
+        <button type="button" class="stepper-btn" data-mgr-step="-1" aria-label="One fewer">−</button>
+        <input id="mgrQty" type="number" inputmode="numeric" min="1" max="${qty}" value="${amount}" aria-label="Amount">
+        <button type="button" class="stepper-btn" data-mgr-step="1" aria-label="One more">+</button>
+      </div>
+      <span class="subtext">of ${num(qty)}</span>
+    </div>` : ''
+
+  const actions = `
+    ${slot ? `<button type="button" class="btn btn-primary btn-sm" data-mgr-action="equip" ${mgr.busy ? 'disabled' : ''}>Equip to ${esc(SLOT_LABEL[slot] ?? titleCase(slot))}</button>` : ''}
+    <button type="button" class="btn btn-secondary btn-sm" data-mgr-action="use" ${mgr.busy ? 'disabled' : ''}>Use</button>
+    <button type="button" class="btn btn-secondary btn-sm" data-mgr-action="store" ${mgr.busy ? 'disabled' : ''}>Store</button>
+    ${price != null
+      ? `<button type="button" class="btn btn-secondary btn-sm" data-mgr-action="sell" ${mgr.busy ? 'disabled' : ''}>${confirming === 'sell' ? `Confirm ${num(total ?? 0)}` : `Sell ${num(amount)}`}</button>`
+      : ''}
+    <button type="button" class="btn btn-ghost btn-sm" data-mgr-action="discard" ${mgr.busy ? 'disabled' : ''}>${confirming === 'discard' ? 'Tap again to discard' : 'Discard'}</button>`
 
   return `
     <button type="button" class="mgr-back" id="mgrBack">‹ Back to items</button>
-    ${itemSheetHtml(item, qty)}
-    <div class="pd-body">
-      ${item.description ? `<p class="subtext">${esc(item.description)}</p>` : ''}
-      ${bonuses ? `<div class="pd-sec-title">Stat bonuses</div><div class="pd-stats">${bonuses}</div>` : ''}
-      <div class="mgr-actions">
-        ${slot ? `<button type="button" class="btn btn-primary btn-sm" data-mgr-action="equip" ${mgr.busy ? 'disabled' : ''}>Equip to ${esc(SLOT_LABEL[slot] ?? titleCase(slot))}</button>` : ''}
-        <button type="button" class="btn btn-secondary btn-sm" data-mgr-action="use" ${mgr.busy ? 'disabled' : ''}>Use</button>
-        <button type="button" class="btn btn-secondary btn-sm" data-mgr-action="store" ${mgr.busy ? 'disabled' : ''}>Move to storage</button>
-        <button type="button" class="btn btn-secondary btn-sm" data-mgr-action="sell" ${mgr.busy ? 'disabled' : ''}>${confirming === 'sell' ? 'Confirm sell 1' : 'Sell 1'}</button>
-        <button type="button" class="btn btn-ghost btn-sm" data-mgr-action="discard" ${mgr.busy ? 'disabled' : ''}>${confirming === 'discard' ? 'Confirm discard' : 'Discard 1'}</button>
-      </div>
-      ${item.sellPrice ? `<p class="subtext" style="margin-top:12px">Sells for ${num(item.sellPrice)} solars each.</p>` : ''}
-    </div>`
+    ${itemPopupHtml(item, { qty, actions, note: stepper })}`
 }
 
 function mgrPicker(slot) {
@@ -548,7 +561,13 @@ function wireMgr() {
   if (more) more.onclick = async () => { more.disabled = true; await mgrLoad({ append: true }); renderMgr() }
 
   for (const tile of $$('[data-mgr-item]', host)) {
-    tile.onclick = () => { mgr.sheetId = tile.dataset.mgrItem; mgr.view = 'sheet'; mgr.confirm = null; renderMgr() }
+    tile.onclick = () => {
+      mgr.sheetId = tile.dataset.mgrItem
+      mgr.view = 'sheet'
+      mgr.confirm = null
+      mgr.qty = 1
+      renderMgr()
+    }
   }
   for (const tile of $$('[data-mgr-pick]', host)) {
     tile.onclick = () => mgrDo('equip', tile.dataset.mgrPick)
@@ -564,8 +583,39 @@ function wireMgr() {
   if (unequip) unequip.onclick = () => mgrDo('unequip', mgr.pickSlot)
 
   for (const btn of $$('[data-mgr-action]', host)) {
-    btn.onclick = () => mgrDo(btn.dataset.mgrAction, mgr.sheetId)
+    btn.onclick = () => {
+      // Read the stepper on the way out so typing a number then tapping Sell
+      // uses what is on screen.
+      const field = $('#mgrQty', host)
+      if (field) mgr.qty = Math.max(1, Number(field.value) || 1)
+      mgrDo(btn.dataset.mgrAction, mgr.sheetId)
+    }
   }
+
+  for (const step of $$('[data-mgr-step]', host)) {
+    step.onclick = () => {
+      const field = $('#mgrQty', host)
+      if (!field) return
+      const max = toNum(field.getAttribute('max'), null) ?? itemQty(mgrItemById(mgr.sheetId)) ?? 1
+      const next = Math.min(Math.max(1, max), Math.max(1, (toNum(field.value, 1) ?? 1) + (toNum(step.dataset.mgrStep, 0) ?? 0)))
+      field.value = String(next)
+      mgr.qty = next
+      // Repaint just the sell label so the confirm text matches the amount.
+      const sell = host.querySelector('[data-mgr-action="sell"]')
+      if (sell && mgr.confirm?.action !== 'sell') {
+        const price = toNum(mgrItemById(mgr.sheetId)?.sellPrice, null)
+        sell.textContent = price != null ? `Sell ${num(next)}` : 'Sell'
+      }
+    }
+  }
+  const qtyField = $('#mgrQty', host)
+  if (qtyField) qtyField.oninput = () => { mgr.qty = Math.max(1, Number(qtyField.value) || 1) }
+}
+
+/** The amount the sheet is asking for, clamped to the stack. */
+function amountFor(id) {
+  const qty = itemQty(mgrItemById(id)) || 1
+  return Math.min(Math.max(1, mgr.qty || 1), qty)
 }
 
 /**
@@ -593,8 +643,8 @@ async function mgrDo(action, id) {
     if (action === 'equip') await api.equip(id, mgr.pickSlot || item?.slot || item?.equipmentSlot || null)
     else if (action === 'unequip') await api.unequip(id)
     else if (action === 'use') await api.useItem(id)
-    else if (action === 'sell') await api.sellItem(id, 1)
-    else if (action === 'discard') await api.discardItem(id, 1)
+    else if (action === 'sell') await api.sellItem(id, amountFor(id))
+    else if (action === 'discard') await api.discardItem(id, amountFor(id))
     else if (action === 'store') await api.storageMove({ itemInstanceId: id, qty: 1, to: 'storage' })
 
     const label = { equip: 'Equipped', unequip: 'Unequipped', use: 'Used', sell: 'Sold', discard: 'Discarded', store: 'Moved to storage' }[action]
@@ -1204,34 +1254,29 @@ function trackOf(record) {
   return best
 }
 
-/** Selected track on the Progress page ('' = everything). */
-let progressTrack = ''
-let progressCache = { quests: [], achievements: [] }
+/**
+ * The art a record's card carries behind it.
+ *
+ * The six paintings are background, not a second set of cards: every quest row
+ * and achievement card gets the picture of the track it belongs to, so the
+ * lists below read as illustrated cards instead of lines on black.
+ */
+function trackArtFor(record) {
+  const id = trackOf(record)
+  return PROGRESS_TRACKS.find(t => t.id === id) ?? null
+}
 
-/** One art card per track: the painting, a scrim, the name and what's inside. */
-function trackCard(track) {
-  const quests = progressCache.quests.filter(x => trackOf(x) === track.id)
-  const achs = progressCache.achievements.filter(x => trackOf(x) === track.id)
-  const ready = quests.filter(x => isOwned(pick(x, ['claimable', 'canClaim']))).length
-    + achs.filter(x => isOwned(pick(x, ['claimable', 'canClaim']))).length
-  const total = quests.length + achs.length
-  const on = progressTrack === track.id
-  const done = achs.filter(x => isOwned(pick(x, ['claimed', 'unlocked', 'isClaimed']))).length
+/** Inline style + class that put a track painting behind a card. */
+function trackArtAttrs(record) {
+  const track = trackArtFor(record)
+  if (!track?.art) return { cls: '', style: '' }
+  return { cls: ' has-art', style: ` style="--art:url('${attr(track.art)}')"` }
+}
 
-  return `
-    <button type="button" class="track-card${on ? ' is-on' : ''}${track.art ? '' : ' no-art'}"
-            data-track="${attr(track.id)}" aria-pressed="${on}"
-            ${track.art ? `style="--art:url('${attr(track.art)}')"` : ''}>
-      <span class="track-art" aria-hidden="true"></span>
-      <span class="track-scrim" aria-hidden="true"></span>
-      <span class="track-body">
-        <span class="track-kicker">${total ? `${num(total)} ${plural(total, 'goal')}` : 'No goals yet'}</span>
-        <strong class="track-name">${esc(track.label)}</strong>
-        <span class="track-blurb">${esc(track.blurb)}</span>
-      </span>
-      ${ready ? `<span class="track-badge">${num(ready)} ready</span>`
-        : done ? `<span class="track-badge is-done">${num(done)} done</span>` : ''}
-    </button>`
+/** Small label naming the track, shown on the card. */
+function trackChip(record) {
+  const track = trackArtFor(record)
+  return track ? `<span class="card-track">${esc(track.label)}</span>` : ''
 }
 
 export async function loadProgress() {
@@ -1256,15 +1301,6 @@ export async function loadProgress() {
   const p = pick(progress, ['progress']) ?? progress ?? {}
   const player = me?.player ?? null
 
-  progressCache = { quests: q, achievements: a }
-  // A track that no longer exists (data changed under us) shouldn't leave the
-  // page filtered to nothing.
-  if (progressTrack && !PROGRESS_TRACKS.some(t => t.id === progressTrack)) progressTrack = ''
-
-  const onTrack = (record) => !progressTrack || trackOf(record) === progressTrack
-  const qShown = q.filter(onTrack)
-  const aShown = a.filter(onTrack)
-  const activeTrack = PROGRESS_TRACKS.find(t => t.id === progressTrack) ?? null
 
   // Only show what actually resolved. `rank` came back null and was printed as
   // the word "null"; now it falls back to the rank on /me, then disappears.
@@ -1286,10 +1322,12 @@ export async function loadProgress() {
     const claimable = isOwned(pick(item, ['claimable', 'canClaim', 'claimReady'])) || pick(item, ['state']) === 'claimable'
     const claimed = isOwned(pick(item, ['claimed', 'isClaimed']))
     const id = pick(item, ['id', 'questId', 'key'])
+    const art = trackArtAttrs(item)
     return `
-      <div class="quest-row">
+      <div class="quest-row${art.cls}"${art.style}>
         <span class="quest-ico">${iconSvg('spark', 'inline-icon')}</span>
         <div class="quest-body">
+          ${trackChip(item)}
           <strong>${esc(name)}</strong>
           ${desc ? `<span class="subtext">${esc(desc)}</span>` : ''}
           ${goal != null ? `<div class="quest-bar">${bar('', done, goal || 1)}</div>
@@ -1311,54 +1349,32 @@ export async function loadProgress() {
 
     <section class="mob-sec">
       <div class="sec-head">
-        <h2>Tracks</h2>
-        ${progressTrack
-          ? `<button type="button" class="link-btn" id="trackClear">Show all</button>`
-          : `<span class="subtext">${num(PROGRESS_TRACKS.length)} tracks</span>`}
+        <h2>Quests</h2>
+        <span class="subtext">${num(q.filter(x => isOwned(pick(x, ['claimable', 'canClaim']))).length)} ready</span>
       </div>
-      <div class="track-grid">
-        ${PROGRESS_TRACKS.map(trackCard).join('')}
-      </div>
+      ${q.length ? `<div class="quest-list">${q.map(questRow).join('')}</div>`
+        : emptyState('season', 'No quests right now', 'New ones appear when the bot rotates them in.')}
     </section>
 
     <section class="mob-sec">
-      <div class="sec-head">
-        <h2>Quests${activeTrack ? ` · ${esc(activeTrack.label)}` : ''}</h2>
-        <span class="subtext">${num(qShown.filter(x => isOwned(pick(x, ['claimable', 'canClaim']))).length)} ready</span>
-      </div>
-      ${qShown.length ? `<div class="quest-list">${qShown.map(questRow).join('')}</div>`
-        : emptyState('season', progressTrack ? `Nothing in ${esc(activeTrack?.label ?? 'this track')} yet` : 'No quests right now',
-          progressTrack ? 'Other tracks may have goals waiting.' : 'New ones appear when the bot rotates them in.')}
-    </section>
-
-    <section class="mob-sec">
-      <div class="sec-head"><h2>Achievements${activeTrack ? ` · ${esc(activeTrack.label)}` : ''}</h2></div>
-      ${aShown.length ? `<div class="ach-grid">${aShown.map(x => {
+      <div class="sec-head"><h2>Achievements</h2></div>
+      ${a.length ? `<div class="ach-grid">${a.map(x => {
         const id = pick(x, ['id', 'achievementId', 'key'])
         const claimable = isOwned(pick(x, ['claimable', 'canClaim']))
         const claimed = isOwned(pick(x, ['claimed', 'unlocked', 'isClaimed']))
+        const art = trackArtAttrs(x)
         return `
-        <div class="ach-card${claimed ? ' is-done' : ''}">
+        <div class="ach-card${claimed ? ' is-done' : ''}${art.cls}"${art.style}>
           <span class="ach-ico">${iconSvg('reward', 'inline-icon')}</span>
           <strong>${esc(cleanText(pick(x, ['name', 'title']), 'Achievement'))}</strong>
           <p class="subtext">${esc(cleanText(pick(x, ['description', 'text'])))}</p>
+          ${trackChip(x)}
           ${claimable && id != null
             ? `<button type="button" class="btn btn-secondary btn-sm" data-claim-ach="${attr(id)}">Claim</button>`
             : `<span class="chip-sm">${claimed ? 'Unlocked' : 'Locked'}</span>`}
         </div>`}).join('')}</div>`
         : emptyState('reward', 'No achievements yet', 'They unlock as you play.')}
     </section>`
-
-  for (const tile of $$('[data-track]', root)) {
-    tile.onclick = () => {
-      // Tapping the selected track again clears it - one control, no hunting
-      // for a separate "all" button.
-      progressTrack = progressTrack === tile.dataset.track ? '' : tile.dataset.track
-      loadProgress()
-    }
-  }
-  const clear = $('#trackClear', root)
-  if (clear) clear.onclick = () => { progressTrack = ''; loadProgress() }
 
   for (const btn of $$('[data-claim-quest]', root)) {
     btn.onclick = async () => {
@@ -1381,26 +1397,77 @@ export async function loadProgress() {
 let monTab = 'mons'
 let monData = { mons: [], party: [], dex: [], bag: [], shop: [], overview: null }
 
-/** PokeAPI's own artwork, used when the bot sends an id/name but no picture. */
-const pokeApiArt = (id) => {
-  const n = toNum(id, null)
-  return n != null && n > 0
-    ? `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${n}.png`
-    : ''
+/**
+ * A dex number, but only when the record really carries one.
+ *
+ * This is the bug behind "the picture doesn't match the name": `id` on a mon row
+ * is the bot's own record id, and parsing the digits out of it ("mon_44")
+ * fetched Vileplume's artwork for something else entirely. So only explicit dex
+ * fields count, and a bare `id` is trusted only when it is a plain integer in
+ * dex range.
+ */
+const dexRange = (n) => n != null && Number.isInteger(n) && n > 0 && n <= 1025
+
+function dexOf(m) {
+  const explicit = toNum(pick(m, ['dexId', 'dexNumber', 'pokedexNumber', 'speciesId', 'number', 'nationalId']), null)
+  if (dexRange(explicit)) return explicit
+  const rawId = m?.id
+  if (typeof rawId === 'number' && dexRange(rawId)) return rawId
+  if (typeof rawId === 'string' && /^\d+$/.test(rawId.trim())) {
+    const n = Number(rawId.trim())
+    if (dexRange(n)) return n
+  }
+  return null
 }
+
+/** PokeAPI artwork for a confirmed dex number. */
+const pokeApiArt = (id) => (dexRange(id)
+  ? `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`
+  : '')
+
+/** The species name - never the nickname, which won't resolve to anything. */
+const monSpecies = (m) => cleanText(pick(m, ['species', 'speciesName', 'name', 'pokemon']), '')
+const monName = (m) => cleanText(pick(m, ['nickname', 'name', 'species', 'pokemon']), 'Pokémon')
 
 /**
  * A mon's picture, in the order that will actually resolve:
- * whatever the bot sent -> PokeAPI sprite block -> official artwork by id.
- * "Images not showing" was the bot sending a name and the page only ever
- * reading `image`.
+ * whatever the bot sent -> confirmed dex artwork -> nothing (the caller then
+ * asks PokeAPI by name, which is the only trustworthy key).
  */
 function monArt(m) {
   const direct = imgOf(m)
-  return direct || pokeApiArt(pick(m, ['id', 'pokemonId', 'dexId', 'dexNumber']))
+  if (direct) return direct
+  return pokeApiArt(dexOf(m))
 }
 
-const monName = (m) => cleanText(pick(m, ['nickname', 'name', 'species', 'pokemon']), 'Pokémon')
+/**
+ * Fills in art for cards that were rendered without a picture.
+ *
+ * Each one is looked up by species name and patched in place. When the lookup
+ * returns a different Pokémon than the dex number we guessed from, the name
+ * wins - that is exactly the mismatch being fixed - so the src is replaced
+ * rather than left alone.
+ */
+async function hydrateMonArt(scope) {
+  const targets = [...(scope?.querySelectorAll('[data-mon-art]') ?? [])]
+  for (const img of targets) {
+    const name = img.dataset.monArt
+    if (!name) continue
+    const art = await fetchPokemonArt(name).catch(() => null)
+    if (!art?.url) {
+      // Nothing to show: swap the broken box for the spark glyph.
+      const holder = img.parentElement
+      if (holder && !holder.querySelector('.item-art-ph')) {
+        img.remove()
+        holder.insertAdjacentHTML('beforeend', `<span class="item-art-ph">${iconSvg('spark', 'inventory-icon')}</span>`)
+      }
+      continue
+    }
+    img.src = art.url
+    img.dataset.monResolved = String(art.id ?? '')
+    img.hidden = false
+  }
+}
 
 function monTypes(m) {
   const t = pick(m, ['types', 'type', 'typeNames'])
@@ -1469,8 +1536,10 @@ export async function loadPokemon(tab = monTab) {
     pill.onclick = () => {
       monTab = pill.dataset.monTab
       for (const p of $$('[data-mon-tab]', root)) { const on = p === pill; p.classList.toggle('is-on', on); p.setAttribute('aria-selected', String(on)) }
-      $('#monPanel').innerHTML = monPanel()
+      const panel = $('#monPanel')
+      panel.innerHTML = monPanel()
       wireMonPanel()
+      hydrateMonArt(panel)
     }
   }
   $('#monHunt').onclick = async (e) => {
@@ -1488,6 +1557,8 @@ export async function loadPokemon(tab = monTab) {
     catch (err) { e.currentTarget.disabled = false; toast(err?.message ?? 'Could not heal', 'err') }
   }
   wireMonPanel()
+  // Cards rendered without art get it filled in by species name.
+  hydrateMonArt($('#monPanel'))
 }
 
 function monPanel() {
@@ -1500,12 +1571,15 @@ function monPanel() {
     return monData.dex.length
       ? `<div class="mon-grid">${monData.dex.slice(0, 120).map(d => {
         const art = monArt(d)
+        const species = monSpecies(d)
         const seen = isOwned(pick(d, ['caught', 'owned'])) || pick(d, ['seen']) !== undefined
         return `
           <div class="mon-card is-dex${seen ? '' : ' is-unseen'}">
             <span class="mon-art">${art
               ? `<img src="${attr(art)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`
-              : `<span class="item-art-ph">${iconSvg('spark', 'inventory-icon')}</span>`}</span>
+              : species
+                ? `<img data-mon-art="${attr(species)}" alt="" loading="lazy" referrerpolicy="no-referrer" hidden>`
+                : `<span class="item-art-ph">${iconSvg('spark', 'inventory-icon')}</span>`}</span>
             <span class="mon-name">${esc(monName(d))}</span>
             <span class="mon-sub">${isOwned(pick(d, ['caught', 'owned'])) ? 'Caught' : 'Seen'}</span>
           </div>`}).join('')}</div>`
@@ -1535,6 +1609,7 @@ function monPanel() {
 
 function monCard(m, { party = false } = {}) {
   const art = monArt(m)
+  const species = monSpecies(m)
   const level = toNum(pick(m, ['level', 'lvl']), null)
   const held = pick(m, ['heldItem', 'item', 'holding'])
   const heldName = held ? cleanText(typeof held === 'string' ? held : pick(held, ['name', 'title']), '') : ''
@@ -1544,7 +1619,9 @@ function monCard(m, { party = false } = {}) {
     <button type="button" class="mon-card" data-mon="${attr(String(id ?? ''))}">
       <span class="mon-art">
         ${art ? `<img src="${attr(art)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`
-          : `<span class="item-art-ph">${iconSvg('spark', 'inventory-icon')}</span>`}
+          : species
+            ? `<img data-mon-art="${attr(species)}" alt="" loading="lazy" referrerpolicy="no-referrer" hidden>`
+            : `<span class="item-art-ph">${iconSvg('spark', 'inventory-icon')}</span>`}
         ${level != null ? `<span class="mon-lv">Lv ${num(level)}</span>` : ''}
       </span>
       <span class="mon-name">${esc(monName(m))}</span>
@@ -1574,6 +1651,7 @@ async function openMon(id) {
   if (out?.__error) { openModal(emptyState('warning', 'Pokémon unavailable', out.__error.message ?? '')); return }
   const m = pick(out, ['mon', 'pokemon']) ?? out
   const art = monArt(m)
+  const species = monSpecies(m)
   const stats = pick(m, ['stats', 'baseStats'])
   const level = toNum(pick(m, ['level', 'lvl']), null)
   const hp = toNum(pick(m, ['hp', 'currentHp']), null)
@@ -1583,7 +1661,9 @@ async function openMon(id) {
     <div class="item-sheet">
       <div class="item-sheet-art">
         ${art ? `<img class="item-sheet-img" src="${attr(art)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">`
-          : `<span class="item-art-ph">${iconSvg('spark', 'inventory-icon')}</span>`}
+          : species
+            ? `<img class="item-sheet-img" data-mon-art="${attr(species)}" alt="" referrerpolicy="no-referrer" hidden>`
+            : `<span class="item-art-ph">${iconSvg('spark', 'inventory-icon')}</span>`}
       </div>
       <div class="item-sheet-head">
         <h3>${esc(monName(m))}</h3>
@@ -1603,6 +1683,8 @@ async function openMon(id) {
       </div>
       ${cleanText(pick(m, ['notes', 'description', 'flavor', 'flavorText'])) ? `<p class="subtext" style="margin-top:12px">${esc(cleanText(pick(m, ['notes', 'description', 'flavor', 'flavorText'])))}</p>` : ''}
     </div>`)
+
+  hydrateMonArt($('#modalBody'))
 
   for (const btn of $$('[data-mon-act]')) {
     btn.onclick = async () => {
