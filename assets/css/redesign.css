@@ -292,9 +292,14 @@ html.scroll-locked,html.scroll-locked body{overflow:hidden;}
 .brand-mark .icon{transition:transform .8s var(--ease-out);}
 .brand:hover .brand-mark .icon{transform:rotate(90deg);}
 
-/* drawer + notification panel: same glass, deeper shadow, springier open. */
+/* Drawer + notification panel: opaque, deeper shadow, springier open.
+   These two are the only surfaces that sit directly over a page, and the page
+   behind them is the hero - a photograph with 46px white type on it. At 96%
+   the menu let that headline ghost through the panel and the list read as if
+   it were printed on top of the page. Glass was the old answer here; the blur
+   is gone (see §15), so the fill has to do the work on its own. No alpha. */
 .drawer,.panel{
-  background:linear-gradient(170deg,rgb(16 14 11 / 96%),rgb(6 6 5 / 98%));
+  background:linear-gradient(170deg,#14110c,#060605 88%);
   border-color:rgb(212 175 55 / 18%);
   box-shadow:0 30px 70px -30px #000,inset 0 1px 0 rgb(255 255 255 / 7%);
 }
