@@ -144,12 +144,30 @@ const toastHost = () => $('#toastWrap')
 /**
  * @param {'ok'|'err'|''} kind
  */
+/**
+ * Makes any string safe to *read* in a 220px-wide toast.
+ *
+ * The API layer falls back to the raw response body when a reply isn't JSON
+ * (a proxy's 404/502 page, for instance), and dumping a whole HTML document
+ * into a toast turns a one-line failure into a screenful of markup. Markup is
+ * flattened to spaces, whitespace is collapsed and the result is capped. The
+ * escaped text is still what lands in the DOM - this only decides which
+ * characters get there.
+ */
+function readable(message, limit = 180) {
+  const text = String(message ?? '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return text.length > limit ? text.slice(0, limit - 1).trimEnd() + '…' : text
+}
+
 export function toast(message, kind = '') {
   const host = toastHost()
   if (!host) return
   const el = document.createElement('div')
   el.className = `toast${kind ? ' ' + kind : ''}`
-  el.innerHTML = `<span class="dot"></span><span>${esc(message)}</span>`
+  el.innerHTML = `<span class="dot"></span><span>${esc(readable(message))}</span>`
   host.appendChild(el)
 
   const remove = () => {
