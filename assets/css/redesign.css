@@ -123,7 +123,9 @@ h1,h2,h3,h4{letter-spacing:-.03em;}
   background:linear-gradient(90deg,rgb(212 175 55 / 0%),var(--gold) 40%,var(--gold-bright));
   box-shadow:0 0 14px rgb(212 175 55 / 65%);
   transform-origin:0 50%;
-  will-change:width;
+  /* No will-change: `width` is not a compositable property, so hinting it only
+     promised the compiler something it could not deliver. The bar scales, it
+     never resizes. */
 }
 
 /* Film grain. One inline SVG turbulence tile, tiled by the browser, at 3.5%
@@ -193,6 +195,11 @@ html.lenis,html.lenis body{height:auto;}
 .lenis.lenis-smooth{scroll-behavior:auto!important;}
 .lenis.lenis-smooth [data-lenis-prevent]{overscroll-behavior:contain;}
 .lenis.lenis-stopped{overflow:hidden;}
+/* Lenis is what stops the page scrolling behind an open drawer, panel or
+   modal. Without it - lite mode, or a vendor file that never loaded - nothing
+   did, and the page scrolled under the dialog. fx.js sets this class in that
+   case (see lockScroll). */
+html.scroll-locked,html.scroll-locked body{overflow:hidden;}
 .lenis.lenis-smooth iframe{pointer-events:none;}
 
 /* ── 5. nav ────────────────────────────────────────────────────────────── */
@@ -200,7 +207,6 @@ html.lenis,html.lenis body{height:auto;}
 .nav-shell{
   padding:16px 20px 0;
   transition:transform .55s var(--ease-out),padding .4s var(--ease-out);
-  will-change:transform;
 }
 /* Set while scrolling down; the nav returns the moment you scroll up. */
 .nav-shell.is-hidden{transform:translateY(-135%);}
@@ -210,9 +216,11 @@ html.lenis,html.lenis body{height:auto;}
   max-width:560px;
   padding:5px;
   border:1px solid rgb(212 175 55 / 16%);
-  background:rgb(8 7 6 / 62%);
-  backdrop-filter:blur(24px) saturate(1.4);
-  -webkit-backdrop-filter:blur(24px) saturate(1.4);
+  /* Was blur(24px) saturate(1.4). This bar is fixed over a page that moves
+     under it, so the blur had to be recomputed every frame of every scroll -
+     the single most expensive thing in the design, and at this opacity the
+     blur was almost invisible anyway. Solid surface, same silhouette. */
+  background:rgb(8 7 6 / 93%);
   box-shadow:
     0 18px 44px -26px rgb(0 0 0 / 95%),
     inset 0 1px 0 rgb(255 255 255 / 7%),
@@ -220,7 +228,7 @@ html.lenis,html.lenis body{height:auto;}
   transition:box-shadow .5s var(--ease-out),background .5s var(--ease-out),border-color .5s;
 }
 .nav-shell.is-stuck .nav-bar{
-  background:rgb(8 7 6 / 82%);
+  background:rgb(8 7 6 / 96%);
   border-color:rgb(212 175 55 / 26%);
   box-shadow:
     0 22px 50px -24px rgb(0 0 0 / 100%),
@@ -265,9 +273,7 @@ html.lenis,html.lenis body{height:auto;}
 }
 
 .icon-btn,.avatar-btn{
-  background:rgb(8 7 6 / 62%);
-  backdrop-filter:blur(20px) saturate(1.3);
-  -webkit-backdrop-filter:blur(20px) saturate(1.3);
+  background:rgb(8 7 6 / 92%);
   border-color:rgb(212 175 55 / 14%);
   transition:transform .4s var(--ease-spring),border-color .3s,color .3s,box-shadow .4s;
 }
@@ -291,8 +297,6 @@ html.lenis,html.lenis body{height:auto;}
   background:linear-gradient(170deg,rgb(16 14 11 / 96%),rgb(6 6 5 / 98%));
   border-color:rgb(212 175 55 / 18%);
   box-shadow:0 30px 70px -30px #000,inset 0 1px 0 rgb(255 255 255 / 7%);
-  backdrop-filter:blur(26px) saturate(1.4);
-  -webkit-backdrop-filter:blur(26px) saturate(1.4);
 }
 .drawer{transition:opacity .24s var(--ease-out),transform .4s var(--ease-spring);}
 .panel{transition:opacity .24s var(--ease-out),transform .4s var(--ease-spring);}
@@ -359,13 +363,13 @@ html.lenis,html.lenis body{height:auto;}
   position:absolute;inset:-12%;z-index:0;pointer-events:none;
   background:url('/assets/img/hero.jpg') center 34%/cover no-repeat;
   filter:saturate(.78) contrast(1.08) brightness(.7);
+  /* The 34s `heroDrift` loop used to live here. It kept a full-screen,
+     filtered layer animating forever, on top of (and overriding) the
+     scroll parallax fx.js already applies to this same element - a CSS
+     animation beats an inline transform, so the drift was the only thing
+     that ever ran. Static photo + the GSAP parallax is the same depth for
+     a fraction of the cost. */
   transform:scale(1.04);
-  will-change:transform;
-  animation:heroDrift 34s ease-in-out infinite alternate;
-}
-@keyframes heroDrift{
-  from{transform:scale(1.04) translate3d(0,0,0);}
-  to{transform:scale(1.12) translate3d(-1.5%,-1%,0);}
 }
 
 .hero-fx .hero-canvas{
@@ -460,7 +464,6 @@ html.lenis,html.lenis body{height:auto;}
 }
 .hero-title .ht-word{
   display:inline-block;
-  will-change:transform;
 }
 #view-home .hero .hero-title .grad{
   /* Every stop stays bright: the animation sweeps a highlight across the
@@ -496,9 +499,7 @@ html.lenis,html.lenis body{height:auto;}
   position:relative;
   padding:4px;
   border:1px solid rgb(212 175 55 / 18%);
-  background:rgb(6 6 5 / 62%);
-  backdrop-filter:blur(16px);
-  -webkit-backdrop-filter:blur(16px);
+  background:rgb(6 6 5 / 90%);
   box-shadow:inset 0 1px 0 rgb(255 255 255 / 6%);
   margin-bottom:18px;
 }
@@ -561,10 +562,8 @@ html.lenis,html.lenis body{height:auto;}
 .chip{
   padding:7px 15px;
   border-radius:999px;
-  background:rgb(255 255 255 / 3%);
   border:1px solid rgb(212 175 55 / 16%);
-  backdrop-filter:blur(10px);
-  -webkit-backdrop-filter:blur(10px);
+  background:rgb(12 11 9 / 55%);
   color:rgb(245 243 238 / 70%);
   font-size:11.5px;font-weight:700;letter-spacing:.02em;
   transition:border-color .3s,color .3s,background .3s,transform .3s var(--ease-spring);
@@ -619,6 +618,16 @@ html.lenis,html.lenis body{height:auto;}
 .mq-track{
   display:flex;align-items:center;gap:0;width:max-content;
   will-change:transform;
+  /* The loop is a CSS transform on the compositor, not a GSAP tween driven
+     from the main thread. The old version wrote a new xPercent 60 times a
+     second for as long as the page was open, competing with scroll for the
+     same frame budget on exactly the devices that had none to spare. The
+     track is two identical .mq-group halves, so -50% is seamless. */
+  animation:mqScroll 42s linear infinite;
+}
+@keyframes mqScroll{
+  from{transform:translate3d(0,0,0);}
+  to{transform:translate3d(-50%,0,0);}
 }
 .mq-group{
   display:flex;align-items:center;gap:26px;padding-right:26px;
@@ -713,11 +722,11 @@ html.lenis,html.lenis body{height:auto;}
 }
 
 .btn-secondary{
-  background:rgb(255 255 255 / 3%);
+  /* No backdrop-filter: these appear by the dozen in lists, and a blur on
+     each one makes the browser snapshot the page behind every single copy. */
+  background:rgb(255 255 255 / 4%);
   border-color:rgb(212 175 55 / 22%);
   color:var(--text);
-  backdrop-filter:blur(14px);
-  -webkit-backdrop-filter:blur(14px);
   box-shadow:inset 0 1px 0 rgb(255 255 255 / 6%);
 }
 .btn-secondary:hover{
@@ -835,7 +844,6 @@ html.lenis,html.lenis body{height:auto;}
   border-radius:var(--r-xl);
   border-color:rgb(212 175 55 / 16%);
   transform-style:preserve-3d;
-  will-change:transform;
   box-shadow:0 30px 60px -44px #000;
   transition:border-color .45s,box-shadow .5s var(--ease-out);
 }
@@ -984,9 +992,7 @@ html.lenis,html.lenis body{height:auto;}
   gap:4px;padding:4px;margin-bottom:22px;
   border:1px solid rgb(212 175 55 / 14%);
   border-radius:999px;
-  background:rgb(255 255 255 / 3%);
-  backdrop-filter:blur(14px);
-  -webkit-backdrop-filter:blur(14px);
+  background:rgb(255 255 255 / 4%);
   box-shadow:inset 0 1px 0 rgb(255 255 255 / 5%);
   overflow-x:auto;
   scrollbar-width:none;
@@ -1134,24 +1140,23 @@ html.lenis,html.lenis body{height:auto;}
 .auth-wrap::before{
   content:"";position:absolute;left:50%;top:24%;transform:translate(-50%,-50%);
   width:min(720px,88vw);height:min(520px,60vh);pointer-events:none;z-index:-1;
-  background:radial-gradient(ellipse at center,rgb(212 175 55 / 12%),transparent 66%);
-  filter:blur(14px);
+  /* The gradient already fades to nothing; the blur only added a filter pass
+     over a 720x520 box. */
+  background:radial-gradient(ellipse at center,rgb(212 175 55 / 12%),transparent 68%);
 }
 
 /* ── modal ────────────────────────────────────────────────────────────── */
 .modal-card{
   border-radius:26px;
   border-color:rgb(212 175 55 / 20%);
-  background:linear-gradient(170deg,rgb(20 17 12 / 92%),rgb(6 6 5 / 96%));
-  backdrop-filter:blur(26px) saturate(1.2);
-  -webkit-backdrop-filter:blur(26px) saturate(1.2);
+  background:linear-gradient(170deg,rgb(20 17 12 / 98%),rgb(6 6 5 / 99%));
   box-shadow:
     0 50px 110px -50px #000,
     inset 0 1px 0 rgb(255 255 255 / 8%);
   transition:transform .45s var(--ease-spring),opacity .3s;
 }
 .modal.open .modal-card{transform:none;}
-.modal-scrim{background:rgb(2 2 2 / 78%);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);}
+.modal-scrim{background:rgb(2 2 2 / 86%);}
 
 /* ── toasts ───────────────────────────────────────────────────────────── */
 
@@ -1170,8 +1175,6 @@ html.lenis,html.lenis body{height:auto;}
   border-color:rgb(212 175 55 / 22%);
   border-radius:14px;
   box-shadow:0 24px 50px -30px #000,inset 0 1px 0 rgb(255 255 255 / 7%);
-  backdrop-filter:blur(18px);
-  -webkit-backdrop-filter:blur(18px);
 }
 
 /* ── tier track ───────────────────────────────────────────────────────── */
@@ -1326,6 +1329,7 @@ html.lenis,html.lenis body{height:auto;}
 
 @media (prefers-reduced-motion:reduce){
   .hero-fx .hero-art{animation:none;}
+  .mq-track{animation:none;}
   /* Note `background-image`, not the `background` shorthand: the shorthand
      resets background-clip to border-box, which turns the gradient word into
      a solid gold block with transparent text. */
@@ -1356,3 +1360,94 @@ html.fx-paused .fx-spark,
 html.fx-paused .fx-grain,
 html.fx-paused .hero-canvas{display:none;}
 html.fx-paused .scroll-progress i{transition:none;}
+
+/* ── 15. performance layer ────────────────────────────────────────────── */
+
+/* `html.perf-lite` is set by the inline <head> script before the first paint
+   (see index.html) when the device is a phone, a slow connection, or a
+   machine with very few cores or little memory. Settings → This device can
+   override it in either direction.
+
+   The rule this section follows: keep everything that carries meaning —
+   layout, colour, type, spacing, hover/focus states, and the entrance of
+   content — and drop everything that only produces motion or glass. Nothing
+   here changes the DOM, so every route and every interaction is identical.
+
+   These rules are all scoped to `html.perf-lite`, so the full design is
+   untouched on machines that can afford it. */
+
+/* Glass is gone entirely in lite mode. A backdrop-filter forces the browser
+   to re-snapshot whatever is behind the element; on a page that scrolls under
+   a fixed bar that is the most expensive thing in the whole design. The
+   backgrounds above are opaque enough that the visual difference is a
+   slightly flatter panel, nothing more. */
+html.perf-lite *,
+html.perf-lite *::before,
+html.perf-lite *::after{
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+
+/* Full-viewport blended layers: one is a fixed noise tile composited with
+   `overlay` on every frame, the other two drive pointer decorations that a
+   touch screen cannot express anyway. */
+html.perf-lite .fx-grain,
+html.perf-lite .fx-spark,
+html.perf-lite .fx-cursor{display:none!important;}
+
+/* The aurora canvas stays, but as a still picture drawn once — blending it
+   per frame is what cost the fill rate, not the gradient itself. */
+html.perf-lite .hero-canvas{mix-blend-mode:normal;}
+
+/* Nothing is left promoted to its own compositor layer for the whole visit.
+   `will-change` is a loan against GPU memory; a phone pays for every layer
+   it is handed, and these were permanent. */
+html.perf-lite .reveal,
+html.perf-lite .hero-art,
+html.perf-lite .ht-word,
+html.perf-lite .nav-shell,
+html.perf-lite .feature-card,
+html.perf-lite .card,
+html.perf-lite .stat-pill,
+html.perf-lite .perk-card,
+html.perf-lite .plan-card{will-change:auto!important;}
+
+/* Looping decorative animation: an infinite keyframe keeps the page repainting
+   whether or not anyone is looking. All of it is garnish — the elements are
+   identical at rest, just frozen at their resting frame. */
+html.perf-lite .grad,
+html.perf-lite .gold-fx,
+html.perf-lite .gold-stars,
+html.perf-lite .trust-dot,
+html.perf-lite .skel,
+html.perf-lite .hero-scroll-line::after,
+html.perf-lite .xp-bar i::after{animation:none!important;}
+/* (.mq-track is deliberately NOT in that list. It is a single compositor
+   transform, free on the main thread, and it is the band that makes the page
+   feel alive — the point of lite mode is to drop cost, not character.) */
+/* (.btn.is-busy::after is deliberately NOT in that list: it is the spinner
+   that says a request is in flight, so it is information, not decoration.) */
+
+/* No GSAP means no intro timeline, and the intro is what lifts the headline
+   out of its line masks and then releases them. Nothing is masking while
+   nothing is moving, so the resting headline gets its descenders back -
+   without this the "y" in "your" is clipped by the mask. */
+html.perf-lite .hero-title .ht-line{overflow:visible;padding-bottom:0;margin-bottom:0;}
+
+/* GSAP is not loaded in lite mode, so the view swap has to be CSS again —
+   design rule 11 disabled the keyframe because GSAP used to own it. */
+html.perf-lite .view.active{animation:fadeIn .16s ease;}
+/* Entrances stay (they carry the "content arrived" meaning), just quicker and
+   with a shorter delay ladder. */
+html.perf-lite .reveal,
+html.perf-lite.js .reveal{transition-duration:.34s;transition-delay:0ms;}
+
+/* The scroll-progress thread is a transform on one 2px element: cheap, keep
+   it, but it does not need its own layer hint. */
+html.perf-lite .scroll-progress i{will-change:auto;}
+
+/* An OS-level "reduce motion" beats lite mode's small fade as well - the two
+   settings are independent, and the stricter one always wins. */
+@media (prefers-reduced-motion:reduce){
+  html.perf-lite .view.active{animation:none;}
+}

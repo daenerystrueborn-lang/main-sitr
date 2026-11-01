@@ -2169,7 +2169,10 @@ async function loadProfile() {
  * Anything the bot also needs to know lives on the player record instead.
  */
 const LOCAL_PREFS_KEY = 'astral:prefs'
-const LOCAL_PREF_DEFAULTS = { reduceMotion: false, confirmSignOut: true }
+// `perfLite` is tri-state on purpose: null means "decide for this device",
+// which is what the <head> script does (phones and weak machines get lite).
+// true/false are the user overriding that decision, and the override wins.
+const LOCAL_PREF_DEFAULTS = { reduceMotion: false, confirmSignOut: true, perfLite: null }
 
 function localPrefs() {
   try {
@@ -2372,6 +2375,15 @@ async function loadSettings() {
         'Reduce motion',
         'Turns off entrance animations, parallax and looping effects.',
         !!prefs.reduceMotion,
+      )}
+      ${switchRow(
+        'perfLiteToggle',
+        'Lite mode',
+        'Same site with fewer effects: no glass blur, no animated hero, no smooth scroll. Faster and lighter on battery and data.',
+        // What is actually running right now, not what was saved: on an
+        // automatic (null) preference the switch has to reflect the head
+        // script's decision, or it reads as off while lite mode is on.
+        window.__astralPerf?.lite ?? document.documentElement.classList.contains('perf-lite'),
       )}
       ${switchRow(
         'confirmSignOutToggle',
@@ -2870,6 +2882,15 @@ function wireShell() {
     if (el.id === 'reduceMotionToggle') {
       setLocalPref('reduceMotion', el.checked)
       toast(el.checked ? 'Motion reduced' : 'Animations on', 'ok')
+    }
+    if (el.id === 'perfLiteToggle') {
+      // A reload, exactly like turning motion back on: the heavy half of this
+      // (GSAP, Lenis, the animated canvas, the blended grain layer) is either
+      // already loaded or was never fetched, and no amount of runtime poking
+      // can un-download it. Reloading is the only honest switch.
+      setLocalPref('perfLite', el.checked)
+      document.documentElement.classList.toggle('perf-lite', el.checked)
+      location.reload()
     }
     if (el.id === 'confirmSignOutToggle') {
       setLocalPref('confirmSignOut', el.checked)

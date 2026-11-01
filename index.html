@@ -21,6 +21,79 @@
   (function () {
     var d = document.documentElement
     d.classList.add('js')
+
+    /* ── lite mode, decided before the first paint ──────────────────────
+       Everything here has to be answered now, not from app.js: a class
+       added after boot would paint the full design once, then drop it,
+       and the drop is more jarring than never showing it.
+
+       What "lite" turns off is in assets/css/redesign.css §15 and
+       assets/js/fx.js: the backdrop blurs on the fixed chrome, the
+       full-screen blended grain layer, the pointer-tracked cursor, the
+       animated hero canvas, smooth-scroll interpolation, and all 160KB
+       of GSAP + Lenis. Layout, colour, type and every route are
+       identical - it is the same site without the GPU bill.
+
+       The default is "am I on a phone or a weak machine", because that is
+       who this site is for. Settings → This device overrides it either
+       way, and the override wins. */
+    function autoLite() {
+      var mq = function (q) {
+        try { return window.matchMedia(q).matches } catch (e) { return false }
+      }
+      var c = navigator.connection || {}
+      return !!(
+        mq('(max-width: 760px)') ||
+        mq('(hover: none) and (pointer: coarse)') ||
+        c.saveData === true ||
+        /(^|-)2g$|(^|-)3g$/.test(c.effectiveType || '') ||
+        (navigator.deviceMemory > 0 && navigator.deviceMemory <= 4) ||
+        (navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4)
+      )
+    }
+
+    var lite = autoLite()
+    try {
+      var saved = JSON.parse(localStorage.getItem('astral:prefs') || '{}')
+      if (saved && typeof saved.perfLite === 'boolean') lite = saved.perfLite
+    } catch (e) { /* private mode, or someone edited the value by hand */ }
+
+    if (lite) d.classList.add('perf-lite')
+    // Read by app.js for the switch state, so there is exactly one answer
+    // to "are we in lite mode" on the page.
+    window.__astralPerf = { lite: lite }
+
+    /* GSAP + plugins, vendored (see NOTICE.md in assets/vendor — no CDN, so a
+       blocked third-party request can't take the animations down). In lite
+       mode none of it is fetched: those three files are most of this site's
+       JavaScript, and a phone that never runs them should never pay for them.
+
+       `async = false` is what keeps the insertion order — GSAP first, then
+       the two plugins that register themselves onto it. A dynamically
+       inserted script is otherwise async and could land in any order. */
+    if (!lite) {
+      var vendors = [
+        'assets/vendor/gsap/gsap.min.js',
+        'assets/vendor/gsap/ScrollTrigger.min.js',
+        'assets/vendor/gsap/SplitText.min.js',
+      ]
+      for (var i = 0; i < vendors.length; i++) {
+        var v = document.createElement('script')
+        v.src = vendors[i]
+        v.async = false
+        document.head.appendChild(v)
+      }
+
+      /* Lenis is a dynamic import in fx.js (so lite mode never fetches it at
+         all), which means the browser would not see the file until fx.js had
+         already run and asked for it. This hint starts the download now, in
+         parallel with the stylesheets, so the import resolves from cache. */
+      var pre = document.createElement('link')
+      pre.rel = 'modulepreload'
+      pre.href = 'assets/vendor/lenis/lenis.mjs'
+      document.head.appendChild(pre)
+    }
+
     setTimeout(function () {
       if (d.classList.contains('js-motion')) return   // initMotion() ran; all good
       d.classList.remove('js')
@@ -39,20 +112,28 @@
 <link rel="apple-touch-icon" href="assets/img/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<!-- Fonts load OFF the critical path. As a plain <link rel="stylesheet"> this
+     was a third-party round trip the browser had to finish before it could
+     paint anything — on a phone that is often the longest single wait on the
+     page. Preloading it keeps the download (and `display=swap` keeps the text
+     visible in the fallback face), but render no longer waits for Google. -->
+<link rel="preload" as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap"
+      onload="this.rel='stylesheet'">
+<noscript>
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap">
+</noscript>
 <link rel="stylesheet" href="assets/css/style.css">
 <!-- The motion layer. Loaded second on purpose: it refines style.css and never
-     removes a rule the page controllers rely on. -->
+     removes a rule the page controllers rely on. Its last section is the
+     performance layer (html.perf-lite). -->
 <link rel="stylesheet" href="assets/css/redesign.css">
 
-<!-- GSAP + plugins, vendored into assets/vendor (see NOTICE.md there — no CDN,
-     so a blocked third-party request can't take the animations down).
-     These are classic scripts and GSAP's dist build is UMD, so they register
-     themselves on `window`. `defer` keeps them off the critical path and
-     guarantees they run before the module scripts at the end of <body>. -->
-<script defer src="assets/vendor/gsap/gsap.min.js"></script>
-<script defer src="assets/vendor/gsap/ScrollTrigger.min.js"></script>
-<script defer src="assets/vendor/gsap/SplitText.min.js"></script>
+<!-- The hero photograph is the largest thing in the first screen and it lives
+     in a CSS background, which the browser only discovers after it has parsed
+     the stylesheet. Naming it here starts the download immediately. -->
+<link rel="preload" as="image" href="assets/img/hero.jpg" fetchpriority="high">
 </head>
 <body>
 
@@ -475,8 +556,11 @@
          information; the heading does. Was a looping <video> pointing at
          assets/video/mei-finalform.mp4, which was never in the repo, so the
          section rendered as a flat black band. -->
+    <!-- `loading=lazy`, not fetchpriority=high: this image belongs to a view
+         that is display:none until you navigate to it, so a high-priority
+         download here only ever competed with the home hero for bandwidth. -->
     <img id="seasonHeroArt" class="season-hero-art" src="/assets/img/season/hero.jpg"
-         alt="" aria-hidden="true" decoding="async" fetchpriority="high">
+         alt="" aria-hidden="true" loading="lazy" decoding="async">
     <div class="season-hero-veil"></div>
     <div class="hero-inner">
       <div class="hero-badge">

@@ -14,8 +14,9 @@ split: the site was already a complete, working design, so the redesign refines
 it from the outside instead of editing 2 100 lines of stylesheet and risking
 every page at once. Delete both files and the site still works, just still.
 
-`index.html` gains the vendor `<script defer>` tags, a handful of decorative
-fixed layers, and the hero's layered markup.
+`index.html` gains a handful of decorative fixed layers, the hero's layered
+markup, and the inline `<head>` script that decides lite mode and injects the
+vendor tags (see *Lite mode* below).
 
 ## Libraries
 
@@ -27,7 +28,10 @@ whole animation layer down with it.
   on `window`. GSAP's dist build is UMD, so there is no ES export to import.
 * **[Lenis](https://github.com/darkroomengineering/lenis) 1.3.27** —
   `assets/vendor/lenis/lenis.mjs`, a real ES module, driven by GSAP's ticker
-  (`autoRaf: false`) so there is exactly one animation clock on the page.
+  (`autoRaf: false`) so there is exactly one animation clock on the page. It
+  is a **dynamic** import in `fx.js` (`await import(...)`) and modulepreloaded
+  from the head, so lite mode never downloads it and full mode does not wait
+  for it.
 * **[react-bits](https://github.com/DavidHDev/react-bits)** — *ideas*, not the
   package. It is a React component library; this is a no-build static site with
   no framework and no bundler, so shipping React for six effects would cost
@@ -68,17 +72,60 @@ Three independent switches, all landing on the same place — a static page:
    exists (set by `ui.js`), so a broken module leaves content visible rather
    than blank.
 
+## Lite mode
+
+A fourth, cheaper tier that sits between the full design and "no motion at
+all". It is decided by the inline `<head>` script **before the first paint** —
+phones, coarse pointers, `save-data`/2G–3G connections, ≤4GB of device memory
+or ≤4 cores — and it is overridable both ways in Settings → *This device*
+(`perfLite` in `astral:prefs`; a non-boolean value means "decide for me").
+
+The three halves have to stay in step, which is why `check-frontend.mjs` §8
+asserts they do:
+
+| Where | What it does |
+| --- | --- |
+| `index.html` (head) | sets `html.perf-lite`, publishes `window.__astralPerf`, and **only then** injects the GSAP tags + the Lenis modulepreload |
+| `assets/css/redesign.css` §15 | the whole `html.perf-lite` block: no glass, no blended full-screen layers, no permanent `will-change`, no looping decoration, quick CSS view fade |
+| `assets/js/fx.js` | `const lite = ...` gates Lenis, the hero loop, spotlight, tilt, magnet, counters, ScrollTrigger, page transitions, cursor and spark |
+
+What is **kept**: layout, colour, type, spacing, hover/focus states, the
+entrance of content (`.reveal`), the static aurora frame, the marquee (one
+compositor transform), and the busy spinner. Nothing in lite mode changes the
+DOM, so every route and interaction is identical.
+
+What is **dropped**: all 155KB of GSAP + Lenis, smooth-scroll interpolation,
+the 30fps hero canvas loop, `backdrop-filter` anywhere, the blended grain
+layer, the pointer cursor/spotlight/tilt/magnet, and the permanently-animated
+photo.
+
 ## Performance budget
 
-The page is animated hard but the cost is bounded, mostly by two rules:
+The page is animated hard but the cost is bounded. The rules, in the order they
+matter:
 
-* **Nothing animates off-screen.** The hero canvas, the spark canvas, the
-  marquee and every rAF loop are gated on `IntersectionObserver` +
-  `visibilitychange`.
-* **The hero canvas is under-sampled.** Its backing store is 55% of its CSS
-  size (`SCALE`) and it repaints at most every 34 ms (~30 fps). Aurora light is
-  gradient mush, so nothing is lost, and fill cost drops ~3.3×. This is the
-  most expensive thing on the page and it sits behind every other layer.
+* **No `backdrop-filter` in the stylesheets, at all.** It forces the browser to
+  re-snapshot everything behind the element, and it was on the nav bar, the
+  mobile dock, the drawer, the panel, the modal, every secondary button and
+  every chip. The surfaces are opaque enough (92–99%) that dropping it is
+  invisible. `check-frontend.mjs` fails the build if one comes back.
+* **Nothing animates off-screen.** The hero canvas, the spark canvas and every
+  rAF loop are gated on `IntersectionObserver` + `visibilitychange`.
+* **Nothing is permanently promoted.** `will-change` is a loan against GPU
+  memory and every one of them used to be permanent, on elements that are not
+  animating most of the time.
+* **Nothing loops on the main thread.** The marquee is a CSS transform, not a
+  GSAP tween with `repeat: -1` (which held a rAF callback open for the whole
+  visit). The decorative `background-position` loops sit behind `perf-lite`.
+* **The hero canvas is under-sampled and sprite-baked.** Its backing store is
+  50% of its CSS size and it repaints at most every 34 ms (~30 fps); the five
+  gradients and the dust are baked into offscreen sprites once instead of
+  `createRadialGradient()` 150 times a second.
+* **One pointer listener.** Hero parallax, spotlight, tilt, magnet and the
+  cursor share a single `pointermove` + rAF bus (`onPointerFrame`), so a mouse
+  move costs one measurement per effect per frame instead of per event.
+* **The expensive half is conditional.** GSAP, ScrollTrigger, SplitText and
+  Lenis are not fetched at all on a device that will not animate (lite mode).
 
 Measured on a software-rendered headless Chrome (worst case, no GPU):
 ~23 rAF/s on the home page at 1440×950 with every effect running. On real
