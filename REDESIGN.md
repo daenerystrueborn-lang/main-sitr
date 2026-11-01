@@ -99,6 +99,43 @@ the 30fps hero canvas loop, `backdrop-filter` anywhere, the blended grain
 layer, the pointer cursor/spotlight/tilt/magnet, and the permanently-animated
 photo.
 
+## Icons: drawn, not typed
+
+Every mark on the site is an inline SVG from `ICON_PATHS` in `assets/js/ui.js`,
+drawn at 1em with `stroke: currentColor`. No emoji, no dingbats, no icon font:
+
+* **Emoji render differently on every device.** U+2605 (`★`) and its neighbours
+  get pulled out of the colour-emoji font on some Android builds, so the same
+  page showed gold line art next to picture-stars. The shop's shelf tabs did
+  the same thing with the `emoji` field `/api/shop` sends per shelf - that
+  field is now ignored and the shelf is matched to an icon by key and label
+  (`SHELF_ICONS` in `app.js`), with a generic tag for anything unmatched.
+* **The star rows are a mask, not a character.** `--star-mask` in `style.css`
+  holds one SVG star; `.gold-stars` repeats it with `mask-repeat: repeat-x`
+  and fills it with the gold gradient, so the per-level shine effects survived
+  the switch. `--n` is the number of stars.
+* `scripts/check-frontend.mjs` fails on any pictograph left in the markup,
+  stylesheets or JS (comments and `showdown.js`'s Pokémon `♀`/`♂` excepted).
+
+## Boot cover + route cue
+
+Two suns, one shape:
+
+* **`#bootSun`** covers the page from the first frame until the first route has
+  content in the DOM. It is `hidden` in the markup and a one-line script takes
+  it off, so a browser without scripting never gets a panel it can't dismiss.
+  `app.js` lifts it with `markReady()` (called the moment `route.load()` has
+  painted its skeletons - not when the fetch resolves), and the `<head>` script
+  lifts it on its own timers at 3s and 6s in case boot dies. A cover that
+  outlives a broken boot blanks the whole site, which is the one failure mode
+  worth spending three lines of fail-safe on.
+* **`#routeSun`** is the same mark, small, under the nav during every route
+  change. It is `pointer-events: none`, and `app.js` holds it on screen for a
+  minimum 340ms so an instantly-cached page still reads as a tap that landed
+  rather than a one-frame glitch.
+
+Both are frozen under `prefers-reduced-motion` and in `html.perf-lite`.
+
 ## Performance budget
 
 The page is animated hard but the cost is bounded. The rules, in the order they

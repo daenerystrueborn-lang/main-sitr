@@ -296,5 +296,34 @@ if (blurValues.length) {
   ok('no backdrop-filter blur left in the stylesheets')
 }
 
+/* The UI is drawn, not typed. Every mark on this site is an inline SVG from
+   ICON_PATHS in ui.js - which is what makes it look the same on an iPhone, a
+   cheap Android and a desktop. A stray emoji or dingbat does not: U+2605 and
+   friends get pulled out of the colour-emoji font on some devices, so the same
+   page shows line art and picture-emoji side by side. That is exactly what the
+   shop's shelf tabs did before they were given icons.
+ *
+ * Comments are exempt on purpose (app.js documents the 🪙 it replaced), and so
+ * is showdown.js, where ♀/♂ are part of Pokémon names rather than decoration. */
+const PICTO = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{2190}-\u{21FF}]/u
+const withoutComments = (src) =>
+  src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/<!--[\s\S]*?-->/g, '').replace(/^\s*\/\/.*$/gm, '')
+const pictoSources = {
+  'index.html': html,
+  ...Object.fromEntries(STYLESHEETS.map((href) => [href, css])),
+  ...Object.fromEntries(Object.entries(js).filter(([name]) => !name.endsWith('showdown.js'))),
+}
+const pictoHits = []
+for (const [name, src] of Object.entries(pictoSources)) {
+  withoutComments(src).split('\n').forEach((line, i) => {
+    if (PICTO.test(line)) pictoHits.push(`${name}:${i + 1} ${line.trim().slice(0, 60)}`)
+  })
+}
+if (pictoHits.length) {
+  fail(`emoji/dingbats in UI source - draw it with iconSvg() instead:\n       ${pictoHits.join('\n       ')}`)
+} else {
+  ok('no emoji or dingbats in the UI source; every mark is a drawn SVG')
+}
+
 console.log(problems ? `\n${problems} problem(s)` : '\nFrontend wiring is consistent.')
 process.exit(problems ? 1 : 0)
