@@ -380,12 +380,13 @@
       <div class="home-group-grid">
         <article class="home-group-card reveal">
           <div class="home-group-thumb">
-            <!-- Art on top, monogram underneath. The group art is a remote URL,
-                 so if it ever 404s or is hotlink-blocked the <img> removes
-                 itself and the monogram is what you see - never a broken-image
-                 glyph in the middle of the home page. -->
+            <!-- The group art is a remote URL, so it is written to fail quietly:
+                 onload hides the monogram under it, onerror removes the <img>
+                 so the monogram is what is left - never a broken-image glyph in
+                 the middle of the home page, and never a stray line of initials
+                 under a picture that did load. -->
             <img src="https://i.postimg.cc/wTbQvJ57/(2)-zhu-ye-Twitter.jpg" alt="" loading="lazy" decoding="async"
-                 referrerpolicy="no-referrer" onerror="this.remove()">
+                 referrerpolicy="no-referrer" onload="this.parentNode.dataset.art=''" onerror="this.remove()">
             <span class="home-group-mark" aria-hidden="true">AL</span>
           </div>
           <div class="home-group-content">
@@ -399,12 +400,13 @@
         </article>
         <article class="home-group-card reveal">
           <div class="home-group-thumb">
-            <!-- Art on top, monogram underneath. The group art is a remote URL,
-                 so if it ever 404s or is hotlink-blocked the <img> removes
-                 itself and the monogram is what you see - never a broken-image
-                 glyph in the middle of the home page. -->
+            <!-- The group art is a remote URL, so it is written to fail quietly:
+                 onload hides the monogram under it, onerror removes the <img>
+                 so the monogram is what is left - never a broken-image glyph in
+                 the middle of the home page, and never a stray line of initials
+                 under a picture that did load. -->
             <img src="https://i.postimg.cc/15Yrt60R/raven-icon.jpg" alt="" loading="lazy" decoding="async"
-                 referrerpolicy="no-referrer" onerror="this.remove()">
+                 referrerpolicy="no-referrer" onload="this.parentNode.dataset.art=''" onerror="this.remove()">
             <span class="home-group-mark" aria-hidden="true">SP</span>
           </div>
           <div class="home-group-content">
@@ -418,12 +420,13 @@
         </article>
         <article class="home-group-card reveal">
           <div class="home-group-thumb">
-            <!-- Art on top, monogram underneath. The group art is a remote URL,
-                 so if it ever 404s or is hotlink-blocked the <img> removes
-                 itself and the monogram is what you see - never a broken-image
-                 glyph in the middle of the home page. -->
+            <!-- The group art is a remote URL, so it is written to fail quietly:
+                 onload hides the monogram under it, onerror removes the <img>
+                 so the monogram is what is left - never a broken-image glyph in
+                 the middle of the home page, and never a stray line of initials
+                 under a picture that did load. -->
             <img src="https://i.postimg.cc/tCmNTPdp/Zankou-and-Blackbird-NTE.jpg" alt="" loading="lazy" decoding="async"
-                 referrerpolicy="no-referrer" onerror="this.remove()">
+                 referrerpolicy="no-referrer" onload="this.parentNode.dataset.art=''" onerror="this.remove()">
             <span class="home-group-mark" aria-hidden="true">EG</span>
           </div>
           <div class="home-group-content">
