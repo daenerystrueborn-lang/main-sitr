@@ -103,10 +103,29 @@ export function usd(nairaAmount, rate) {
   return '$' + shown.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+/**
+ * Epoch milliseconds from whatever the API sends: milliseconds, seconds, an
+ * ISO string, a date string. 0 when it is unreadable.
+ *
+ * The stats endpoint sends `season.endsAt` as an ISO string while the runtime
+ * payload sends milliseconds, and the old code assumed milliseconds everywhere
+ * - so `endsAt - Date.now()` was NaN and the home page printed "NaNs left".
+ * A countdown is the one place where a bad timestamp is loud, so the coercion
+ * lives here instead of at each call site.
+ */
+export function toMs(v) {
+  if (v == null || v === '') return 0
+  const n = typeof v === 'number' ? v : Number(v)
+  if (Number.isFinite(n)) return n < 1e12 ? n * 1000 : n   // 1e12 ms = 2001, so anything below is seconds
+  const parsed = Date.parse(String(v))
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
 /** "3h ago" / "in 2d". Past and future both read naturally. */
 export function relTime(ts) {
-  if (!ts) return ''
-  const diff = Number(ts) - Date.now()
+  const at = toMs(ts)
+  if (!at) return ''
+  const diff = at - Date.now()
   const abs = Math.abs(diff)
   const units = [
     [60_000, 'min', 1_000 * 60],
@@ -121,7 +140,7 @@ export function relTime(ts) {
       return diff < 0 ? `${v}${label} ago` : `in ${v}${label}`
     }
   }
-  return new Date(Number(ts)).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+  return new Date(at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 /** "6d 4h" - for the season countdown. */
