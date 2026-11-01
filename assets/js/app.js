@@ -8,7 +8,7 @@
  */
 import { api, API_BASE, ApiError, onConnectionChange, onAuthLost, hasSession, fileToDataUrl, uploadToImgbb } from './api.js'
 import {
-  $, $$, esc, attr, num, compact, usd, relTime, duration, titleCase,
+  $, $$, esc, attr, num, compact, usd, relTime, duration, toMs, titleCase,
   toast, busy, skeletonRows, skeletonCards,
   emptyState, openModal, closeModal, initials, bar, copyText, initMotion, iconSvg,
 } from './ui.js'
@@ -1008,7 +1008,8 @@ async function loadHome() {
     if (chips) {
       const bits = [`${num(stats.players)} players`, `${num(stats.charactersAvailable)} characters`]
       if (stats.season?.name) bits.push(`Season ${stats.season.number}`)
-      if (stats.season?.endsAt) bits.push(`${duration(stats.season.endsAt - Date.now())} left`)
+      const seasonEnds = toMs(stats.season?.endsAt)
+      if (seasonEnds) bits.push(`${duration(seasonEnds - Date.now())} left`)
       chips.innerHTML = bits.map(b => `<span class="chip">${esc(b)}</span>`).join('')
     }
   }
@@ -1448,7 +1449,8 @@ async function loadSeason() {
   const clock = $('#seasonClock')
   if (clock) {
     const paint = () => {
-      const left = (out.runtime.endsAt ?? 0) - Date.now()
+      const endsAt = toMs(out.runtime?.endsAt)
+      const left = endsAt ? endsAt - Date.now() : 0
       clock.textContent = left > 0 ? `${duration(left)} left` : 'Season ended'
     }
     paint()
