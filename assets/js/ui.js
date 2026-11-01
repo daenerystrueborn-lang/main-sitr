@@ -35,6 +35,9 @@ const ICON_PATHS = {
   stamina: '<path d="m13 2-9 12h7l-1 8 9-12h-7l1-8z"/>',
   warning: '<path d="m12 3 9 17H3L12 3z"/><path d="M12 9v5M12 17h.01"/>',
   whatsapp: '<path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 20l1.1-5.3A8.5 8.5 0 1 1 21 11.5z"/><path d="M8.5 8.5c.4 2.4 2.1 4.6 4.7 5.5l1.5-1.1 1.8.8c-.2 1-1 1.6-2 1.5-3.7-.4-6.8-3.5-7.2-7.2-.1-1 .5-1.8 1.5-2l.8 1.8-1.1 1.5z"/>',
+  // Paper plane. The real Telegram mark is a solid glyph and this set is all
+  // line art, so it is drawn as the send arrow instead of a filled logo.
+  telegram: '<path d="M21 4 3 11.2l6.1 2.2L11.5 20l3.1-4.7 4.9 3.3L21 4z"/><path d="M9.1 13.4 21 4"/>',
 }
 
 /** Returns a consistent line SVG for all UI iconography. */
