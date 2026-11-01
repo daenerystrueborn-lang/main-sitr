@@ -21,7 +21,13 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8')
 
 const html = read('index.html')
-const css = read('assets/css/style.css')
+/* Every stylesheet the page links, not just the original one. The redesign is
+ * a second file on purpose (it refines style.css and deletes cleanly), so a
+ * class defined only there is still a class the browser paints. */
+const STYLESHEETS = [...html.matchAll(/<link[^>]+rel="stylesheet"[^>]+href="([^"]+\.css)"/g)]
+  .map((m) => m[1])
+  .filter((href) => !/^https?:/i.test(href))
+const css = STYLESHEETS.map((href) => read(href.startsWith('/') ? href.slice(1) : href)).join('\n')
 const js = {
   'assets/js/api.js': read('assets/js/api.js'),
   'assets/js/ui.js': read('assets/js/ui.js'),
@@ -30,6 +36,9 @@ const js = {
   'assets/js/showdown.js': read('assets/js/showdown.js'),
   'assets/js/mobile-pages.js': read('assets/js/mobile-pages.js'),
   'assets/js/app.js': read('assets/js/app.js'),
+  // The motion layer. It is DOM-only, but it still looks up ids and toggles
+  // classes, so it belongs in this check like any other front-end file.
+  'assets/js/fx.js': read('assets/js/fx.js'),
 }
 const allJs = Object.values(js).join('\n')
 
@@ -210,7 +219,10 @@ const assets = new Set([
   // Comments are stripped first: style.css documents the url() quote-escaping
   // bug in prose, and an example url('…') inside a comment is not an asset.
   // Left in, it reported the literal ellipsis as a file missing from disk.
-  ...[...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/url\(['"]?((?!data:|https?:)[^'")]+)['"]?\)/g)].map(m => m[1]),
+  // `%23` is an encoded '#': the only thing that uses it is an SVG filter
+  // referencing an id inside the data URI it is embedded in (url(%23noise)),
+  // which is never a file. Without this every grain layer reports as missing.
+  ...[...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/url\(['"]?((?!data:|https?:|%23)[^'")]+)['"]?\)/g)].map(m => m[1]),
 ])
 const missingAssets = []
 for (const a of assets) {
