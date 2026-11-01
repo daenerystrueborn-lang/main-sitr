@@ -71,12 +71,12 @@ button{font-family:inherit;}
 .brand-mark{width:40px;height:40px;border-radius:10px;background:transparent;display:flex;align-items:center;justify-content:center;color:var(--gold);}
 .brand-mark .icon{width:26px;height:26px;}
 .brand span{color:var(--gold);}
-.nav-bar{position:relative;display:flex;align-items:center;gap:2px;margin:0 auto;padding:4px;border:1px solid var(--border);border-radius:999px;background:rgba(10,10,10,.55);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);flex:1;max-width:520px;pointer-events:auto;box-shadow:0 8px 24px rgb(0 0 0 / 35%);}
+.nav-bar{position:relative;display:flex;align-items:center;gap:2px;margin:0 auto;padding:4px;border:1px solid var(--border);border-radius:999px;background:rgba(10,10,10,.92);flex:1;max-width:520px;pointer-events:auto;box-shadow:0 8px 24px rgb(0 0 0 / 35%);}
 .nav-slot{flex:1;text-align:center;padding:8px 10px;border-radius:999px;color:var(--text-muted);font-size:13px;font-weight:600;cursor:pointer;transition:var(--transition);border:none;background:none;white-space:nowrap;}
 .nav-slot:hover{color:var(--text);}
 .nav-slot.is-active{background:var(--bg-4);color:var(--gold);box-shadow:inset 0 1px 0 rgb(255 255 255 / 6%),inset 0 0 0 1px rgb(212 175 55 / 25%);}
 .nav-right{display:flex;align-items:center;gap:8px;flex-shrink:0;pointer-events:auto;}
-.icon-btn{width:36px;height:36px;border-radius:999px;border:1px solid var(--border);background:rgba(10,10,10,.55);backdrop-filter:blur(18px);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);transition:var(--transition);}
+.icon-btn{width:36px;height:36px;border-radius:999px;border:1px solid var(--border);background:rgba(10,10,10,.92);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-muted);transition:var(--transition);}
 .icon-btn:hover{color:var(--gold);border-color:var(--gold);}
 .avatar-btn{width:36px;height:36px;border-radius:999px;background:var(--bg-3);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;cursor:pointer;border:1px solid var(--gold);color:var(--gold);}
 .menu-toggle{display:none;}
@@ -291,7 +291,7 @@ section.hero.season-hero::before{content:none;}
 .feature-content{position:relative;z-index:1;padding:18px;}
 .feature-content h3{font-size:16px;font-weight:800;margin-bottom:5px;color:var(--text);}
 .feature-content p{font-size:12.5px;color:rgb(245 243 238 / 72%);line-height:1.4;max-width:200px;}
-.feature-icon{position:absolute;top:14px;right:14px;z-index:1;width:32px;height:32px;border-radius:999px;background:rgb(0 0 0 / 45%);border:1px solid rgb(212 175 55 / 30%);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;color:var(--gold);}
+.feature-icon{position:absolute;top:14px;right:14px;z-index:1;width:32px;height:32px;border-radius:999px;background:rgb(0 0 0 / 45%);border:1px solid rgb(212 175 55 / 30%);display:flex;align-items:center;justify-content:center;color:var(--gold);}
 .feature-icon .icon{width:15px;height:15px;}
 
 /* stat pill row */
@@ -310,7 +310,7 @@ section.hero.season-hero::before{content:none;}
   var(--bg-3);
   border:1px solid var(--border);overflow:hidden;}
 .profile-banner::before{content:"";position:absolute;inset:0;background-image:radial-gradient(circle,rgb(255 255 255 / 5%) 1px,transparent 1px);background-size:22px 22px;}
-.profile-banner-edit{position:absolute;right:20px;bottom:14px;display:flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;background:rgb(0 0 0 / 55%);border:1px solid var(--border);backdrop-filter:blur(8px);font-size:12px;font-weight:700;color:var(--text-muted);cursor:pointer;transition:var(--transition);}
+.profile-banner-edit{position:absolute;right:20px;bottom:14px;display:flex;align-items:center;gap:6px;padding:7px 13px;border-radius:999px;background:rgb(0 0 0 / 55%);border:1px solid var(--border);font-size:12px;font-weight:700;color:var(--text-muted);cursor:pointer;transition:var(--transition);}
 .profile-banner-edit:hover{color:var(--gold);border-color:var(--gold);}
 .profile-banner-edit .icon{width:14px;height:14px;}
 
@@ -677,7 +677,7 @@ button.perk-card{width:100%;text-align:left;font:inherit;color:inherit;-webkit-a
    viewport. Opening scales up from that top-right corner - transform-origin
    is set below - rather than just sliding down, so it reads as "popping out
    of the bell" instead of a generic panel appearing from nowhere. */
-.panel{position:fixed;top:70px;right:20px;width:min(360px,calc(100vw - 32px));max-height:min(70svh,520px,calc(100dvh - 86px));z-index:80;border:1px solid var(--border);border-radius:var(--r-lg);background:rgba(10,10,10,.96);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:var(--shadow);display:flex;flex-direction:column;opacity:0;transform:translateY(-6px) scale(.94);pointer-events:none;transition:opacity .18s ease,transform .22s cubic-bezier(.2,.9,.25,1.1);transform-origin:top right;overflow:hidden;}
+.panel{position:fixed;top:70px;right:20px;width:min(360px,calc(100vw - 32px));max-height:min(70svh,520px,calc(100dvh - 86px));z-index:80;border:1px solid var(--border);border-radius:var(--r-lg);background:rgba(10,10,10,.99);box-shadow:var(--shadow);display:flex;flex-direction:column;opacity:0;transform:translateY(-6px) scale(.94);pointer-events:none;transition:opacity .18s ease,transform .22s cubic-bezier(.2,.9,.25,1.1);transform-origin:top right;overflow:hidden;}
 .panel.open{opacity:1;transform:none;pointer-events:auto;}
 .panel-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border-soft);flex-shrink:0;}
 .panel-head strong{font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:800;flex:1;min-width:0;}
@@ -708,10 +708,10 @@ button.perk-card{width:100%;text-align:left;font:inherit;color:inherit;-webkit-a
  /* ===== MODAL - player / character detail ===== */
 .modal{position:fixed;inset:0;z-index:120;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .2s;}
 .modal.open{opacity:1;pointer-events:auto;}
-.modal-scrim{position:absolute;inset:0;background:rgb(0 0 0 / 72%);backdrop-filter:blur(4px);}
+.modal-scrim{position:absolute;inset:0;background:rgb(0 0 0 / 80%);}
 .modal-card{position:relative;width:min(560px,100%);max-height:86svh;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r-xl);background:var(--bg-2);box-shadow:var(--shadow);transform:translateY(12px) scale(.97);transition:transform .22s cubic-bezier(.2,.7,.2,1);}
 .modal.open .modal-card{transform:none;}
-.modal-x{position:absolute;top:14px;right:14px;z-index:2;width:32px;height:32px;border-radius:999px;border:1px solid var(--border);background:rgb(0 0 0 / 55%);backdrop-filter:blur(8px);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:var(--transition);}
+.modal-x{position:absolute;top:14px;right:14px;z-index:2;width:32px;height:32px;border-radius:999px;border:1px solid var(--border);background:rgb(0 0 0 / 74%);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:var(--transition);}
 .modal-x:hover{color:var(--gold);border-color:var(--gold);}
 .pd-banner{height:118px;background:
   radial-gradient(circle at 20% 30%, rgb(212 175 55 / 22%), transparent 55%),
@@ -884,8 +884,7 @@ code{font-family:monospace;font-size:.92em;color:var(--gold);}
 .nav-shell{transition:padding var(--dur) var(--ease-out);}
 .nav-shell::before{
   content:"";position:absolute;inset:0;z-index:-1;
-  background:rgb(7 7 10 / 72%);
-  backdrop-filter:blur(20px);
+  background:rgb(7 7 10 / 95%);
   border-bottom:1px solid var(--border-soft);
   opacity:0;transition:opacity var(--dur) var(--ease-out);
 }
@@ -1478,9 +1477,10 @@ html.no-motion .gold-fx{animation:none;background:var(--grad-1);-webkit-backgrou
     padding:6px;
     border:1px solid rgb(212 175 55 / 18%);
     border-radius:22px;
-    background:rgb(10 10 10 / 88%);
-    -webkit-backdrop-filter:blur(22px) saturate(1.2);
-    backdrop-filter:blur(22px) saturate(1.2);
+    /* Solid, not glass. This bar is on screen for the whole visit while the
+       page scrolls underneath it, so it was the most expensive blur on the
+       site - re-rasterised on every frame a phone could least afford it. */
+    background:rgb(10 10 10 / 97%);
     box-shadow:0 14px 34px rgb(0 0 0 / 62%),0 0 0 1px rgb(255 255 255 / 4%) inset;
     /* Sits above the page but below the modal (120) and toasts (200). */
   }
@@ -1551,7 +1551,6 @@ html.no-motion .gold-fx{animation:none;background:var(--grad-1);-webkit-backgrou
   padding:4px 10px;border-radius:999px;
   font-size:9.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;
   color:var(--gold);background:rgb(0 0 0 / 62%);border:1px solid rgb(212 175 55 / 45%);
-  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
 }
 .ev-body{padding:4px 15px 16px;margin-top:-26px;position:relative;z-index:1;display:flex;flex-direction:column;gap:8px;}
 .ev-title{font-size:20px;font-weight:800;line-height:1.15;}

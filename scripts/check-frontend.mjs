@@ -258,5 +258,43 @@ try {
   fail(`vercel.json could not be parsed: ${err.message}`)
 }
 
+/* ── 8. lite mode keeps its two ends connected ──────────────────────────
+   The performance layer is split by necessity: the decision is made in the
+   inline <head> script, the styling is in redesign.css §15, and the effects
+   are gated in fx.js. Each half is useless on its own - a class nothing
+   styles is a no-op, a stylesheet waiting on a class nothing sets is dead
+   weight - so the three are checked together. */
+
+const perfCss = /html\.perf-lite/.test(css)
+const perfJs = /const lite = doc\.classList\.contains\('perf-lite'\)/.test(js['assets/js/fx.js'])
+const perfHead = /classList\.add\('perf-lite'\)/.test(html)
+if (!perfCss || !perfJs || !perfHead) {
+  fail(`lite mode is not wired end to end (head:${perfHead} css:${perfCss} fx.js:${perfJs})`)
+} else {
+  ok('lite mode is wired: decided in the head, styled in CSS, gated in fx.js')
+}
+
+// The vendor bundles are injected by that script when it decides this device
+// can afford them. A plain tag here would put 160KB of GSAP back in front of
+// every phone, which is the one thing lite mode exists to prevent.
+if (/<script[^>]+src="assets\/vendor\//.test(html)) {
+  fail('assets/vendor scripts must be injected by the head script, not hardcoded')
+} else {
+  ok('vendored animation libraries are loaded conditionally')
+}
+
+/* backdrop-filter is the single most expensive property this design used:
+   it forces the browser to re-snapshot the page behind the element, and it
+   was on every fixed bar. Reintroducing one silently is exactly the kind of
+   regression this file exists to catch. */
+const blurValues = [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/backdrop-filter\s*:\s*([^;}]+)/g)]
+  .map((m) => m[1].trim())
+  .filter((v) => !/^none\b/.test(v))
+if (blurValues.length) {
+  fail(`backdrop-filter is back in the stylesheets (${blurValues.join(', ')}) - see redesign.css §15`)
+} else {
+  ok('no backdrop-filter blur left in the stylesheets')
+}
+
 console.log(problems ? `\n${problems} problem(s)` : '\nFrontend wiring is consistent.')
 process.exit(problems ? 1 : 0)

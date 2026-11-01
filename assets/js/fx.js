@@ -31,9 +31,17 @@
  *      is off-screen, when the tab is hidden, and when motion is off.
  */
 
-import Lenis from '../vendor/lenis/lenis.mjs'
-
 const doc = document.documentElement
+
+/* Lite mode is decided in the <head> (index.html) before the first paint, so
+ * it is already on the element by the time this module runs. It is the same
+ * rule the stylesheet reads: phones, small machines, save-data and slow
+ * connections get the design without the motion bill.
+ *
+ * Lenis is a dynamic import below rather than a top-level one for exactly
+ * this reason: a static `import` would download all 33KB of it for a device
+ * that will never construct it. */
+const lite = doc.classList.contains('perf-lite')
 
 /* GSAP 3.15 exposes a plain object (`typeof gsap === 'object'`), not the
  * callable it used to be. Testing `typeof === 'function'` silently disabled
@@ -48,7 +56,6 @@ const SELECT = {
   navBar: '.nav-bar',
   indicator: '.nav-indicator',
   thumb: '.platform-thumb',
-  marquee: '.mq-track',
   progress: '.scroll-progress i',
   hero: '.hero-fx',
   heroCanvas: '#heroCanvas',
@@ -88,6 +95,42 @@ let lastScrollY = 0
 const clamp = (v, min, max) => Math.min(max, Math.max(min, v))
 const lerp = (a, b, t) => a + (b - a) * t
 
+/* ──────────────────── pointer, once per frame ────────────────────────── */
+
+/* Five effects care where the pointer is (hero parallax, card spotlight,
+ * tilt, magnet, cursor ring). Each one used to own a `pointermove` listener
+ * that called closest() and getBoundingClientRect() the moment the event
+ * arrived — so a single mouse move over a card did five layout reads, five
+ * times, before the browser could paint.
+ *
+ * Now there is one listener and one rAF: the event is stored, and when the
+ * frame comes every effect reads the same event once. Same effects, one
+ * measurement each per frame instead of five per event.
+ */
+const pointerFns = []
+let pointerEvt = null
+let pointerQueued = 0
+
+/** Registers `fn(event)` to run at most once per animation frame. */
+function onPointerFrame(fn) {
+  pointerFns.push(fn)
+}
+
+function bootPointerBus() {
+  if (!pointerFns.length) return
+  window.addEventListener('pointermove', (e) => {
+    pointerEvt = e
+    if (pointerQueued) return
+    pointerQueued = requestAnimationFrame(() => {
+      pointerQueued = 0
+      const ev = pointerEvt
+      for (const fn of pointerFns) {
+        try { fn(ev) } catch (err) { console.warn('[fx] pointer', err) }
+      }
+    })
+  }, { passive: true })
+}
+
 /** Same rule the reveal observer in ui.js uses: OS setting or the site toggle. */
 function motionOff() {
   return (
@@ -100,11 +143,22 @@ function motionOff() {
    1. SMOOTH SCROLL (Lenis)
    ⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙ */
 
-function initLenis() {
+async function initLenis() {
   // Reduced motion means native scrolling, full stop. Lenis' whole job is to
   // interpolate the scroll position, which is exactly the thing being asked
-  // not to happen.
-  if (!Lenis || reduced) return
+  // not to happen - and in lite mode the smooth scroll itself is the thing
+  // being dropped: it re-writes the scroll position on every frame, on the
+  // main thread, on the devices with the least to spare.
+  if (reduced || lite) return
+
+  let Lenis = null
+  try {
+    Lenis = (await import('../vendor/lenis/lenis.mjs')).default
+  } catch (err) {
+    console.warn('[fx] lenis import', err)
+    return
+  }
+  if (!Lenis) return
 
   lenis = new Lenis({
     lerp: 0.09,
@@ -140,9 +194,17 @@ function initLenis() {
   // which is what makes app.js's window.scrollTo on route change safe.
 }
 
-/** Stops page scrolling while an overlay is open. */
+/** Stops page scrolling while an overlay is open.
+ *
+ * Lenis when it exists, and a plain CSS `overflow:hidden` when it doesn't -
+ * lite mode has no Lenis at all, and without the fallback a drawer or modal
+ * would sit over a page that still scrolled underneath it. */
 function lockScroll(locked) {
-  if (lenis) locked ? lenis.stop() : lenis.start()
+  if (lenis) {
+    locked ? lenis.stop() : lenis.start()
+    return
+  }
+  doc.classList.toggle('scroll-locked', locked)
 }
 
 /* ⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙
@@ -166,7 +228,7 @@ function initHeroCanvas() {
   const ctx = canvas.getContext('2d', { alpha: true })
   if (!ctx) return
 
-  const DUST = window.innerWidth < 700 ? 34 : 74
+  const DUST = window.innerWidth < 700 ? 22 : 48
   const BLOBS = [
     { x: 0.28, y: 0.34, r: 0.46, a: 0.30, sp: 0.00022, ph: 0.0, rgb: '212,175,55' },
     { x: 0.68, y: 0.28, r: 0.38, a: 0.26, sp: 0.00031, ph: 1.7, rgb: '255,226,150' },
@@ -179,8 +241,47 @@ function initHeroCanvas() {
    and stretched by the browser. Aurora light is gradient mush, so nothing is
    lost, and fill cost drops by ~3.3x — this is the single most expensive
    thing on the page and it sits behind every other layer. */
-  const SCALE = 0.55
+  const SCALE = 0.5
   const FPS_CAP = 34          // ms between paints; ~30fps, plenty for drift
+
+  /* Both effects are baked into tiny offscreen sprites once, at load, and
+     drawn with drawImage from then on.
+
+     The old path called createRadialGradient() five times per frame for the
+     blobs and built an arc+fill for every dust particle — 150+ new gradient
+     objects a second, each rasterised from scratch, for five gradients that
+     never changed. This is the difference between a canvas that costs a few
+     percent of a core and one that shows up in a battery report. */
+  const SPRITE = 256
+
+  function bakeBlob(b) {
+    const c = document.createElement('canvas')
+    c.width = c.height = SPRITE
+    const g = c.getContext('2d')
+    const grad = g.createRadialGradient(SPRITE / 2, SPRITE / 2, 0, SPRITE / 2, SPRITE / 2, SPRITE / 2)
+    grad.addColorStop(0, `rgba(${b.rgb},${b.a})`)
+    grad.addColorStop(0.45, `rgba(${b.rgb},${b.a * 0.34})`)
+    grad.addColorStop(1, `rgba(${b.rgb},0)`)
+    g.fillStyle = grad
+    g.fillRect(0, 0, SPRITE, SPRITE)
+    return c
+  }
+
+  const BLOB_SPRITES = BLOBS.map(bakeBlob)
+
+  const DUST_SPRITE = (() => {
+    const size = 24
+    const c = document.createElement('canvas')
+    c.width = c.height = size
+    const g = c.getContext('2d')
+    const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
+    grad.addColorStop(0, 'rgba(246,227,166,1)')
+    grad.addColorStop(0.5, 'rgba(246,227,166,.55)')
+    grad.addColorStop(1, 'rgba(246,227,166,0)')
+    g.fillStyle = grad
+    g.fillRect(0, 0, size, size)
+    return c
+  })()
 
   let w = 0
   let h = 0
@@ -225,19 +326,13 @@ function initHeroCanvas() {
 
   function paintBlobs(time, still) {
     ctx.globalCompositeOperation = 'lighter'
-    for (const b of BLOBS) {
+    for (let i = 0; i < BLOBS.length; i++) {
+      const b = BLOBS[i]
       const drift = still ? 0 : time
       const cx = (b.x + Math.sin(drift * b.sp + b.ph) * 0.045 + (pointer.x - 0.5) * 0.03) * w
       const cy = (b.y + Math.cos(drift * b.sp * 1.3 + b.ph) * 0.05 + (pointer.y - 0.5) * 0.02) * h
       const rad = b.r * Math.max(w, h) * (0.92 + Math.sin(drift * b.sp * 0.8 + b.ph) * 0.08)
-      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad)
-      g.addColorStop(0, `rgba(${b.rgb},${b.a})`)
-      g.addColorStop(0.45, `rgba(${b.rgb},${b.a * 0.34})`)
-      g.addColorStop(1, `rgba(${b.rgb},0)`)
-      ctx.fillStyle = g
-      ctx.beginPath()
-      ctx.arc(cx, cy, rad, 0, Math.PI * 2)
-      ctx.fill()
+      ctx.drawImage(BLOB_SPRITES[i], cx - rad, cy - rad, rad * 2, rad * 2)
     }
     ctx.globalCompositeOperation = 'source-over'
   }
@@ -255,11 +350,11 @@ function initHeroCanvas() {
         if (p.x > w + 6) p.x = -6
       }
       const twinkle = still ? 0.7 : 0.55 + Math.sin(time * p.sp + p.ph) * 0.45
-      ctx.fillStyle = `rgba(246,227,166,${(p.a * twinkle).toFixed(3)})`
-      ctx.beginPath()
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
-      ctx.fill()
+      const size = p.r * 4
+      ctx.globalAlpha = Math.min(1, p.a * twinkle * 2)
+      ctx.drawImage(DUST_SPRITE, p.x - size / 2, p.y - size / 2, size, size)
     }
+    ctx.globalAlpha = 1
   }
 
   function frame(now) {
@@ -291,7 +386,11 @@ function initHeroCanvas() {
 
   resize()
 
-  if (reduced) {
+  /* Lite mode keeps the light but stops the clock: one frame, drawn once and
+     redrawn only when the box actually changes size. The aurora is soft light
+     drifting a few pixels - at rest nobody can tell it from the animation, and
+     it no longer costs a rAF callback for the length of the visit. */
+  if (reduced || lite) {
     drawStatic()
     // Still redraw on resize so the still frame never stretches.
     let rt = 0
@@ -299,6 +398,16 @@ function initHeroCanvas() {
       clearTimeout(rt)
       rt = setTimeout(() => { resize(); drawStatic() }, 180)
     }, { passive: true })
+    // A hero that booted inside a hidden view (a deep link to another route)
+    // has nothing to measure, so the frame above drew into a 0x0 box. Draw it
+    // for real the first time it is actually on screen.
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(([entry]) => {
+        if (!entry.isIntersecting || w) return
+        resize()
+        drawStatic()
+      }, { threshold: 0 }).observe(canvas)
+    }
     return
   }
 
@@ -322,22 +431,19 @@ function initHeroCanvas() {
     resize._t = setTimeout(resize, 180)
   }, { passive: true })
 
-  // One pointer listener drives both the blob parallax and the CSS spotlight.
+  // One pointer subscriber drives both the blob parallax and the CSS
+  // spotlight, on the shared frame bus (see onPointerFrame).
   const hero = canvas.closest('.hero-fx')
-  let spotQueued = 0
-  window.addEventListener('pointermove', (e) => {
+  onPointerFrame((e) => {
     pointer.tx = e.clientX / window.innerWidth
     pointer.ty = e.clientY / window.innerHeight
-    if (!hero || spotQueued) return
-    spotQueued = requestAnimationFrame(() => {
-      spotQueued = 0
-      const r = hero.getBoundingClientRect()
-      if (!r.height) return
-      hero.classList.add('is-pointer')
-      hero.style.setProperty('--hx', `${e.clientX - r.left}px`)
-      hero.style.setProperty('--hy', `${e.clientY - r.top}px`)
-    })
-  }, { passive: true })
+    if (!hero) return
+    const r = hero.getBoundingClientRect()
+    if (!r.height) return
+    hero.classList.add('is-pointer')
+    hero.style.setProperty('--hx', `${e.clientX - r.left}px`)
+    hero.style.setProperty('--hy', `${e.clientY - r.top}px`)
+  })
 }
 
 /* ⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙
@@ -535,10 +641,9 @@ function initPlatformThumb() {
    ⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙ */
 
 function initSpotlight() {
-  if (reduced || window.matchMedia('(hover: none)').matches) return
+  if (reduced || lite || window.matchMedia('(hover: none)').matches) return
 
   let host = null
-  let frame = 0
   let px = 0
   let py = 0
 
@@ -552,14 +657,7 @@ function initSpotlight() {
     el.appendChild(spot)
   }
 
-  function paint() {
-    frame = 0
-    if (!host) return
-    host.style.setProperty('--mx', `${px}px`)
-    host.style.setProperty('--my', `${py}px`)
-  }
-
-  document.addEventListener('pointermove', (e) => {
+  onPointerFrame((e) => {
     const el = e.target?.closest?.(SPOT_HOSTS)
     if (el !== host) host = el
     if (!host) return
@@ -567,8 +665,9 @@ function initSpotlight() {
     const r = host.getBoundingClientRect()
     px = e.clientX - r.left
     py = e.clientY - r.top
-    if (!frame) frame = requestAnimationFrame(paint)
-  }, { passive: true })
+    host.style.setProperty('--mx', `${px}px`)
+    host.style.setProperty('--my', `${py}px`)
+  })
 
   document.addEventListener('pointerleave', () => { host = null }, { passive: true })
 }
@@ -580,28 +679,47 @@ function initSpotlight() {
    ⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙ */
 
 function initTilt() {
-  if (!gsap || reduced || window.matchMedia('(hover: none)').matches) return
+  if (!gsap || reduced || lite || window.matchMedia('(hover: none)').matches) return
   // Touch screens and reduced-motion users get no tilt at all, which also
   // means no inline transform is ever left behind for CSS to fight.
   const MAX = 5.5
 
-  document.addEventListener('pointermove', (e) => {
+  /* quickTo reuses one tween per card instead of allocating a new one for
+   * every pointer event — with `overwrite: 'auto'` the old version was
+   * building and killing a tween per mouse move, which is garbage for the
+   * GC on exactly the long pages that have four of these cards. */
+  const setters = new WeakMap()
+
+  function tiltFor(card) {
+    let s = setters.get(card)
+    if (!s) {
+      s = {
+        rx: gsap.quickTo(card, 'rotateX', { duration: 0.5, ease: 'power3.out' }),
+        ry: gsap.quickTo(card, 'rotateY', { duration: 0.5, ease: 'power3.out' }),
+        y: gsap.quickTo(card, 'y', { duration: 0.5, ease: 'power3.out' }),
+      }
+      /* `transformPerspective`, not the CSS `perspective` property: GSAP
+       * injects this one into the element's own transform, which is what an
+       * element rotating in place needs. The CSS property applies to the
+       * element's *children* and would have done nothing here. */
+      gsap.set(card, { transformPerspective: 1100, transformOrigin: 'center' })
+      setters.set(card, s)
+    }
+    return s
+  }
+
+  onPointerFrame((e) => {
     const card = e.target?.closest?.('.feature-card')
     if (!card) return
     const r = card.getBoundingClientRect()
+    if (!r.width || !r.height) return
     const dx = (e.clientX - r.left) / r.width - 0.5
     const dy = (e.clientY - r.top) / r.height - 0.5
-    gsap.to(card, {
-      rotateY: dx * MAX * 2,
-      rotateX: -dy * MAX * 2,
-      y: -6,
-      transformPerspective: 1100,
-      transformOrigin: 'center',
-      duration: 0.5,
-      ease: 'power3.out',
-      overwrite: 'auto',
-    })
-  }, { passive: true })
+    const s = tiltFor(card)
+    s.ry(dx * MAX * 2)
+    s.rx(-dy * MAX * 2)
+    s.y(-6)                 // the card lifts towards the pointer
+  })
 
   document.addEventListener('pointerout', (e) => {
     const card = e.target?.closest?.('.feature-card')
@@ -618,24 +736,33 @@ function initTilt() {
    ⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙ */
 
 function initMagnet() {
-  if (!gsap || reduced || window.matchMedia('(hover: none)').matches) return
+  if (!gsap || reduced || lite || window.matchMedia('(hover: none)').matches) return
   const PULL = 0.28
   const RADIUS = 26
 
-  document.addEventListener('pointermove', (e) => {
+  const setters = new WeakMap()
+  function magnetFor(el) {
+    let s = setters.get(el)
+    if (!s) {
+      s = {
+        x: gsap.quickTo(el, 'x', { duration: 0.55, ease: 'power3.out' }),
+        y: gsap.quickTo(el, 'y', { duration: 0.55, ease: 'power3.out' }),
+      }
+      setters.set(el, s)
+    }
+    return s
+  }
+
+  onPointerFrame((e) => {
     const el = e.target?.closest?.(MAGNETS)
     if (!el) return
     const r = el.getBoundingClientRect()
     const dx = e.clientX - (r.left + r.width / 2)
     const dy = e.clientY - (r.top + r.height / 2)
-    gsap.to(el, {
-      x: clamp(dx * PULL, -RADIUS, RADIUS),
-      y: clamp(dy * PULL, -RADIUS / 2, RADIUS / 2),
-      duration: 0.55,
-      ease: 'power3.out',
-      overwrite: 'auto',
-    })
-  }, { passive: true })
+    const s = magnetFor(el)
+    s.x(clamp(dx * PULL, -RADIUS, RADIUS))
+    s.y(clamp(dy * PULL, -RADIUS / 2, RADIUS / 2))
+  })
 
   document.addEventListener('pointerout', (e) => {
     const el = e.target?.closest?.(MAGNETS)
@@ -690,7 +817,7 @@ function countUp(el) {
 }
 
 function initCounters() {
-  if (!gsap || !('IntersectionObserver' in window)) return
+  if (!gsap || lite || !('IntersectionObserver' in window)) return
 
   const found = new WeakSet()
   const io = new IntersectionObserver((entries) => {
@@ -729,33 +856,13 @@ function initCounters() {
    Endless band under the hero, sped up by how fast the page is scrolling.
    ⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙ */
 
-function initMarquee() {
-  const track = document.querySelector(SELECT.marquee)
-  if (!track) return
-
-  if (!gsap || reduced) return
-
-  const loop = gsap.to(track, {
-    xPercent: -50,
-    duration: 42,
-    ease: 'none',
-    repeat: -1,
-  })
-
-  // Scrolling fast pushes the band along with you; it eases back to idle.
-  let resetTimer = 0
-  const react = (velocity) => {
-    const boost = clamp(1 + Math.abs(velocity) * 0.07, 1, 5)
-    loop.timeScale(boost)
-    clearTimeout(resetTimer)
-    resetTimer = setTimeout(() => loop.timeScale(1), 260)
-  }
-
-  if (lenis) lenis.on('scroll', ({ velocity }) => react(velocity ?? 0))
-  else {
-    window.addEventListener('wheel', (e) => react(e.deltaY / 40), { passive: true })
-  }
-}
+/* The marquee is a CSS animation now — `.mq-track` in redesign.css §7. It
+ * used to be a GSAP tween with `repeat: -1`, which meant GSAP's ticker held a
+ * rAF callback open for as long as the tab was on screen, writing a new
+ * transform 60 times a second on the main thread, forever. The compositor
+ * does the same job off the main thread and for free. The scroll-velocity
+ * flourish that went with it needed a per-scroll callback to do it; the band
+ * is decorative, so it now just runs. */
 
 /* ⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙
    11. SCROLL PROGRESS
@@ -782,7 +889,7 @@ function initProgress() {
    ⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙ */
 
 function initScrollEffects() {
-  if (!gsap || !ScrollTrigger) return
+  if (!gsap || !ScrollTrigger || lite) return
 
   gsap.registerPlugin(ScrollTrigger)
 
@@ -859,7 +966,9 @@ function initScrollEffects() {
    ⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙ */
 
 function initPageTransitions() {
-  if (!gsap) return
+  // No GSAP in lite mode: `html.perf-lite .view.active` in redesign.css §15
+  // supplies a short CSS fade instead, which is all a view swap needs.
+  if (!gsap || lite) return
   const views = [...document.querySelectorAll('.view')]
   if (!views.length) return
 
@@ -913,7 +1022,7 @@ function initPageTransitions() {
    ⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙⊙ */
 
 function initCursor() {
-  if (reduced || !window.matchMedia('(hover: hover) and (pointer: fine)').matches) return
+  if (reduced || lite || !window.matchMedia('(hover: hover) and (pointer: fine)').matches) return
 
   const root = document.querySelector('.fx-cursor')
   const dot = root?.querySelector('.fx-cursor-dot')
@@ -966,22 +1075,31 @@ function initCursor() {
 
 function initClickSpark() {
   const canvas = document.querySelector('.fx-spark')
-  if (!canvas || reduced || !canvas.getContext) return
+  if (!canvas || reduced || lite || !canvas.getContext) return
   const ctx = canvas.getContext('2d')
   if (!ctx) return
 
-  let dpr = 1
   let sparks = []
   let raf = 0
+  let sized = false
 
-  const resize = () => {
-    dpr = clamp(window.devicePixelRatio || 1, 1, 2)
+  /* Backing store allocated on the first click, not at boot.
+   *
+   * A full-viewport canvas at a 2x device pixel ratio is ~20MB of pixels on a
+   * 1440x900 screen, and it sat there empty for the whole visit in case
+   * someone clicked once. Nothing is drawn before that first click, so
+   * nothing needs the pixels until then. 1.5x rather than 2x for the same
+   * reason: these are 1px motion-blur streaks, and the difference is not
+   * visible on a line that is 0.9px wide.
+   */
+  const size = () => {
+    const dpr = clamp(window.devicePixelRatio || 1, 1, 1.5)
     canvas.width = Math.round(window.innerWidth * dpr)
     canvas.height = Math.round(window.innerHeight * dpr)
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    sized = true
   }
-  resize()
-  window.addEventListener('resize', resize, { passive: true })
+  window.addEventListener('resize', () => { if (sized) size() }, { passive: true })
 
   function frame() {
     ctx.clearRect(0, 0, window.innerWidth, window.innerHeight)
@@ -1004,6 +1122,7 @@ function initClickSpark() {
   }
 
   window.addEventListener('pointerdown', (e) => {
+    if (!sized) size()
     const n = 9
     for (let i = 0; i < n; i++) {
       const angle = (Math.PI * 2 * i) / n + Math.random() * 0.5
@@ -1096,12 +1215,17 @@ function initMotionWatch() {
 
 /* ──────────────────────────────── boot ───────────────────────────────── */
 
-function boot() {
+async function boot() {
   if (booted) return
   booted = true
   reduced = motionOff()
 
-  try { initLenis() } catch (err) { console.warn('[fx] lenis', err) }
+  /* Awaited, because everything below asks `if (lenis)` to decide whether it
+   * hooks the smoothed scroll or the native one — and Lenis is a dynamic
+   * import now, so it is a promise rather than something that is already
+   * there. In lite mode it resolves to null immediately without a request. */
+  try { await initLenis() } catch (err) { console.warn('[fx] lenis', err) }
+
   try { initProgress() } catch (err) { console.warn('[fx] progress', err) }
   try { initNav() } catch (err) { console.warn('[fx] nav', err) }
   try { initPlatformThumb() } catch (err) { console.warn('[fx] platform', err) }
@@ -1111,7 +1235,7 @@ function boot() {
   try { initTilt() } catch (err) { console.warn('[fx] tilt', err) }
   try { initMagnet() } catch (err) { console.warn('[fx] magnet', err) }
   try { initCounters() } catch (err) { console.warn('[fx] counters', err) }
-  try { initMarquee() } catch (err) { console.warn('[fx] marquee', err) }
+  // The marquee is CSS — see the comment where initMarquee used to be.
   try { initScrollEffects() } catch (err) { console.warn('[fx] scroll', err) }
   try { initPageTransitions() } catch (err) { console.warn('[fx] views', err) }
   try { initCursor() } catch (err) { console.warn('[fx] cursor', err) }
@@ -1119,6 +1243,9 @@ function boot() {
   try { initOverlayLock() } catch (err) { console.warn('[fx] overlay', err) }
   try { initResizeGuard() } catch (err) { console.warn('[fx] resize', err) }
   try { initMotionWatch() } catch (err) { console.warn('[fx] motion', err) }
+
+  // One pointermove listener for every effect that was just wired.
+  bootPointerBus()
 
   doc.classList.add('fx-ready')
 }
