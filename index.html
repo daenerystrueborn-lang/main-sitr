@@ -102,10 +102,10 @@
   })()
 </script>
 <title>Home</title>
-<meta name="description" content="Dungeons, cards, and companions - built for WhatsApp. Climb the floors, top the boards, forge a legend.">
+<meta name="description" content="Dungeons, cards, and companions - built for WhatsApp and Telegram. Climb the floors, top the boards, forge a legend.">
 <meta name="theme-color" content="#000000">
 <meta property="og:title" content="Astral">
-<meta property="og:description" content="Dungeons, cards, and companions - built for WhatsApp.">
+<meta property="og:description" content="Dungeons, cards, and companions - built for WhatsApp and Telegram.">
 <meta property="og:type" content="website">
 <!-- Sun favicon, PNG uploaded by the user. -->
 <link rel="icon" type="image/png" href="assets/img/favicon.png">
@@ -288,13 +288,18 @@
         <span class="ht-line"><span class="ht-word">on</span> <span class="ht-word grad" id="heroPlatformName">WhatsApp</span></span>
       </h1>
 
-      <!-- Two surfaces, both real: the chat bot and the Android app. The old
-           Discord/Telegram tabs were removed with those adapters in v3.3.2, so
-           advertising them here promised a bot that no longer exists. -->
+      <!-- Two surfaces, both chat bots: WhatsApp and Telegram. Each tab swaps
+           the headline word, the subtitle and the buttons through
+           setHeroPlatform() in app.js (PLATFORMS owns all of the copy).
+
+           The Telegram tab opens the group at t.me/astralfantasy1. It replaced
+           the old "Android" tab, which is why the app is now linked from the
+           FAQ instead - it is still shipped, it just isn't one of the two ways
+           in anymore. -->
       <div class="platform-switch" id="platformSwitch" role="tablist" aria-label="Choose where to play">
         <span class="platform-thumb" aria-hidden="true"></span>
         <button class="platform-tab is-active" type="button" data-platform="whatsapp" role="tab" aria-selected="true">WhatsApp</button>
-        <button class="platform-tab" type="button" data-platform="app" role="tab" aria-selected="false">App</button>
+        <button class="platform-tab" type="button" data-platform="telegram" role="tab" aria-selected="false">Telegram</button>
       </div>
 
       <p id="heroSub">Message the bot on WhatsApp, make a character, and start clearing floors.</p>
@@ -308,7 +313,7 @@
       </div>
       <div class="hero-trust" aria-label="Why players can start quickly">
         <span><i class="trust-dot"></i>Free to start</span>
-        <span><i class="trust-dot"></i>Chat or app, one account</span>
+        <span><i class="trust-dot"></i>WhatsApp or Telegram, one account</span>
         <span><i class="trust-dot"></i>New season live</span>
       </div>
       <div class="chip-row" id="heroChips" style="justify-content:center;margin-top:28px;"></div>
@@ -337,6 +342,7 @@
         <span class="mq-item">Seasons</span>
         <span class="mq-item">Leaderboards</span>
         <span class="mq-item">WhatsApp bot</span>
+        <span class="mq-item">Telegram bot</span>
         <span class="mq-item">Android app</span>
         <span class="mq-item">Giveaways</span>
       </div>
@@ -347,6 +353,7 @@
         <span class="mq-item">Seasons</span>
         <span class="mq-item">Leaderboards</span>
         <span class="mq-item">WhatsApp bot</span>
+        <span class="mq-item">Telegram bot</span>
         <span class="mq-item">Android app</span>
         <span class="mq-item">Giveaways</span>
       </div>

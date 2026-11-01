@@ -34,6 +34,9 @@ const WHATSAPP_BOT = '923375465038'
 const whatsappCommandUrl = (command) =>
   `https://wa.me/${WHATSAPP_BOT}?text=${encodeURIComponent(String(command ?? ''))}`
 
+/** The Telegram side: the group the bot runs in. Same account, either chat. */
+const TELEGRAM_URL = 'https://t.me/astralfantasy1'
+
 /* ──────────────────────────────── state ───────────────────────────────── */
 
 const state = {
@@ -837,11 +840,16 @@ function ensureMeta() {
 const APP_RELEASES_URL = 'https://github.com/northernblader-sys/astral-bot/releases/latest'
 
 /**
- * The two surfaces the game actually has. Discord and Telegram used to sit
- * here as "coming soon" tabs, but those adapters were deleted in v3.3.2, so
- * the hero was advertising two bots that no longer exist. Both tabs below are
- * live: the chat bot, and the Android app that talks to the same API and the
- * same account.
+ * The two surfaces the game actually has: the bot on WhatsApp and the bot on
+ * Telegram, both on the same account.
+ *
+ * Telegram was a "coming soon" tab once, then an honest absence after those
+ * adapters were deleted in v3.3.2. It is back because the bot now runs there -
+ * the tab opens the group at TELEGRAM_URL, so if that ever stops being true,
+ * this entry is the one thing to change.
+ *
+ * The Android app is still shipped but is no longer one of the two ways in;
+ * it is linked from the FAQ instead. APP_RELEASES_URL is used there.
  */
 const PLATFORMS = {
   whatsapp: {
@@ -856,13 +864,19 @@ const PLATFORMS = {
         <svg class="icon" viewBox="0 0 24 24"><path d="M4 20h16M7 20v-7M12 20V6M17 20v-11"/></svg> See the boards
       </a>`,
   },
-  app: {
-    label: 'Android',
+  telegram: {
+    label: 'Telegram',
     live: true,
-    sub: 'Dungeon adventures and your empire, playable on your phone with the same character you use in chat.',
+    sub: 'Message the bot on Telegram, make a character, and start clearing floors.',
+    // No `id="heroPlay"` here on purpose: paintAvatar() owns that id and points
+    // it at #/signup or #/profile, which would quietly turn this link into an
+    // internal route on the next repaint.
     actions: () => `
-      <a class="btn btn-secondary" href="${attr(APP_RELEASES_URL)}" target="_blank" rel="noopener">
-        <svg class="icon" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg> Release notes
+      <a class="btn btn-primary" href="${attr(TELEGRAM_URL)}" target="_blank" rel="noopener noreferrer">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M21 4 3 11.2l6.1 2.2L11.5 20l3.1-4.7 4.9 3.3L21 4z"/><path d="M9.1 13.4 21 4"/></svg> Open Telegram
+      </a>
+      <a class="btn btn-secondary" href="#/leaderboard" data-route="leaderboard">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M4 20h16M7 20v-7M12 20V6M17 20v-11"/></svg> See the boards
       </a>`,
   },
 }
@@ -892,6 +906,10 @@ function wirePlatformSwitch() {
     const tab = e.target.closest('.platform-tab')
     if (!tab) return
     setHeroPlatform(tab.dataset.platform)
+    // setHeroPlatform() rewrites #heroActions, so the rebuilt #heroPlay comes
+    // back with its markup default ("Start playing" -> #/signup) even for a
+    // signed-in player. paintAvatar() is the one place that knows the answer.
+    paintAvatar()
   })
 }
 
@@ -963,7 +981,7 @@ function paintHomeStatic() {
   const prefix = state.meta?.prefix ?? '.'
   if (steps) {
     steps.innerHTML = [
-      ['chat', 'Message the bot', `Open WhatsApp and send <code>${esc(prefix)}menu</code>. Nothing to install to start.`],
+      ['chat', 'Message the bot', `Open WhatsApp or Telegram and send <code>${esc(prefix)}menu</code>. Nothing to install to start.`],
       ['character', 'Make your hero', `Pick a class and race with <code>${esc(prefix)}register</code>, then spend your 15 stat points.`],
       ['battle', 'Climb and rank', `Fight through floors, take on other players, and push up the boards each season.`],
     ].map(([i, t, b]) => `
@@ -977,7 +995,7 @@ function paintHomeStatic() {
   const faq = $('#homeFaq')
   if (faq) {
     faq.innerHTML = [
-      ['Do I need to install anything?', 'Not to start. The whole game runs through WhatsApp messages. The Android app is optional and plays the same character, so you can move between the two whenever you want.'],
+      ['Do I need to install anything?', `Not to start. The whole game runs through chat messages - WhatsApp or Telegram, same account either way. The <a href="${attr(APP_RELEASES_URL)}" target="_blank" rel="noopener noreferrer">Android app</a> is optional and plays the same character, so you can move between them whenever you want.`],
       ['Is it free?', `Yes. Premium and gems are optional and only add cosmetics, boosts and battle-pass rewards.`],
       ['How do I sign in here?', "Enter your WhatsApp number and the bot DMs you a 6-digit code from its own number. You'll need to have messaged the bot at least once first."],
       ['Can I play in a group chat?', `Yes - most commands work in groups. Use <code>${esc(prefix)}menu</code> to see what's available.`],
