@@ -644,9 +644,14 @@ html.scroll-locked,html.scroll-locked body{overflow:hidden;}
   font-size:13px;font-weight:700;letter-spacing:.34em;text-transform:uppercase;
   color:rgb(245 243 238 / 52%);
 }
+/* The separator between marquee phrases. It was the ✦ character, which some
+   phones draw out of the colour-emoji font; it is the site's own star shape
+   now, masked and filled with gold like the star rows. */
 .mq-item::after{
-  content:"✦";
-  font-size:11px;letter-spacing:0;color:var(--gold);
+  content:"";inline-size:9px;block-size:9px;flex:0 0 auto;
+  background:var(--gold);
+  -webkit-mask:var(--star-mask) center / contain no-repeat;
+  mask:var(--star-mask) center / contain no-repeat;
   opacity:.75;
 }
 
@@ -1025,6 +1030,7 @@ html.scroll-locked,html.scroll-locked body{overflow:hidden;}
 }
 .tab-row::-webkit-scrollbar{height:0;}
 .tab-btn{
+  display:inline-flex;align-items:center;gap:7px;
   padding:8px 16px;
   border:none;
   border-radius:999px;
@@ -1033,6 +1039,12 @@ html.scroll-locked,html.scroll-locked body{overflow:hidden;}
   white-space:nowrap;
   transition:background .3s,color .3s,box-shadow .3s;
 }
+/* A tab can lead with a line icon (the shop shelves do). It sits a touch
+   quieter than the label and brightens with the active state. */
+.tab-btn .tab-ico{width:15px;height:15px;flex:0 0 auto;opacity:.75;transition:opacity .3s,color .3s;}
+.tab-btn:hover .tab-ico{opacity:.95;}
+.tab-btn.active .tab-ico{opacity:1;color:var(--gold-bright);}
+.tab-btn .gold-stars{font-size:.8em;margin-left:5px;}
 .tab-btn:hover{background:rgb(255 255 255 / 4%);}
 .tab-btn.active{
   background:linear-gradient(140deg,rgb(212 175 55 / 26%),rgb(212 175 55 / 8%));
@@ -1492,6 +1504,9 @@ html.perf-lite .plan-card{will-change:auto!important;}
    identical at rest, just frozen at their resting frame. */
 html.perf-lite .grad,
 html.perf-lite .gold-fx,
+html.perf-lite .boot-sun-mark,
+html.perf-lite .boot-sun-halo,
+html.perf-lite .route-sun-mark,
 html.perf-lite .gold-stars,
 html.perf-lite .trust-dot,
 html.perf-lite .skel,

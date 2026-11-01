@@ -127,6 +127,50 @@ function parseHash() {
 
 let current = null
 
+/* ───────────────────────── boot cover + route cue ────────────────────── */
+
+/**
+ * Lifts the sun cover in index.html.
+ *
+ * The cover is in the markup so it paints on the first frame, before a byte of
+ * app.js has run; this is the only place that takes it down, and it is called
+ * the moment the first route has something in the DOM to show. The inline
+ * script in <head> also calls it on a timer, because a cover that outlives a
+ * broken boot would blank the entire site.
+ */
+function markReady() {
+  document.documentElement.classList.add('is-ready')
+}
+
+/**
+ * The small sun that spins while a route is being fetched.
+ *
+ * Two rules keep it from being noise: it never blocks a click (the pill is
+ * `pointer-events:none` and floats over the page), and it stays up for a
+ * minimum beat even when the route resolves instantly - otherwise a cached
+ * page would flash it for a single frame, which reads as a glitch rather than
+ * as "your tap landed".
+ */
+const routeSun = { el: null, shownAt: 0, timer: 0, MIN: 340 }
+
+function showRouteSun() {
+  routeSun.el ??= $('#routeSun')
+  if (!routeSun.el) return
+  clearTimeout(routeSun.timer)
+  routeSun.shownAt = performance.now()
+  routeSun.el.classList.add('is-on')
+}
+
+function hideRouteSun() {
+  if (!routeSun.el) return
+  const held = performance.now() - routeSun.shownAt
+  clearTimeout(routeSun.timer)
+  routeSun.timer = setTimeout(
+    () => routeSun.el?.classList.remove('is-on'),
+    Math.max(0, routeSun.MIN - held),
+  )
+}
+
 async function render() {
   let name = parseHash()
 
@@ -176,15 +220,25 @@ async function render() {
   closeDrawer()
   window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' })
 
+  showRouteSun()
   if (route.load && !loaded.has(name)) {
     loaded.add(name)
     try {
-      await route.load()
+      // Not awaited yet on purpose: every load() paints its skeletons before
+      // its first await, so by the next line the page has something in it and
+      // the boot cover can go. Waiting for the fetch instead would hold the
+      // whole screen hostage to the slowest endpoint.
+      const pending = route.load()
+      markReady()
+      await pending
     } catch (err) {
       loaded.delete(name)
       reportError(err)
     }
+  } else {
+    markReady()
   }
+  hideRouteSun()
 }
 
 /** Where to land after a successful sign-in. */
@@ -669,7 +723,9 @@ function paintFoundAccount(found) {
     // it's the fastest confirmation that the right account came back.
     if (found.username) bits.push(`@${found.username}`)
     if (found.level) bits.push(`Level ${found.level}`)
-    if (found.rank?.title) bits.push([found.rank.emoji, found.rank.title].filter(Boolean).join(' '))
+    // No rank.emoji here: the API sends one, and it arrives in whichever emoji
+    // font the device owns. Rank is shown by name; the icon set draws the rest.
+    if (found.rank?.title) bits.push(found.rank.title)
     sub.textContent = bits.join(' · ')
   }
 
@@ -1275,10 +1331,27 @@ function playerDetailHtml({ player: p, rankings, isSelf }) {
  */
 function characterPrice(c) {
   const monds = Number(c?.mondPrice)
-  if (Number.isFinite(monds) && monds > 0) return `🪙${num(monds)} monds`
+  if (Number.isFinite(monds) && monds > 0) return `${num(monds)} monds`
   if (c?.exclusive) return 'One of a kind, win it from a spin'
   if (c?.spinOnly) return 'Spin only'
   return 'Earned in game'
+}
+
+/**
+ * The same line as markup.
+ *
+ * This used to be one string with a 🪙 in front of it, which is why it had to
+ * go through esc() at every call site - and why the price rendered as whatever
+ * emoji font the device happened to have. The coin is drawn now, so the text
+ * and the icon are separate: `characterPrice()` stays plain text (safe to
+ * esc()), and this returns markup that already escape-wrapped its own text.
+ */
+function priceHtml(c) {
+  const text = characterPrice(c)
+  const monds = Number(c?.mondPrice)
+  return Number.isFinite(monds) && monds > 0
+    ? `<span class="mond-price">${iconSvg('coin', 'icon coin-ico')}${esc(text)}</span>`
+    : esc(text)
 }
 
 /**
@@ -1307,7 +1380,7 @@ async function openCharacter(id) {
             <p>${esc([c.rarity && titleCase(c.rarity), c.characterTier && `Tier ${c.characterTier}`].filter(Boolean).join(' · '))}</p>
           </div>
         </div>
-        ${characterPrice(c) ? `<p class="cc-price">${esc(characterPrice(c))}</p>` : ''}
+        ${characterPrice(c) ? `<p class="cc-price">${priceHtml(c)}</p>` : ''}
       </div>
       <div class="pd-body">
         ${c.description ? `<p class="subtext">${esc(c.description)}</p>` : ''}
@@ -1541,7 +1614,7 @@ function renderSeasonRoster(s, out) {
       ${c.seasonTier ? `<p class="subtext">${esc(titleCase(c.seasonTier))} character</p>` : ''}
       <p>${c.purchasable
         ? `${num(c.price)} ${esc(currency(c.currency))}`
-        : esc(characterPrice(c))}</p>
+        : priceHtml(c)}</p>
       ${c.ability ? `<p class="subtext" style="margin-top:6px">${esc(abilityName(c.ability))}</p>` : ''}
     </button>`
   }).join('')
@@ -1552,10 +1625,18 @@ function renderSeasonRoster(s, out) {
 let charFilter = 0      // 0 = every star level
 let charList = []
 
-/** Gold star row. Each star level gets its own variant of the site's gold effect (see .gs-N in style.css). */
+/**
+ * Gold star row. Each star level gets its own variant of the site's gold
+ * effect (see .gs-N in style.css).
+ *
+ * The stars are an SVG mask filled with the gold gradient rather than the ★
+ * character: U+2605 falls back to a colour-emoji font on some phones, which
+ * put a row of picture-stars in a site that draws every other mark as line
+ * art. `--n` is how many stars the mask repeats.
+ */
 function starsMarkup(n) {
   const k = Math.max(1, Math.min(6, Number(n) || 1))
-  return `<span class="gold-stars gs-${k}" role="img" aria-label="${k} star${k === 1 ? '' : 's'}">${'★'.repeat(k)}</span>`
+  return `<span class="gold-stars gs-${k}" style="--n:${k}" role="img" aria-label="${k} star${k === 1 ? '' : 's'}"></span>`
 }
 
 function charClaim(c) {
@@ -1572,7 +1653,7 @@ function paintCharFilters() {
   const levels = [...new Set(charList.map(c => Number(c.stars) || 1))].sort((a, b) => b - a)
   host.innerHTML = [0, ...levels].map(n => `
     <button class="tab-btn${n === charFilter ? ' active' : ''}" data-charstars="${n}" role="tab">
-      ${n === 0 ? 'All' : `${n} ★`}
+      ${n === 0 ? 'All' : `${n}<span class="gold-stars gs-${n}" style="--n:${n}" aria-hidden="true"></span>`}
     </button>`).join('')
 }
 
@@ -1694,6 +1775,37 @@ function renderSeasonLore(s, out) {
 let shopData = null
 let shopShelf = null
 
+/**
+ * Which line icon a shop shelf gets.
+ *
+ * /api/shop sends an `emoji` per shelf and the tabs used to print it, so the
+ * shop's own filters were the one place on the site showing picture-emoji next
+ * to line art - and a shelf's face changed with the device's emoji font. The
+ * emoji is ignored now; the shelf is matched on its key and label, and
+ * anything unmatched (a shelf added on the server tomorrow) falls back to the
+ * generic tag rather than to nothing.
+ *
+ * Order matters: "armour" also contains "arm", so the gear rules come first.
+ */
+const SHELF_ICONS = [
+  [/armor|armour|shield|gear|equip|helm/i, 'shield'],
+  [/weapon|sword|blade|dagger|melee|bow|arrow|staff|wand/i, 'sword'],
+  [/potion|elixir|brew|consumable|flask|heal|drink|food/i, 'flask'],
+  [/scroll|recipe|blueprint|book|tome|document|page/i, 'scroll'],
+  [/pet|companion|mount|creature|beast|animal/i, 'paw'],
+  [/bundle|pack|crate|chest|loot|box/i, 'crate'],
+  [/currency|coin|gold|mond|solar|gem|token|shard/i, 'coin'],
+  [/card|deck/i, 'payment'],
+  [/cosmetic|skin|outfit|style|theme|banner|avatar/i, 'spark'],
+  [/featured|offer|deal|highlight|new|top/i, 'star'],
+]
+
+function shelfIcon(shelf = {}) {
+  const hay = `${shelf.key ?? ''} ${shelf.label ?? ''}`
+  const hit = SHELF_ICONS.find(([re]) => re.test(hay))
+  return iconSvg(hit ? hit[1] : 'tag', 'icon tab-ico')
+}
+
 async function loadShop() {
   const grid = $('#shopGrid')
   if (grid) grid.innerHTML = skeletonCards(8)
@@ -1706,7 +1818,7 @@ async function loadShop() {
   if (tabs) {
     tabs.innerHTML = shelves.map(s => `
       <button class="tab-btn${s.key === shopShelf ? ' active' : ''}" data-shelf="${attr(s.key)}" role="tab">
-        ${esc(s.emoji ?? '')} ${esc(s.label)}
+        ${shelfIcon(s)}<span>${esc(s.label)}</span>
       </button>`).join('')
   }
 
@@ -2179,7 +2291,7 @@ async function loadProfile() {
       <section class="section">
         <div class="section-head">
           <div><h2>${esc(p.season.name)}</h2><p>Battle pass progress this season</p></div>
-          <a class="btn btn-ghost btn-sm" href="#/season" data-route="season">Battle pass →</a>
+          <a class="btn btn-ghost btn-sm" href="#/season" data-route="season">Battle pass ${iconSvg('chevron')}</a>
         </div>
         <div class="card reveal">
           ${bar(`Tier ${num(p.season.tier)} of ${num(p.season.tierCount)}`, p.season.tier, p.season.tierCount || 1)}

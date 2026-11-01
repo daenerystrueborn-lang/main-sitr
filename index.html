@@ -98,7 +98,15 @@
       if (d.classList.contains('js-motion')) return   // initMotion() ran; all good
       d.classList.remove('js')
       d.dataset.motionFailed = '1'                    // stops a very late boot re-hiding everything
+      d.classList.add('is-ready')                     // and lift the boot cover: no motion layer means no boot
     }, 3000)
+
+    /* The boot cover's own fail-safe. `is-ready` is what hides it, and only
+       app.js sets it on the happy path; if that script 404s, throws, or hangs
+       on a request that never settles, this is what stops the sun from being
+       the last thing a visitor ever sees. Deliberately late: long enough that
+       a slow phone on a slow network still gets the real thing. */
+    setTimeout(function () { d.classList.add('is-ready') }, 6000)
   })()
 </script>
 <title>Home</title>
@@ -137,6 +145,19 @@
 </head>
 <body>
 
+<!-- ===== BOOT COVER =====
+     The sun, on the very first frame, while app.js parses and the first route
+     paints. `hidden` until the one-line script under it takes it off, so a
+     browser with scripting off - or one where the stylesheet never arrives -
+     never gets a full-screen panel it cannot dismiss. app.js lifts it through
+     markReady() as soon as the first page has content, and the fail-safe
+     timers in <head> lift it too if boot dies. -->
+<div class="boot-sun" id="bootSun" hidden aria-hidden="true">
+  <span class="boot-sun-halo"></span>
+  <svg class="boot-sun-mark" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
+</div>
+<script>document.getElementById('bootSun').hidden = false</script>
+
 <!-- ===== MOTION CHROME =====
      Fixed, non-interactive layers. They are the first things in the body so
      no card or hero can end up painted over them. `pointer-events:none` on
@@ -144,6 +165,13 @@
 <div class="scroll-progress" aria-hidden="true"><i></i></div>
 <canvas class="fx-spark" aria-hidden="true"></canvas>
 <div class="fx-grain" aria-hidden="true"></div>
+<!-- The route cue: the same sun, small, while a page is being fetched.
+     app.js shows it on every navigation and takes it down when the page is
+     painted (with a minimum on-screen beat so an instant route still reads as
+     a change). Decorative - nothing here is announced. -->
+<div class="route-sun" id="routeSun" aria-hidden="true">
+  <svg class="route-sun-mark" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
+</div>
 <div class="fx-cursor" aria-hidden="true">
   <span class="fx-cursor-ring"></span>
   <span class="fx-cursor-dot"></span>
@@ -374,7 +402,7 @@
           <p>WhatsApp groups and the Telegram chat - pick one and meet everyone.</p>
         </div>
         <a class="btn btn-ghost btn-sm" href="https://t.me/astralfantasy1" target="_blank" rel="noopener noreferrer">
-          Astral on Telegram →
+          Astral on Telegram <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
         </a>
       </div>
       <div class="home-group-grid">
@@ -448,7 +476,7 @@
           <h2>Game modes</h2>
           <p>Everything currently live in the bot</p>
         </div>
-        <a class="btn btn-ghost btn-sm" href="#/season" data-route="season">See the season →</a>
+        <a class="btn btn-ghost btn-sm" href="#/season" data-route="season">See the season <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></a>
       </div>
       <div class="grid-4">
         <!-- The --art paths are ROOT-ABSOLUTE on purpose. A relative url() inside
@@ -491,7 +519,7 @@
           <h2>Top of the board</h2>
           <p>The five highest levels this season</p>
         </div>
-        <a class="btn btn-ghost btn-sm" href="#/leaderboard" data-route="leaderboard">Full leaderboard →</a>
+        <a class="btn btn-ghost btn-sm" href="#/leaderboard" data-route="leaderboard">Full leaderboard <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></a>
       </div>
       <div class="lb-list" id="homeBoard"></div>
     </section>
