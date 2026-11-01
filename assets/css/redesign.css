@@ -928,9 +928,11 @@ html.scroll-locked,html.scroll-locked body{overflow:hidden;}
     radial-gradient(120% 100% at 30% 0%,rgb(212 175 55 / 26%),transparent 62%),
     linear-gradient(150deg,#17130a,#0a0908);
 }
-/* The pin-thin grid from the hero, at 11px, fading out before the edges. */
+/* The pin-thin grid from the hero, at 11px, fading out before the edges.
+   Negative z-index: it belongs behind the artwork, not over a photograph. */
 .home-group-thumb::before{
   content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  z-index:-1;
   background-image:
     linear-gradient(rgb(212 175 55 / 13%) 1px,transparent 1px),
     linear-gradient(90deg,rgb(212 175 55 / 13%) 1px,transparent 1px);
@@ -944,6 +946,15 @@ html.scroll-locked,html.scroll-locked body{overflow:hidden;}
   letter-spacing:.06em;color:#f4dfa2;
   text-shadow:0 2px 14px rgb(212 175 55 / 45%);
   transition:transform var(--transition);
+}
+/* The group art. The thumb is a grid cell holding the monogram, so the photo
+   is taken out of flow and stacked in the same cell - otherwise the two become
+   two grid rows and the card grows a second line. z-index 2 puts it over the
+   monogram, which is exactly what we want: the monogram is the fallback for
+   when this remote image fails and the <img> removes itself. */
+.home-group-thumb img{
+  position:absolute;inset:0;z-index:2;
+  width:100%;height:100%;object-fit:cover;object-position:center 22%;
 }
 .home-group-card:hover .home-group-mark{transform:scale(1.1) rotate(-2deg);}
 .home-group-card:hover .home-group-thumb img{transform:scale(1.09);}
@@ -1360,6 +1371,55 @@ html.fx-paused .fx-spark,
 html.fx-paused .fx-grain,
 html.fx-paused .hero-canvas{display:none;}
 html.fx-paused .scroll-progress i{transition:none;}
+
+/* ── community join row (sign-up, step one) ───────────────────────────── */
+
+/* Two gold chips, one per chat, for a player who has no account yet: the
+   point is that they can walk into a group and ask a human before they ever
+   hand over a phone number. */
+.join-lead{
+  margin:16px 0 10px;
+  font-size:12px;
+  color:rgb(245 243 238 / 52%);
+  letter-spacing:.01em;
+}
+.join-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;}
+.join-btn{
+  display:flex;align-items:center;gap:9px;
+  padding:9px 10px;
+  border-radius:13px;
+  border:1px solid rgb(212 175 55 / 32%);
+  background:linear-gradient(150deg,rgb(212 175 55 / 13%),rgb(212 175 55 / 3%));
+  box-shadow:inset 0 1px 0 rgb(255 255 255 / 5%);
+  transition:transform .3s var(--ease-spring),border-color .3s,background .3s,box-shadow .3s;
+}
+.join-btn:hover{
+  transform:translateY(-2px);
+  border-color:rgb(212 175 55 / 68%);
+  background:linear-gradient(150deg,rgb(212 175 55 / 20%),rgb(212 175 55 / 6%));
+  box-shadow:0 14px 28px -20px rgb(212 175 55 / 95%),inset 0 1px 0 rgb(255 255 255 / 8%);
+}
+.join-ico{
+  display:grid;place-items:center;flex:0 0 auto;
+  width:28px;height:28px;border-radius:9px;
+  background:linear-gradient(150deg,rgb(212 175 55 / 28%),rgb(212 175 55 / 8%));
+  border:1px solid rgb(212 175 55 / 34%);
+  color:var(--gold-bright);
+}
+.join-ico .icon{width:15px;height:15px;}
+.join-txt{display:flex;flex-direction:column;min-width:0;line-height:1.25;}
+.join-txt strong{
+  font-size:11.5px;font-weight:800;letter-spacing:.01em;
+  color:var(--gold-bright);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.join-txt em{font-style:normal;font-size:10px;color:rgb(245 243 238 / 45%);}
+
+/* The auth card is ~400px at its widest and these two chips are already
+   tight; below 420px they stack rather than squeeze the labels. */
+@media (max-width:420px){
+  .join-row{grid-template-columns:minmax(0,1fr);}
+}
 
 /* ── 15. performance layer ────────────────────────────────────────────── */
 

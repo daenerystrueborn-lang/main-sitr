@@ -37,6 +37,30 @@ const whatsappCommandUrl = (command) =>
 /** The Telegram side: the group the bot runs in. Same account, either chat. */
 const TELEGRAM_URL = 'https://t.me/astralfantasy1'
 
+/** The main WhatsApp group, for people who have no account yet. */
+const WHATSAPP_GROUP_URL = 'https://chat.whatsapp.com/Gp04KQqMXaH4U1hfGG40gk'
+
+/**
+ * The two "come say hi" chips on the sign-up page.
+ *
+ * A new player has no account and no reason to trust a phone-number form yet,
+ * so both chats are offered side by side: the WhatsApp group above all, since
+ * that is where the bot is. Gold because that is what every actionable thing on
+ * this site looks like.
+ */
+const joinRowHtml = () => `
+  <p class="join-lead">Or join the community first - ask anything before you sign up:</p>
+  <div class="join-row">
+    <a class="join-btn" href="${attr(WHATSAPP_GROUP_URL)}" target="_blank" rel="noopener noreferrer">
+      <span class="join-ico">${iconSvg('whatsapp')}</span>
+      <span class="join-txt"><strong>WhatsApp</strong><em>Join the group</em></span>
+    </a>
+    <a class="join-btn" href="${attr(TELEGRAM_URL)}" target="_blank" rel="noopener noreferrer">
+      <span class="join-ico">${iconSvg('telegram')}</span>
+      <span class="join-txt"><strong>Telegram</strong><em>Join the chat</em></span>
+    </a>
+  </div>`
+
 /* ──────────────────────────────── state ───────────────────────────────── */
 
 const state = {
@@ -80,8 +104,11 @@ const routes = {
   premium: { view: 'view-premium', title: 'Premium', load: loadPremium },
   profile: { view: 'view-profile', title: 'Profile', load: loadProfile, auth: true },
   settings: { view: 'view-settings', title: 'Settings', load: loadSettings, auth: true },
-  login: { view: 'view-login', title: 'Sign in', load: loadAuthMeta },
-  signup: { view: 'view-signup', title: 'Join', load: loadAuthMeta },
+  // `guest` marks the two pages that only make sense signed out. render()
+  // bounces a signed-in player off them, because "Start playing" used to land
+  // on the Join form for someone who already has a character.
+  login: { view: 'view-login', title: 'Sign in', load: loadAuthMeta, guest: true },
+  signup: { view: 'view-signup', title: 'Join', load: loadAuthMeta, guest: true },
   // Wallets, storage and progress are phone-only: the bot exposes them, but the
   // desktop site deliberately doesn't show them, so `mobile: true` makes
   // render() send a wide viewport back to home instead of showing a page with
@@ -112,6 +139,21 @@ async function render() {
       name = 'login'
       toast('Sign in to see that page')
     }
+  }
+
+  // Sign-in and sign-up belong to signed-out players. With an account in hand
+  // they are a dead end at best and a confusing one at worst - someone who is
+  // already playing should never be shown "Join Astral" and a phone-number
+  // form, whether they clicked a stale link or the CTA resolved before the
+  // session did.
+  //
+  // `needsRegistration` is the exception: that is an account with no character
+  // yet, and step 3 of the sign-up flow is exactly where it has to go.
+  if (routes[name].guest && isSignedIn() && !state.needsRegistration) {
+    // replaceState, not location.hash: rewriting the hash would fire another
+    // hashchange and render again, one navigation deeper in history.
+    history.replaceState(null, '', '#/profile')
+    name = 'profile'
   }
 
   // Phone-only routes have no entry point on a wide screen, so a hand-typed
@@ -754,10 +796,12 @@ async function loadAuthMeta() {
       <p style="margin-bottom:14px">WhatsApp only lets the bot DM you once you've messaged it, so the code can't arrive until you do.</p>
       <a class="btn btn-primary btn-sm" href="${attr(wa)}" target="_blank" rel="noopener">
         Message +${esc(String(meta.botNumber).replace(/\D/g, ''))}
-      </a>`
+      </a>
+      ${joinRowHtml()}`
   } else if (card) {
     card.innerHTML = `${perkIcon('chat')}<h4>Step one: message the bot</h4>
-      <p>Send the bot any message on WhatsApp first - it can only DM you back after that.</p>`
+      <p>Send the bot any message on WhatsApp first - it can only DM you back after that.</p>
+      ${joinRowHtml()}`
   }
 
   const cmd = $('#regCmd')
